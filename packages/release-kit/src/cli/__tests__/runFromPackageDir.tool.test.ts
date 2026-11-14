@@ -3,7 +3,7 @@ import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing/candi
 import { describe, expect, it, vi } from 'vitest';
 
 import { prepareCommand } from '../../prepare/prepareCommand.ts';
-import { makePrepareOptions } from '../../test-utils/commandOptions.ts';
+import { makePrepareOptions } from '../../test-utils/command-options.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../../test-utils/scaffoldGitRepo.ts';
 import { PNPM_WORKSPACE } from '../../test-utils/scaffoldRepo.ts';
 import { enterRepoRoot } from '../enterRepoRoot.ts';

@@ -9,10 +9,10 @@ import {
   MERGE_SUBJECT,
   OPTIONS,
   wrapInChangeRecordFence,
-} from '../../test-utils/changelogCommits.ts';
+} from '../test-utils/changelog-commits.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
-  () => import('../../test-utils/buildChangelogEntriesMocks.ts'),
+  () => import('../test-utils/build-changelog-entries-mocks.ts'),
 );
 
 // Mock the enumerator so that the test exercises buildChangelogEntries' transformation logic

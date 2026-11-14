@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
-import type { ChangelogEntry } from '../types.ts';
-import { makeReleaseHistory, type ReleaseHistoryStub } from './releaseHistories.ts';
+import type { ChangelogEntry } from '../../types.ts';
+import { makeReleaseHistory, type ReleaseHistoryStub } from './makeReleaseHistory.ts';
 
 // A test loads this module through `vi.hoisted`, before its `vi.mock` calls register, so the module imports nothing
 // under test: Such a module would bind the real dependencies.

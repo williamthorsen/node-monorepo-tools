@@ -1,13 +1,13 @@
-import type { ChangelogDiagnostics } from '../changelog/changelog-item.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
+import type { ChangelogDiagnostics } from '../../changelog/changelog-item.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../../config/defaults.ts';
+import { makeFakeGit } from '../../test-utils/makeFakeGit.ts';
+import type { PackageTarget, ReleaseSettings, WorkTypeConfig } from '../../types.ts';
 import {
   prepareReleaseTargets,
   type TargetPrepareConfig,
   type TargetPrepareOptions,
-} from '../prepare/prepareReleaseTargets.ts';
-import type { ReleasePlan } from '../prepare/release-plan.ts';
-import type { PackageTarget, ReleaseSettings, WorkTypeConfig } from '../types.ts';
-import { makeFakeGit } from './fakeGit.ts';
+} from '../prepareReleaseTargets.ts';
+import type { ReleasePlan } from '../release-plan.ts';
 
 export const diagnostics: ChangelogDiagnostics = {
   malformedBlocks: [{ commitHash: 'aaa1111', commitSubject: 'Squash', reason: '`entries` is not a list' }],

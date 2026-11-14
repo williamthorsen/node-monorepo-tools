@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { makeConfig, makeFakeHash, makeWindow, OPTIONS } from '../../test-utils/changelogCommits.ts';
 import type { ChangelogEntry } from '../../types.ts';
+import { makeConfig, makeFakeHash, makeWindow, OPTIONS } from '../test-utils/changelog-commits.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
-  () => import('../../test-utils/buildChangelogEntriesMocks.ts'),
+  () => import('../test-utils/build-changelog-entries-mocks.ts'),
 );
 
 // Mock the enumerator so that the test exercises buildChangelogEntries' transformation logic

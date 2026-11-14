@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { bold } from '../../cli/format.ts';
-import { makeReleasedWorkspace } from '../../test-utils/reportPrepareFixtures.ts';
 import type { PolicyViolation, PrepareResult, ReleasedPackageResult } from '../../types.ts';
 import { reportPrepare } from '../reportPrepare.ts';
+import { makeReleasedWorkspace } from '../test-utils/makeReleasedWorkspace.ts';
 
 describe(reportPrepare, () => {
   describe('plain style', () => {

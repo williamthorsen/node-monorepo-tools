@@ -1,11 +1,11 @@
-import type { Git } from '../clients/git/git.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../config/defaults.ts';
-import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepare/prepareReleaseTargets.ts';
-import type { ReleasePlan } from '../prepare/release-plan.ts';
-import { projectMonorepoConfig } from '../targets/resolveReleaseTargets.ts';
-import type { ChangelogEntry, MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
-import { makeFakeGit } from './fakeGit.ts';
-import { stubFiles } from './prepareReleaseTargetsMonorepoMocks.ts';
+import type { Git } from '../../clients/git/git.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../../config/defaults.ts';
+import { projectMonorepoConfig } from '../../targets/resolveReleaseTargets.ts';
+import { makeFakeGit } from '../../test-utils/makeFakeGit.ts';
+import type { ChangelogEntry, MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../../types.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
+import type { ReleasePlan } from '../release-plan.ts';
+import { stubFiles } from './prepare-release-targets-monorepo-mocks.ts';
 
 /** An entry of a released window, which a history reports alongside its unreleased window. */
 export const RELEASED_ENTRY: ChangelogEntry = {

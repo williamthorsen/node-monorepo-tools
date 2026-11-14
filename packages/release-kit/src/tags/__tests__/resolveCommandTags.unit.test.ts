@@ -41,7 +41,7 @@ vi.mock(import('../../config/loadConfig.ts'), async (importOriginal) => ({
 }));
 
 import type { ReleaseKitConfig } from '../../config/config-schema.ts';
-import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
+import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import type { WorkspaceConfig } from '../../types.ts';
 import { resolveCommandTags } from '../resolveCommandTags.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';

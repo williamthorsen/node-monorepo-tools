@@ -9,9 +9,9 @@ import { assert, beforeEach, describe, expect, it } from 'vitest';
 import { realGit } from '../../clients/git/git.ts';
 import { mergeMonorepoConfig } from '../../config/merge-config.ts';
 import { projectMonorepoConfig } from '../../targets/resolveReleaseTargets.ts';
-import { selectCompositeResult } from '../../test-utils/prepareResults.ts';
 import { prepareReleaseTargets } from '../prepareReleaseTargets.ts';
 import { applyReleasePlan } from '../release-plan.ts';
+import { selectCompositeResult } from '../test-utils/prepare-results.ts';
 
 /** The root changelog, hand-written before release-kit was adopted. */
 const ROOT_CHANGELOG = `# Changelog

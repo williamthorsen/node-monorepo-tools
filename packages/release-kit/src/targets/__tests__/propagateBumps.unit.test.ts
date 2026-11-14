@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { makeWorkspaceTarget } from '../../test-utils/packageTargets.ts';
+import { makeWorkspaceTarget } from '../../test-utils/makeWorkspaceTarget.ts';
 import type { PackageTarget } from '../../types.ts';
 import type { DependencyGraph } from '../buildDependencyGraph.ts';
 import { propagateBumps, type ReleaseEntry } from '../propagateBumps.ts';

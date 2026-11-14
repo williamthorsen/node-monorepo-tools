@@ -18,7 +18,7 @@ const {
   resetPrepareReleaseTargetsMonorepoMocks,
   stubHistory,
   stubHistoryByPrefix,
-} = await vi.hoisted(() => import('../../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepare-release-targets-monorepo-mocks.ts'));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -69,15 +69,15 @@ vi.mock(import('../../changelog/changelog-archive.ts'), async (importOriginal) =
   listArchiveFiles: () => [],
 }));
 
-import { makeStubbedCommits } from '../../test-utils/commitStubs.ts';
+import { makeStubbedCommits } from '../../test-utils/makeStubbedCommits.ts';
+import type { ChangelogSection } from '../../types.ts';
 import {
   findPlannedContent,
   makeConfig,
   prepareMonorepo,
   RELEASED_ENTRY,
-} from '../../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
-import { selectPackageResults } from '../../test-utils/prepareResults.ts';
-import type { ChangelogSection } from '../../types.ts';
+} from '../test-utils/prepare-release-targets-monorepo-fixtures.ts';
+import { selectPackageResults } from '../test-utils/prepare-results.ts';
 
 describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {

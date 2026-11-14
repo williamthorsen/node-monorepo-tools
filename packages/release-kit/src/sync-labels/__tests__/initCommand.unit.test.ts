@@ -53,7 +53,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
 }));
 
 import { CONFIG_FILE_PATH } from '../../config/loadConfig.ts';
-import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
+import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import { syncLabelsInitCommand } from '../initCommand.ts';
 import { buildScopeLabels } from '../templates.ts';
 

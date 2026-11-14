@@ -1,4 +1,4 @@
-import type { CompositePrepareResult, PackagePrepareResult, PrepareResult } from '../types.ts';
+import type { CompositePrepareResult, PackagePrepareResult, PrepareResult } from '../../types.ts';
 
 /** Returns the composite result of a plan, or undefined when the run did not prepare a composite. */
 export function selectCompositeResult(plan: Pick<PrepareResult, 'targets'>): CompositePrepareResult | undefined {

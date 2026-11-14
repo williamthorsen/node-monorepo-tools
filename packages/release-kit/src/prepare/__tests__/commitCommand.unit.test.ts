@@ -9,8 +9,8 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { makeCommitOptions } from '../../test-utils/commandOptions.ts';
-import { type FakeGit, makeFakeGit } from '../../test-utils/fakeGit.ts';
+import { makeCommitOptions } from '../../test-utils/command-options.ts';
+import { type FakeGit, makeFakeGit } from '../../test-utils/makeFakeGit.ts';
 import { commitCommand } from '../commitCommand.ts';
 
 describe(commitCommand, () => {

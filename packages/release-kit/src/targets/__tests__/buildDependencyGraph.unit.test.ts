@@ -7,7 +7,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { makeWorkspaceTarget } from '../../test-utils/packageTargets.ts';
+import { makeWorkspaceTarget } from '../../test-utils/makeWorkspaceTarget.ts';
 import { buildDependencyGraph } from '../buildDependencyGraph.ts';
 
 describe(buildDependencyGraph, () => {

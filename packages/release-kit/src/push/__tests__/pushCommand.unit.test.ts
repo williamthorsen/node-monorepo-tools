@@ -41,8 +41,8 @@ vi.mock(import('../../config/deriveWorkspaceConfig.ts'), () => ({
 
 import { ConfigProblemError } from '../../config/loadValidatedConfig.ts';
 import type { ResolvedTag } from '../../tags/resolveReleaseTags.ts';
-import { makePushOptions } from '../../test-utils/commandOptions.ts';
-import { makeResolvedPackages } from '../../test-utils/workspaceResolutions.ts';
+import { makePushOptions } from '../../test-utils/command-options.ts';
+import { makeResolvedPackages } from '../../test-utils/workspace-resolutions.ts';
 import { pushCommand } from '../pushCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };

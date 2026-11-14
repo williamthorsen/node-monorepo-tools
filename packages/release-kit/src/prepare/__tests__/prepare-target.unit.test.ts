@@ -51,8 +51,7 @@ vi.mock(import('../../release-notes/planReleaseNotesPreviews.ts'), () => ({
 import type { ReleaseHistory } from '../../changelog/buildChangelogEntries.ts';
 import type { OverrideContext } from '../../changelog/changelog-overrides.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../../config/defaults.ts';
-import { makeFakeGit } from '../../test-utils/fakeGit.ts';
-import { makeReleaseHistory } from '../../test-utils/releaseHistories.ts';
+import { makeFakeGit } from '../../test-utils/makeFakeGit.ts';
 import type { ChangelogEntry, CompositeTarget, PackageTarget } from '../../types.ts';
 import {
   buildSkippedTargetResult,
@@ -62,6 +61,7 @@ import {
   readTargetHistory,
   type TargetPrepareSettings,
 } from '../prepare-target.ts';
+import { makeReleaseHistory } from '../test-utils/makeReleaseHistory.ts';
 
 const GIT = makeFakeGit();
 

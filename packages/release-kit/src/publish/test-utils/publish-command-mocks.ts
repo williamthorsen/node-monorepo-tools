@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import { makeSinglePackage } from './workspaceResolutions.ts';
+import { makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 
 export const mockAssertCleanWorkingTree = vi.fn();
 export const mockCreateGithubReleases = vi.fn();

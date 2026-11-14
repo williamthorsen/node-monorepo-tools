@@ -18,7 +18,7 @@ const {
   mockValidateConfig,
   mockWriteFileSync,
   resetPublishCommandMocks,
-} = await vi.hoisted(() => import('../../test-utils/publishCommandMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
 
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
 vi.mock(import('../assertTarballsComplete.ts'), () => ({
@@ -79,8 +79,8 @@ vi.mock(import('../../prepare/assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
-import { makePublishOptions } from '../../test-utils/commandOptions.ts';
-import { makeResolvedPackages } from '../../test-utils/workspaceResolutions.ts';
+import { makePublishOptions } from '../../test-utils/command-options.ts';
+import { makeResolvedPackages } from '../../test-utils/workspace-resolutions.ts';
 import { publishCommand } from '../publishCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };

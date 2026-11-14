@@ -24,8 +24,8 @@ vi.mock(import('../detectUndeclaredTagPrefixes.ts'), () => ({
   detectUndeclaredTagPrefixes: mockDetectUndeclared,
 }));
 
-import { type FakeGit, makeFakeGit } from '../../test-utils/fakeGit.ts';
-import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
+import { type FakeGit, makeFakeGit } from '../../test-utils/makeFakeGit.ts';
+import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import { previewTagPrefixes } from '../previewTagPrefixes.ts';
 
 describe(previewTagPrefixes, () => {

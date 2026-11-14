@@ -8,7 +8,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { makeFakeGit } from '../../test-utils/fakeGit.ts';
+import { makeFakeGit } from '../../test-utils/makeFakeGit.ts';
 import { hasPackageJson, isGitRepo, usesPnpm } from '../checks.ts';
 
 describe('checks', () => {

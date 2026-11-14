@@ -1,7 +1,6 @@
 import { measureWidth } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { makeReleasedWorkspace } from '../../test-utils/reportPrepareFixtures.ts';
 import type {
   PrepareResult,
   ReleasedCompositeResult,
@@ -10,6 +9,7 @@ import type {
   SkippedPackageResult,
 } from '../../types.ts';
 import { reportPrepare } from '../reportPrepare.ts';
+import { makeReleasedWorkspace } from '../test-utils/makeReleasedWorkspace.ts';
 
 /** The column budget to which `reportPrepare` cuts a commit subject. */
 const SUBJECT_BUDGET_COLUMNS = 72;

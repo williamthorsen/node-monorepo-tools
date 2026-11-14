@@ -1,4 +1,4 @@
-import type { ReleasedPackageResult } from '../types.ts';
+import type { ReleasedPackageResult } from '../../types.ts';
 
 /** Builds a released single-package result, overriding any field. */
 export function makeReleasedWorkspace(overrides: Partial<ReleasedPackageResult> = {}): ReleasedPackageResult {

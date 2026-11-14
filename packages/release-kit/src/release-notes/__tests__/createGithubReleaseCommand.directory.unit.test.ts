@@ -12,7 +12,7 @@ const {
   mockLoadConfig,
   mockResolveReleaseTags,
   resetCreateGithubReleaseCommandMocks,
-} = await vi.hoisted(() => import('../../test-utils/createGithubReleaseCommandMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/create-github-release-command-mocks.ts'));
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
@@ -46,8 +46,8 @@ vi.mock(import('../../config/loadConfig.ts'), async (importOriginal) => {
   };
 });
 
-import { makeCreateGithubReleaseOptions } from '../../test-utils/commandOptions.ts';
-import { makeResolvedPackages } from '../../test-utils/workspaceResolutions.ts';
+import { makeCreateGithubReleaseOptions } from '../../test-utils/command-options.ts';
+import { makeResolvedPackages } from '../../test-utils/workspace-resolutions.ts';
 import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };

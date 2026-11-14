@@ -1,9 +1,8 @@
 import { assert } from 'vitest';
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../config/defaults.ts';
-import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepare/prepareReleaseTargets.ts';
-import type { PlannedWrite } from '../prepare/release-plan.ts';
-import { projectMonorepoConfig } from '../targets/resolveReleaseTargets.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../../config/defaults.ts';
+import { projectMonorepoConfig } from '../../targets/resolveReleaseTargets.ts';
+import { makeFakeGit } from '../../test-utils/makeFakeGit.ts';
 import type {
   ChangelogEntry,
   ChangelogSection,
@@ -13,11 +12,12 @@ import type {
   PolicyViolation,
   UndeclaredEntryType,
   WorkspaceConfig,
-} from '../types.ts';
-import { makeFakeGit } from './fakeGit.ts';
-import { stubHistory } from './prepareReleaseTargetsProjectMocks.ts';
-import { selectCompositeResult } from './prepareResults.ts';
-import type { ReleaseHistoryStub } from './releaseHistories.ts';
+} from '../../types.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
+import type { PlannedWrite } from '../release-plan.ts';
+import type { ReleaseHistoryStub } from './makeReleaseHistory.ts';
+import { stubHistory } from './prepare-release-targets-project-mocks.ts';
+import { selectCompositeResult } from './prepare-results.ts';
 
 /** The unreleased window's sections in the default history. */
 export const UNRELEASED_SECTIONS: ChangelogSection[] = [

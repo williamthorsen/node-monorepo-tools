@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { expectErrorAtPath, expectErrorMentioning } from '../../test-utils/validationErrors.ts';
+import { expectErrorAtPath, expectErrorMentioning } from '../test-utils/validation-errors.ts';
 import { validateConfig } from '../validateConfig.ts';
 
 describe(validateConfig, () => {

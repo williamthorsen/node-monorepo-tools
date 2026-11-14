@@ -4,7 +4,7 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { GenerateChangelogOptions } from '../../tags/getAllTagPrefixes.ts';
-import { makeResolvedPackages } from '../../test-utils/workspaceResolutions.ts';
+import { makeResolvedPackages } from '../../test-utils/workspace-resolutions.ts';
 import { validateOverridesCommand } from '../validateOverridesCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };

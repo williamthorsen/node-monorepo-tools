@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { realGit } from '../../clients/git/git.ts';
 import type { GenerateChangelogOptions } from '../../tags/getAllTagPrefixes.ts';
-import { makeStubbedCommits } from '../../test-utils/commitStubs.ts';
-import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
+import { makeStubbedCommits } from '../../test-utils/makeStubbedCommits.ts';
+import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import type { ChangelogEntry } from '../../types.ts';
 import { enumerateReleaseWindows } from '../enumerateReleaseWindows.ts';
 import { formatValidateOverridesResult, validateOverridesCommand } from '../validateOverridesCommand.ts';

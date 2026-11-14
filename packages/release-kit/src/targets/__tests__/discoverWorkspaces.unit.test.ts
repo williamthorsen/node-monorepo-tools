@@ -2,7 +2,7 @@ import { captureWarnings, createTempTree, pointCwdAt, type TempTree } from '@wil
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { makeEmptyWorkspace } from '../../test-utils/workspaceResolutions.ts';
+import { makeEmptyWorkspace } from '../../test-utils/workspace-resolutions.ts';
 import { describeEmptyWorkspace, discoverWorkspaces } from '../discoverWorkspaces.ts';
 
 const PREFIX = 'release-kit-discover-workspaces-';

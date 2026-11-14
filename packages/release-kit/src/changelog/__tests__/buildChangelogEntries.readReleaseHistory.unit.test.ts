@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../../config/defaults.ts';
+import { makeWorkspaceTarget } from '../../test-utils/makeWorkspaceTarget.ts';
+import type { ChangelogSection } from '../../types.ts';
+import type { ReleaseWindow } from '../enumerateReleaseWindows.ts';
 import {
   buildMergeMessage,
   makeConfig,
@@ -8,13 +11,10 @@ import {
   makeWindow,
   OPTIONS,
   wrapInChangeRecordFence,
-} from '../../test-utils/changelogCommits.ts';
-import { makeWorkspaceTarget } from '../../test-utils/packageTargets.ts';
-import type { ChangelogSection } from '../../types.ts';
-import type { ReleaseWindow } from '../enumerateReleaseWindows.ts';
+} from '../test-utils/changelog-commits.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
-  () => import('../../test-utils/buildChangelogEntriesMocks.ts'),
+  () => import('../test-utils/build-changelog-entries-mocks.ts'),
 );
 
 // Mock the enumerator so that the test exercises buildChangelogEntries' transformation logic
@@ -28,7 +28,7 @@ vi.mock(import('node:fs'), () => ({
 }));
 
 import { decideTargetRelease } from '../../prepare/prepare-target.ts';
-import { makeFakeGit } from '../../test-utils/fakeGit.ts';
+import { makeFakeGit } from '../../test-utils/makeFakeGit.ts';
 import { readReleaseHistory, type ReleaseHistory } from '../buildChangelogEntries.ts';
 
 describe(readReleaseHistory, () => {

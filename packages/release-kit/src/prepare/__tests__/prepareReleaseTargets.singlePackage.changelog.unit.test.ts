@@ -17,7 +17,7 @@ const {
   stubHistory,
   stubMinorRelease,
   stubPackageVersion,
-} = await vi.hoisted(() => import('../../test-utils/prepareReleaseTargetsSinglePackageMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepare-release-targets-single-package-mocks.ts'));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -59,14 +59,14 @@ vi.mock(import('../../changelog/changelog-archive.ts'), async (importOriginal) =
 }));
 import { buildEmptyReleaseEntry } from '../../changelog/buildEmptyReleaseEntry.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../../config/defaults.ts';
+import type { ChangelogEntry } from '../../types.ts';
 import {
   diagnostics,
   makeConfig,
   prepareSinglePackage,
   type SinglePackageOptions,
-} from '../../test-utils/prepareReleaseTargetsSinglePackageFixtures.ts';
-import { selectPackageResults } from '../../test-utils/prepareResults.ts';
-import type { ChangelogEntry } from '../../types.ts';
+} from '../test-utils/prepare-release-targets-single-package-fixtures.ts';
+import { selectPackageResults } from '../test-utils/prepare-results.ts';
 
 describe('prepareReleaseTargets for a single-package repo', () => {
   beforeEach(() => {

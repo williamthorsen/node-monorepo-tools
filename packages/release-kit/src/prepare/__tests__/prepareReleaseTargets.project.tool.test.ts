@@ -10,11 +10,11 @@ import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { realGit } from '../../clients/git/git.ts';
 import { mergeMonorepoConfig } from '../../config/merge-config.ts';
 import { projectMonorepoConfig } from '../../targets/resolveReleaseTargets.ts';
-import { makePrepareOptions } from '../../test-utils/commandOptions.ts';
-import { selectCompositeResult } from '../../test-utils/prepareResults.ts';
+import { makePrepareOptions } from '../../test-utils/command-options.ts';
 import type { MonorepoReleaseConfig } from '../../types.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { applyReleasePlan, type ReleasePlan } from '../release-plan.ts';
+import { selectCompositeResult } from '../test-utils/prepare-results.ts';
 
 // The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.

@@ -18,7 +18,7 @@ const {
   resetPrepareReleaseTargetsProjectMocks,
   stubFiles,
   stubHistory,
-} = await vi.hoisted(() => import('../../test-utils/prepareReleaseTargetsProjectMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepare-release-targets-project-mocks.ts'));
 
 vi.mock(import('node:fs'), () => ({
   copyFileSync: mockCopyFileSync,
@@ -60,6 +60,7 @@ vi.mock(import('../../release-notes/planReleaseNotesPreviews.ts'), () => ({
 
 import { buildEmptyReleaseEntry } from '../../changelog/buildEmptyReleaseEntry.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../../config/defaults.ts';
+import type { PlannedWrite } from '../release-plan.ts';
 import {
   ENTRY_VIOLATION,
   makeConfig,
@@ -69,8 +70,7 @@ import {
   RELEASED_ENTRY,
   stubDefaultHistory,
   UNDECLARED_ENTRY_TYPE,
-} from '../../test-utils/prepareReleaseTargetsProjectFixtures.ts';
-import type { PlannedWrite } from '../release-plan.ts';
+} from '../test-utils/prepare-release-targets-project-fixtures.ts';
 
 describe('prepareReleaseTargets for a project composite', () => {
   beforeEach(() => {

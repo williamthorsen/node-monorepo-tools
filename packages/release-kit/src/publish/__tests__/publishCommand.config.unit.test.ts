@@ -18,7 +18,7 @@ const {
   mockValidateConfig,
   mockWriteFileSync,
   resetPublishCommandMocks,
-} = await vi.hoisted(() => import('../../test-utils/publishCommandMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
 
 const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
 
@@ -82,8 +82,8 @@ vi.mock(import('../../prepare/assertCleanWorkingTree.ts'), () => ({
 }));
 
 import { ConfigProblemError } from '../../config/loadValidatedConfig.ts';
-import { makePublishOptions } from '../../test-utils/commandOptions.ts';
-import { makeResolvedPackages } from '../../test-utils/workspaceResolutions.ts';
+import { makePublishOptions } from '../../test-utils/command-options.ts';
+import { makeResolvedPackages } from '../../test-utils/workspace-resolutions.ts';
 import { publishCommand } from '../publishCommand.ts';
 
 const PLAIN_STYLES: StreamStyles = { stderr: 'plain', stdout: 'plain' };

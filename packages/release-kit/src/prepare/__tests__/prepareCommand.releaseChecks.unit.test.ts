@@ -16,7 +16,7 @@ const {
   mockPrepareReleaseTargets,
   mockWriteFileWithCheck,
   resetPrepareCommandMocks,
-} = await vi.hoisted(() => import('../../test-utils/prepareCommandMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepare-command-mocks.ts'));
 
 const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
 
@@ -69,8 +69,8 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
-import { makePrepareOptions } from '../../test-utils/commandOptions.ts';
-import { makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
+import { makePrepareOptions } from '../../test-utils/command-options.ts';
+import { makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import type { ReleasedPackageResult, SkippedPackageResult } from '../../types.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 

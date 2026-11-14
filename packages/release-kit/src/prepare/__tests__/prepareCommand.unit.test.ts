@@ -17,7 +17,7 @@ const {
   mockPrepareReleaseTargets,
   mockWriteFileWithCheck,
   resetPrepareCommandMocks,
-} = await vi.hoisted(() => import('../../test-utils/prepareCommandMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepare-command-mocks.ts'));
 
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
 vi.mock(import('../../publish/assertTarballsComplete.ts'), () => ({
@@ -70,8 +70,8 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 
 import { realGit } from '../../clients/git/git.ts';
 import { ConfigProblemError } from '../../config/loadValidatedConfig.ts';
-import { makePrepareOptions } from '../../test-utils/commandOptions.ts';
-import { makeEmptyWorkspace, makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
+import { makePrepareOptions } from '../../test-utils/command-options.ts';
+import { makeEmptyWorkspace, makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../release-files.ts';
 

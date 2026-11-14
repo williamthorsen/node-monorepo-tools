@@ -1,8 +1,8 @@
-import type { ReleaseHistory } from '../changelog/buildChangelogEntries.ts';
-import type { ChangelogDiagnostics } from '../changelog/changelog-item.ts';
-import type { RawCommit } from '../clients/git/git.ts';
-import type { ChangelogEntry, ChangelogSection, ReleaseType } from '../types.ts';
-import { type CommitStub, makeStubbedCommits } from './commitStubs.ts';
+import type { ReleaseHistory } from '../../changelog/buildChangelogEntries.ts';
+import type { ChangelogDiagnostics } from '../../changelog/changelog-item.ts';
+import type { RawCommit } from '../../clients/git/git.ts';
+import { type CommitStub, makeStubbedCommits } from '../../test-utils/makeStubbedCommits.ts';
+import type { ChangelogEntry, ChangelogSection, ReleaseType } from '../../types.ts';
 
 /** The parts of a history that a test states; every other part defaults to empty. */
 export interface ReleaseHistoryStub {

@@ -8,7 +8,7 @@ vi.mock(import('../createTags.ts'), () => ({
   createTags: mockCreateTags,
 }));
 
-import { makeTagOptions } from '../../test-utils/commandOptions.ts';
+import { makeTagOptions } from '../../test-utils/command-options.ts';
 import { tagCommand } from '../tagCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };

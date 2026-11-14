@@ -20,7 +20,7 @@ const {
   resetPrepareReleaseTargetsMonorepoMocks,
   stubHistory,
   stubHistoryByPrefix,
-} = await vi.hoisted(() => import('../../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/prepare-release-targets-monorepo-mocks.ts'));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -72,15 +72,15 @@ vi.mock(import('../../changelog/changelog-archive.ts'), async (importOriginal) =
 }));
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../../config/defaults.ts';
+import type { MonorepoReleaseConfig } from '../../types.ts';
+import { makeReleaseHistory } from '../test-utils/makeReleaseHistory.ts';
 import {
   findPlannedContent,
   makeConfig,
   prepareMonorepo,
   stubPropagationWorkspaces,
-} from '../../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
-import { selectCompositeResult, selectPackageResults } from '../../test-utils/prepareResults.ts';
-import { makeReleaseHistory } from '../../test-utils/releaseHistories.ts';
-import type { MonorepoReleaseConfig } from '../../types.ts';
+} from '../test-utils/prepare-release-targets-monorepo-fixtures.ts';
+import { selectCompositeResult, selectPackageResults } from '../test-utils/prepare-results.ts';
 
 describe('prepareReleaseTargets for a monorepo', () => {
   beforeEach(() => {

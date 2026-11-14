@@ -19,7 +19,7 @@ const {
   mockValidateConfig,
   mockWriteFileSync,
   resetPublishCommandMocks,
-} = await vi.hoisted(() => import('../../test-utils/publishCommandMocks.ts'));
+} = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
 
 const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
 
@@ -81,8 +81,8 @@ vi.mock(import('../../prepare/assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
-import { makePublishOptions } from '../../test-utils/commandOptions.ts';
-import { makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
+import { makePublishOptions } from '../../test-utils/command-options.ts';
+import { makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import { publishCommand } from '../publishCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };

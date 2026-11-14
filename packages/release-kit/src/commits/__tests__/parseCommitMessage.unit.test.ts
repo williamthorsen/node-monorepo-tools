@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { workTypes } from '../../test-utils/workTypes.ts';
 import type { WorkTypeConfig } from '../../types.ts';
 import { parseCommitMessage } from '../parseCommitMessage.ts';
+import { workTypes } from '../test-utils/workTypes.ts';
 
 describe(parseCommitMessage, () => {
   it('parses a simple "type: description" message', () => {

@@ -1,4 +1,4 @@
-import type { WorkTypeConfig } from '../types.ts';
+import type { WorkTypeConfig } from '../../types.ts';
 
 /** Work types, some with aliases, against which the commit-parsing tests resolve a subject's type. */
 export const workTypes: Record<string, WorkTypeConfig> = {
