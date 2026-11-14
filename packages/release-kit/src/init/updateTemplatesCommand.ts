@@ -6,7 +6,6 @@ import {
   printError,
   printSkip,
   printStep,
-  printSuccess,
   reportTemplateUpdate,
   type StreamStyles,
   updateManagedFile,
@@ -14,9 +13,9 @@ import {
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { readSyncLabelsWorkflowTemplate } from '../sync-labels/templates.ts';
-import { detectRepoType, type RepoType } from './detectRepoType.ts';
+import { type RepoType } from './detectRepoType.ts';
+import { resolveEligibleRepoType } from './eligibility.ts';
 import { formatPrivateWorkflowSkip, hasPublishablePackage } from './hasPublishablePackage.ts';
-import { checkEligibility } from './initCommand.ts';
 import {
   renderExpectedCreateGithubReleaseWorkflow,
   renderExpectedPublishWorkflow,
@@ -39,34 +38,8 @@ const SYNC_LABELS_WORKFLOW_PATH = '.github/workflows/sync-labels.yaml';
  * all private. Config files are never read or written.
  */
 export function updateTemplatesCommand({ isDryRun, styles }: UpdateTemplatesOptions): number {
-  if (isDryRun) {
-    console.info('[dry-run mode]');
-  }
-
-  let eligible: boolean;
-  try {
-    eligible = checkEligibility(styles);
-  } catch (error: unknown) {
-    if (!isAnticipatedFailure(error)) {
-      throw error;
-    }
-    printError(`Eligibility check failed: ${describeError(error)}`, styles.stderr);
-    return 1;
-  }
-  if (!eligible) return 1;
-
-  printStep('Detecting repo type');
-  let repoType: RepoType;
-  try {
-    repoType = detectRepoType();
-  } catch (error: unknown) {
-    if (!isAnticipatedFailure(error)) {
-      throw error;
-    }
-    printError(`Failed to detect repo type: ${describeError(error)}`, styles.stderr);
-    return 1;
-  }
-  printSuccess(`Detected: ${repoType}`, styles.stdout);
+  const repoType = resolveEligibleRepoType({ isDryRun, styles });
+  if (repoType === undefined) return 1;
 
   printStep('Updating workflows');
   let results: ManagedFileResult[];
