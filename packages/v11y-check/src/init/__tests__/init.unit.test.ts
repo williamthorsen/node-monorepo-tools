@@ -135,10 +135,10 @@ describe(initCommand, () => {
   beforeEach(() => {
     tree = disposeOnTestFinished(createTempTree({}, { prefix: 'v11y-check-initcmd-test-' }));
     disposeOnTestFinished(pointCwdAt(tree.dir, { chdir: true }));
-    disposeOnTestFinished(silenceConsole(['info']));
   });
 
   it('returns 0 and writes both files on successful scaffold', () => {
+    using _silencedConsole = silenceConsole(['info']);
     const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
@@ -147,6 +147,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 in dry-run mode and does not write either file', () => {
+    using _silencedConsole = silenceConsole(['info']);
     const exitCode = initCommand({ isDryRun: true, shouldForce: false, styles: RICH_STYLES });
     expect(exitCode).toBe(0);
 
@@ -155,6 +156,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 when config already exists (skip, not error)', () => {
+    using _silencedConsole = silenceConsole(['info']);
     tree.write('.config/v11y-check.config.json', '{"existing": true}');
 
     const exitCode = initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
@@ -162,6 +164,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 when workflow already exists without --force', () => {
+    using _silencedConsole = silenceConsole(['info']);
     const workflowPath = '.github/workflows/audit.yaml';
     tree.write(workflowPath, 'name: Existing\n');
 
@@ -173,6 +176,7 @@ describe(initCommand, () => {
   });
 
   it('overwrites the workflow when --force is passed', () => {
+    using _silencedConsole = silenceConsole(['info']);
     const workflowPath = '.github/workflows/audit.yaml';
     tree.write(workflowPath, 'name: Existing\n');
 
@@ -183,6 +187,7 @@ describe(initCommand, () => {
   });
 
   it('leaves an existing config untouched when --force is passed', () => {
+    using _silencedConsole = silenceConsole(['info']);
     const configPath = '.config/v11y-check.config.json';
     const existingConfig = '{"prod": {"allowlist": [{"id": "GHSA-xxxx-xxxx-xxxx"}]}}\n';
     tree.write(configPath, existingConfig);
@@ -194,6 +199,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 when the workflow is already up-to-date', () => {
+    using _silencedConsole = silenceConsole(['info']);
     // Pre-populate the workflow with the template content so that the second call reports up-to-date.
     initCommand({ isDryRun: false, shouldForce: false, styles: RICH_STYLES });
 
