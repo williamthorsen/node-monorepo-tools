@@ -1,5 +1,38 @@
 [
   {
+    "version": "2.2.2",
+    "date": "2026-11-14",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves the unexported helpers in `nmr`'s source modules into a trailing region of each module, sorted alphabetically, so that each module leads with its exports. (#1345)",
+            "hash": "80000b47998deb1d42a585f9a675a98045afb880",
+            "entry": 1
+          }
+        ]
+      },
+      {
+        "title": "🧪 Tests",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves the module-level helpers in `nmr`'s test files below the `describe` blocks, into a sorted `Helpers` region, so that each file leads with its tests. (#1345)",
+            "hash": "80000b47998deb1d42a585f9a675a98045afb880",
+            "entry": 2
+          },
+          {
+            "description": "Fixes the issue that `removeStaleCheckouts.unit.test.ts` failed intermittently with `ENOENT` when the detached `rm` deleted the moved checkout after the test listed the directory, by checking the inode only of the entries that still exist. (#1352)",
+            "hash": "18c12fa0b8eec0583f9bf4b3f321bb57516feb1c",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "2.2.1",
     "date": "2026-11-13",
     "sections": [

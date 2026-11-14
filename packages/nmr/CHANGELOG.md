@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.2.2 — 2026-11-14
+
+### ♻️ Refactoring
+
+- Moves the unexported helpers in `nmr`'s source modules into a trailing region of each module, sorted alphabetically, so that each module leads with its exports. (#1345)
+
+### 🧪 Tests
+
+- Moves the module-level helpers in `nmr`'s test files below the `describe` blocks, into a sorted `Helpers` region, so that each file leads with its tests. (#1345)
+- Fixes the issue that `removeStaleCheckouts.unit.test.ts` failed intermittently with `ENOENT` when the detached `rm` deleted the moved checkout after the test listed the directory, by checking the inode only of the entries that still exist. (#1352)
+
 ## 2.2.1 — 2026-11-13
 
 ### 🐛 Bug fixes

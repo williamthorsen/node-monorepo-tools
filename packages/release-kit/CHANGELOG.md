@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.3.0 — 2026-11-14
+
+### 🎉 Features
+
+- Adds the `versionPatterns.none` setting to `release-kit`, whose default list (`ai`, `ci`, `docs`, `tests`, `tooling`) names the types that do not bump a version unless an item is breaking, so that `prepare` skips a window containing only those items; `none: []` restores a patch bump for them. (#1340)
+- Makes `release-kit` list a dependent's own unreleased items, such as `tests` or `ci` items, together with its dependencies in the changelog entry for a release triggered by propagation alone, rather than the dependencies only. (#1340)
+- Changes `create-github-release` to print a stderr warning that names the tag and the file when a tag's `changelog.json` is missing or cannot be parsed, instead of listing that tag in its `Skipped N tag(s) without releasable content` summary. (#1343)
+- Adds the tag and its workspace to the warning that `publish` prints when it skips injecting release notes into a README, alongside the reason: a missing or unparseable `changelog.json`, a version without an entry, or an entry without user-facing release notes. (#1343)
+- Adds the labels `effort:1`, `effort:2`, `effort:3`, `effort:5`, `effort:8`, and `effort:13` to the `common` label preset, which state an item's size in points apart from its urgency and value. (#1355)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `release-kit prepare` treated an unreadable, unparseable, or non-array `changelog.json` as empty and silently dropped elements that are not changelog entries, which overwrote the history in the file; `prepare` now stops with an error that names the file and tells the user to repair or delete it. (#1346)
+- Fixes the issue that `release-kit tag` reported a failed git command during its clean-tree check as a dirty working tree rather than as git's own error. (#1348)
+- Fixes the issue that `release-kit` reported a JSON file that it could not read as one that it could not parse, or the reverse, by giving each failure the message `Failed to read <path>` or `Failed to parse JSON in <path>`. (#1350)
+- Fixes the issue that the `release-kit prepare` report printed a single-package release's and a project's warnings, bump override, and parsed count in a different order from a workspace's, and printed "Parsed 0 typed commits" for a single-package release or a count for one that skipped. (#1354)
+
+### ♻️ Refactoring
+
+- Routes release-kit's git calls, apart from those in `packFromCleanCheckout.ts`, through a `Git` adapter in `git.ts` that each module receives as a parameter, so that unit tests pass a fake git instead of mocking `node:child_process`. (#1348)
+- Moves the dry-run notice, eligibility checks, and repo-type detection that `release-kit`'s `init` and `update-templates` commands each repeated into `resolveEligibleRepoType` in `src/init/eligibility.ts`, so that `updateTemplatesCommand.ts` no longer imports from `initCommand.ts`. (#1353)
+
+### 🧪 Tests
+
+- Replaces the file-wide `silenceConsole` calls in the release-kit and v11y-check tests with a `using` silencer in each test that logs, restricted to the channels that the test fires, and reads asserted output through `listConsoleLines` rather than through the `console` mocks. (#1349)
+
 ## 18.2.0 — 2026-11-13
 
 ### 🎉 Features
