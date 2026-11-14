@@ -44,6 +44,20 @@
   color: cfd3d7
   aliases: ['priority:low']
 
+# Effort
+- name: 'effort:1'
+  color: dbe9ff
+- name: 'effort:2'
+  color: b9d4ff
+- name: 'effort:3'
+  color: 8fb8fb
+- name: 'effort:5'
+  color: 5b93f0
+- name: 'effort:8'
+  color: '3470e0'
+- name: 'effort:13'
+  color: 1d4ed8
+
 # Status
 - name: 'status:blocked'
   color: b83280
