@@ -97,7 +97,7 @@ describe(deriveDirectoryConfig, () => {
     const versionPath = path.join(root, 'apps/app/version.json');
 
     expect(() => deriveDirectoryConfig(declare('app', 'apps/app'), root)).toThrow(
-      new RegExp(`^releases\\.app: Failed to parse JSON in ${RegExp.escape(versionPath)}: `),
+      new RegExp(String.raw`^releases\.app: Failed to parse JSON in ${RegExp.escape(versionPath)}: `),
     );
   });
 });
