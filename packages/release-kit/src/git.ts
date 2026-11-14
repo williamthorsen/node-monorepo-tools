@@ -8,6 +8,16 @@ export interface AncestryEntry {
   parents: string[];
 }
 
+/** Returns the arguments of the `git push` that publishes `branch` to `origin`. */
+export function buildBranchPushArgs(branch: string): string[] {
+  return ['push', 'origin', branch];
+}
+
+/** Returns the arguments of the `git push` that publishes `tag` alone to `origin`. */
+export function buildTagPushArgs(tag: string): string[] {
+  return ['push', '--no-follow-tags', 'origin', tag];
+}
+
 /** The git operations that release-kit runs, each returning parsed output and throwing when git fails. */
 export interface Git {
   /** Stages every change in the working tree. */
@@ -70,10 +80,10 @@ export const realGit: Git = {
   listTagsAtHead: () => splitLines(readGitOutput(['tag', '--points-at', 'HEAD'])),
   listTagRefs,
   pushBranch: (branch) => {
-    pushWithTerminalOutput(['push', 'origin', branch]);
+    pushWithTerminalOutput(buildBranchPushArgs(branch));
   },
   pushTag: (tag) => {
-    pushWithTerminalOutput(['push', '--no-follow-tags', 'origin', tag]);
+    pushWithTerminalOutput(buildTagPushArgs(tag));
   },
   readAncestry,
   readCommits,

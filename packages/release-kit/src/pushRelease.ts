@@ -1,4 +1,4 @@
-import { type Git, realGit } from './git.ts';
+import { buildBranchPushArgs, buildTagPushArgs, type Git, realGit } from './git.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 import { asUserError } from './user-error-chaining.ts';
 
@@ -36,12 +36,12 @@ export function pushRelease(
       throw asUserError(error);
     }
 
-    const command = ['git', 'push', 'origin', branch] as const;
+    const command: PushStep['command'] = ['git', ...buildBranchPushArgs(branch)];
     steps.push({ type: 'branch', ref: branch, command });
   }
 
   for (const { tag } of resolvedTags) {
-    const command = ['git', 'push', '--no-follow-tags', 'origin', tag] as const;
+    const command: PushStep['command'] = ['git', ...buildTagPushArgs(tag)];
     steps.push({ type: 'tag', ref: tag, command });
   }
 
