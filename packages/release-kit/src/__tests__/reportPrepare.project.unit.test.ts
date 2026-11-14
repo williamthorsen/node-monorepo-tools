@@ -238,6 +238,36 @@ describe(reportPrepare, () => {
       expect(output).toContain('· abc1234 chore: deps');
       expect(output).not.toContain('Parsed 0 typed commits');
     });
+
+    it('prints the policy violations after the parsed count and the unparseable-commit warning', () => {
+      const project: ReleasedCompositeResult = {
+        targetId: '',
+        kind: 'composite',
+        status: 'released',
+        previousTag: 'v0.9.0',
+        commitCount: 2,
+        parsedCommitCount: 1,
+        releaseType: 'patch',
+        currentVersion: '0.9.0',
+        newVersion: '0.9.1',
+        tag: 'v0.9.1',
+        bumpedFiles: ['./package.json'],
+        changelogFiles: ['./CHANGELOG.md'],
+        commits: [],
+        unparseableCommits: [{ message: 'wip: undocumented', subject: 'wip: undocumented', hash: 'abc1234def' }],
+        policyViolations: [
+          { commitHash: 'fed4321cba', commitSubject: 'feat!: drop the old API', type: 'feat', surface: 'prefix' },
+        ],
+      };
+
+      const output = reportPrepare({ targets: [project], tags: ['v0.9.1'] }, { applied: true, style: 'plain' });
+
+      const parsedIndex = output.indexOf('Parsed 1 typed commits');
+      const unparseableIndex = output.indexOf('1 commit could not be parsed');
+      expect(parsedIndex).toBeGreaterThanOrEqual(0);
+      expect(parsedIndex).toBeLessThan(unparseableIndex);
+      expect(unparseableIndex).toBeLessThan(output.indexOf('1 policy violation:'));
+    });
   });
 
   describe('existing changelog sections', () => {
