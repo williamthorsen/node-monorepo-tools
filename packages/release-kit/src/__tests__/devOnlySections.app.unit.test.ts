@@ -12,18 +12,6 @@ import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.t
  */
 const ALL_AUDIENCE_GROUPS = new Set(['Bug fixes', 'Deprecated', 'Features', 'Performance', 'Removed', 'Security']);
 
-/** Returns the bare names of the sections that a changelog can contain: one per work type that the taxonomy admits. */
-function getChangelogSectionNames(): Set<string> {
-  const names = new Set<string>();
-  for (const config of Object.values(DEFAULT_WORK_TYPES)) {
-    if (config.excludedFromChangelog === true) {
-      continue;
-    }
-    names.add(stripGroupDecorations(config.header));
-  }
-  return names;
-}
-
 describe('devOnlySections drift detection', () => {
   const sectionNames = getChangelogSectionNames();
   const devOnlyBareSections = new Set(DEFAULT_CHANGELOG_JSON_CONFIG.devOnlySections.map(stripGroupDecorations));
@@ -53,3 +41,19 @@ describe('devOnlySections drift detection', () => {
     }
   });
 });
+
+// region | Helpers
+
+/** Returns the bare names of the sections that a changelog can contain: one per work type that the taxonomy admits. */
+function getChangelogSectionNames(): Set<string> {
+  const names = new Set<string>();
+  for (const config of Object.values(DEFAULT_WORK_TYPES)) {
+    if (config.excludedFromChangelog === true) {
+      continue;
+    }
+    names.add(stripGroupDecorations(config.header));
+  }
+  return names;
+}
+
+// endregion | Helpers

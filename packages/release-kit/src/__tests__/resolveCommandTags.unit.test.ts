@@ -63,19 +63,6 @@ const TAGS: ResolvedTag[] = [
 
 const PROJECT_TAG: ResolvedTag = { tag: 'v0.13.0', kind: 'project', dir: '', workspacePath: '.', isPublishable: false };
 
-/** Builds a workspace config whose files and paths follow from `workspacePath`. */
-function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string, isPublishable = true): WorkspaceConfig {
-  return {
-    dir,
-    name: `@test/${dir}`,
-    tagPrefix,
-    workspacePath,
-    isPublishable,
-    packageFiles: [`${workspacePath}/package.json`],
-    paths: [`${workspacePath}/**`],
-  };
-}
-
 describe(resolveCommandTags, () => {
   let stdioCapture: CapturedStdio;
 
@@ -387,3 +374,20 @@ describe(resolveCommandTags, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Builds a workspace config whose files and paths follow from `workspacePath`. */
+function makeWorkspace(dir: string, tagPrefix: string, workspacePath: string, isPublishable = true): WorkspaceConfig {
+  return {
+    dir,
+    name: `@test/${dir}`,
+    tagPrefix,
+    workspacePath,
+    isPublishable,
+    packageFiles: [`${workspacePath}/package.json`],
+    paths: [`${workspacePath}/**`],
+  };
+}
+
+// endregion | Helpers

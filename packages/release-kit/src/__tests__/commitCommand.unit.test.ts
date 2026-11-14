@@ -13,11 +13,6 @@ import { commitCommand } from '../commitCommand.ts';
 import { makeCommitOptions } from '../test-utils/commandOptions.ts';
 import { type FakeGit, makeFakeGit } from '../test-utils/fakeGit.ts';
 
-/** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
-function createErrnoError(message: string, code: string): Error {
-  return Object.assign(new Error(message), { code });
-}
-
 describe(commitCommand, () => {
   let stdioCapture: CapturedStdio;
   let git: FakeGit;
@@ -150,3 +145,12 @@ describe(commitCommand, () => {
     expect(listConsoleLines(silent.info)).toContain('(Could not determine uncommitted changes)');
   });
 });
+
+// region | Helpers
+
+/** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
+function createErrnoError(message: string, code: string): Error {
+  return Object.assign(new Error(message), { code });
+}
+
+// endregion | Helpers

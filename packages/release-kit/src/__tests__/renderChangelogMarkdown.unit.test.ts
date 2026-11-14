@@ -3,25 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { renderChangelogFiles, renderChangelogMarkdown } from '../renderChangelogMarkdown.ts';
 import type { ChangelogEntry } from '../types.ts';
 
-/** Builds a changelog entry dated 2024-01-01 with one all-audience section containing `items`. */
-function makeEntry(
-  version: string,
-  sectionTitle: string,
-  items: Array<{ description: string; hash?: string }>,
-): ChangelogEntry {
-  return {
-    version,
-    date: '2024-01-01',
-    sections: [
-      {
-        title: sectionTitle,
-        audience: 'all',
-        items,
-      },
-    ],
-  };
-}
-
 describe(renderChangelogMarkdown, () => {
   it('emits the canonical file header at the top', () => {
     const renderedMarkdown = renderChangelogMarkdown([]);
@@ -302,3 +283,26 @@ describe(renderChangelogFiles, () => {
     expect(archives[0]?.content).toContain('## 2.0.0-beta.1');
   });
 });
+
+// region | Helpers
+
+/** Builds a changelog entry dated 2024-01-01 with one all-audience section containing `items`. */
+function makeEntry(
+  version: string,
+  sectionTitle: string,
+  items: Array<{ description: string; hash?: string }>,
+): ChangelogEntry {
+  return {
+    version,
+    date: '2024-01-01',
+    sections: [
+      {
+        title: sectionTitle,
+        audience: 'all',
+        items,
+      },
+    ],
+  };
+}
+
+// endregion | Helpers

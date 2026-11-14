@@ -184,6 +184,22 @@ describe(applyReleasePlan, () => {
 });
 
 // region | Helpers
+
+/** Applies a plan expected to fail, returning the thrown message for multi-part assertions. */
+function captureApplyFailure(plan: ReleasePlan): string {
+  try {
+    applyReleasePlan(plan);
+  } catch (error) {
+    return describeError(error);
+  }
+  throw new Error('expected applyReleasePlan to throw');
+}
+
+/** Returns the paths passed to `writeFileWithCheck`, in call order. */
+function listWrittenPaths(): string[] {
+  return mockWriteFileWithCheck.mock.calls.map(([path]) => path);
+}
+
 /** Builds a release plan, overriding any field of an otherwise two-file release. */
 function makePlan(overrides: Partial<ReleasePlan> = {}): ReleasePlan {
   return {
@@ -216,18 +232,4 @@ function stubWriteFailure(
   );
 }
 
-/** Returns the paths passed to `writeFileWithCheck`, in call order. */
-function listWrittenPaths(): string[] {
-  return mockWriteFileWithCheck.mock.calls.map(([path]) => path);
-}
-
-/** Applies a plan expected to fail, returning the thrown message for multi-part assertions. */
-function captureApplyFailure(plan: ReleasePlan): string {
-  try {
-    applyReleasePlan(plan);
-  } catch (error) {
-    return describeError(error);
-  }
-  throw new Error('expected applyReleasePlan to throw');
-}
 // endregion | Helpers

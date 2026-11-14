@@ -5,23 +5,6 @@ import { resolveReleaseTags } from '../resolveReleaseTags.ts';
 import { type FakeGit, makeFakeGit } from '../test-utils/fakeGit.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
-/** Builds a publishable workspace config under `packages/{dir}`, overriding any field. */
-function makeWorkspace(
-  overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfig, 'dir' | 'tagPrefix'>,
-): WorkspaceConfig {
-  const dir = overrides.dir;
-  const workspacePath = overrides.workspacePath ?? `packages/${dir}`;
-  return {
-    dir,
-    name: overrides.name ?? `@test/${dir}`,
-    tagPrefix: overrides.tagPrefix,
-    workspacePath,
-    isPublishable: overrides.isPublishable ?? true,
-    packageFiles: overrides.packageFiles ?? [`${workspacePath}/package.json`],
-    paths: overrides.paths ?? [`${workspacePath}/**`],
-  };
-}
-
 describe(resolveReleaseTags, () => {
   let git: FakeGit;
 
@@ -306,3 +289,24 @@ describe(resolveReleaseTags, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Builds a publishable workspace config under `packages/{dir}`, overriding any field. */
+function makeWorkspace(
+  overrides: Partial<WorkspaceConfig> & Pick<WorkspaceConfig, 'dir' | 'tagPrefix'>,
+): WorkspaceConfig {
+  const dir = overrides.dir;
+  const workspacePath = overrides.workspacePath ?? `packages/${dir}`;
+  return {
+    dir,
+    name: overrides.name ?? `@test/${dir}`,
+    tagPrefix: overrides.tagPrefix,
+    workspacePath,
+    isPublishable: overrides.isPublishable ?? true,
+    packageFiles: overrides.packageFiles ?? [`${workspacePath}/package.json`],
+    paths: overrides.paths ?? [`${workspacePath}/**`],
+  };
+}
+
+// endregion | Helpers

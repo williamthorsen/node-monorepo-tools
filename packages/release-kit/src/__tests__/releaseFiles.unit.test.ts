@@ -11,11 +11,6 @@ vi.mock(import('node:fs'), () => ({
 
 import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE, resolveReleaseTagsPath } from '../releaseFiles.ts';
 
-/** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
-function createErrnoError(message: string, code: string): Error {
-  return Object.assign(new Error(message), { code });
-}
-
 describe('RELEASE_TAGS_FILE', () => {
   it('is the project-root-relative path read by the reusable release workflow', () => {
     expect(RELEASE_TAGS_FILE).toBe('tmp/.release-tags');
@@ -92,3 +87,12 @@ describe(readReleaseTags, () => {
     expect(() => readReleaseTags()).toThrow(expect.objectContaining({ cause: underlyingError }));
   });
 });
+
+// region | Helpers
+
+/** Creates an Error with a `code` property, matching Node's ErrnoException shape. */
+function createErrnoError(message: string, code: string): Error {
+  return Object.assign(new Error(message), { code });
+}
+
+// endregion | Helpers

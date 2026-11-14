@@ -13,11 +13,6 @@ const workTypes: Record<string, WorkTypeConfig> = {
 
 const versionPatterns = DEFAULT_VERSION_PATTERNS;
 
-/** Builds a non-breaking bump signal, overriding any field. */
-function makeCommit(overrides: Partial<BumpSignal> & Pick<BumpSignal, 'type'>): BumpSignal {
-  return { breaking: false, ...overrides };
-}
-
 describe(determineBumpType, () => {
   it('returns undefined for an empty commit list', () => {
     const result = determineBumpType([], workTypes, versionPatterns);
@@ -140,3 +135,12 @@ describe(determineBumpType, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Builds a non-breaking bump signal, overriding any field. */
+function makeCommit(overrides: Partial<BumpSignal> & Pick<BumpSignal, 'type'>): BumpSignal {
+  return { breaking: false, ...overrides };
+}
+
+// endregion | Helpers

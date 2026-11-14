@@ -55,6 +55,8 @@ interface ProbeResult {
   stderr: string;
 }
 
+// region | Helpers
+
 /** Writes `source` alone into a temp directory as the entry module, then imports it from a Node subprocess. */
 function loadStandalone(source: string): ProbeResult {
   using tree = createTempTree({}, { prefix: 'release-kit-config-entry-' });
@@ -69,3 +71,5 @@ function loadStandalone(source: string): ProbeResult {
 
   return { status, stdout, stderr };
 }
+
+// endregion | Helpers

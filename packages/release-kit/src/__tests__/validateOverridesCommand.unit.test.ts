@@ -23,30 +23,6 @@ vi.mock(import('../enumerateReleaseWindows.ts'), () => ({
 
 const mockedEnumerateReleaseWindows = vi.mocked(enumerateReleaseWindows);
 
-/**
- * Wraps a flat list of hashes into the minimal `ChangelogEntry[]` shape that the production
- * code's `flattenEntriesToHashes` walks. Use {@link buildEntriesFromReleases} when a test needs to
- * differentiate per-release groupings (e.g., past vs. unreleased).
- */
-function buildEntriesFromHashes(hashes: string[]): ChangelogEntry[] {
-  return buildEntriesFromReleases([{ version: '0.0.0-test', hashes }]);
-}
-
-/** Builds a multi-release entry tree. Each spec becomes one `ChangelogEntry`. */
-function buildEntriesFromReleases(specs: { version: string; hashes: string[] }[]): ChangelogEntry[] {
-  return specs.map((spec) => ({
-    version: spec.version,
-    date: '0000-00-00',
-    sections: [
-      {
-        title: 'Test',
-        audience: 'all',
-        items: spec.hashes.map((hash) => ({ description: '', hash })),
-      },
-    ],
-  }));
-}
-
 describe(formatValidateOverridesResult, () => {
   it('returns exit 0 with a success message when the result does not contain any findings', () => {
     const result = formatValidateOverridesResult({ errors: [], warnings: [] }, 'rich');
@@ -599,3 +575,31 @@ describe(validateOverridesCommand, () => {
     });
   });
 });
+
+// region | Helpers
+
+/**
+ * Wraps a flat list of hashes into the minimal `ChangelogEntry[]` shape that the production
+ * code's `flattenEntriesToHashes` walks. Use {@link buildEntriesFromReleases} when a test needs to
+ * differentiate per-release groupings (e.g., past vs. unreleased).
+ */
+function buildEntriesFromHashes(hashes: string[]): ChangelogEntry[] {
+  return buildEntriesFromReleases([{ version: '0.0.0-test', hashes }]);
+}
+
+/** Builds a multi-release entry tree. Each spec becomes one `ChangelogEntry`. */
+function buildEntriesFromReleases(specs: { version: string; hashes: string[] }[]): ChangelogEntry[] {
+  return specs.map((spec) => ({
+    version: spec.version,
+    date: '0000-00-00',
+    sections: [
+      {
+        title: 'Test',
+        audience: 'all',
+        items: spec.hashes.map((hash) => ({ description: '', hash })),
+      },
+    ],
+  }));
+}
+
+// endregion | Helpers
