@@ -118,10 +118,15 @@ describe(removeStaleCheckouts, () => {
     removeStaleCheckouts(PARAMS);
     const entries = fs.readdirSync(tree.resolve('home/.cache/nmr/delegate'));
 
-    // The detached `rm` may already have deleted the moved directory; when it has not, it is the original inode.
+    // The detached `rm` may delete the moved directory at any point; while it remains, it is the original inode.
+    const remainingInodes = entries.flatMap(
+      (name) => fs.statSync(tree.resolve('home/.cache/nmr/delegate', name), { throwIfNoEntry: false })?.ino ?? [],
+    );
     for (const name of entries) {
       expect(name).toMatch(/^\.removing-/);
-      expect(fs.statSync(tree.resolve('home/.cache/nmr/delegate', name)).ino).toBe(ino);
+    }
+    for (const remainingIno of remainingInodes) {
+      expect(remainingIno).toBe(ino);
     }
   });
 
