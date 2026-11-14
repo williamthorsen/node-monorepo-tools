@@ -223,7 +223,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-    const warnings = silent.warn.mock.calls.filter(([message]) => String(message).includes('shouldInjectIntoReadme'));
+    const warnings = listConsoleLines(silent.warn).filter((line) => line.includes('shouldInjectIntoReadme'));
     expect(warnings).toHaveLength(1);
   });
 
