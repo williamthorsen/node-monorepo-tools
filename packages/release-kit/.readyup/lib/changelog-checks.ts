@@ -1,8 +1,8 @@
 import type { CheckOutcome } from 'readyup';
 import { discoverWorkspaces, readFile } from 'readyup/check-utils';
 
-import { CHANGELOG_ARCHIVE_DIRECTORY } from '../../src/changelogArchive.ts';
-import { packsPath } from '../../src/packsPath.ts';
+import { CHANGELOG_ARCHIVE_DIRECTORY } from '../../src/changelog/changelog-archive.ts';
+import { packsPath } from '../../src/publish/packsPath.ts';
 
 /**
  * Checks whether the config sets `changelogMarkdown.keptVersionCount`, which moves older `CHANGELOG.md` sections into

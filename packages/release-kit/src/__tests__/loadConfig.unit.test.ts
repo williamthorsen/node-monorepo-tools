@@ -14,7 +14,7 @@ vi.mock(import('node:fs'), () => ({
 // The loader suite imports a real file from disk, so it needs the unmocked module that the suite below replaces.
 const actualFsModule = await vi.importActual<typeof import('node:fs')>('node:fs');
 
-import { CONFIG_FILE_PATH, loadConfig, readRootPackageVersion } from '../loadConfig.ts';
+import { CONFIG_FILE_PATH, loadConfig, readRootPackageVersion } from '../config/loadConfig.ts';
 
 describe(loadConfig, () => {
   let tree: TempTree;

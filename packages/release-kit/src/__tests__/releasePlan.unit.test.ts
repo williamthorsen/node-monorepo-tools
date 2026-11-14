@@ -16,9 +16,9 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 
 const mockDeleteFileIfExists = vi.hoisted(() => vi.fn<(path: string) => void>());
 
-vi.mock(import('../deleteFileIfExists.ts'), () => ({ deleteFileIfExists: mockDeleteFileIfExists }));
+vi.mock(import('../portable/deleteFileIfExists.ts'), () => ({ deleteFileIfExists: mockDeleteFileIfExists }));
 
-import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
+import { applyReleasePlan, type ReleasePlan } from '../prepare/release-plan.ts';
 
 describe(applyReleasePlan, () => {
   beforeEach(() => {

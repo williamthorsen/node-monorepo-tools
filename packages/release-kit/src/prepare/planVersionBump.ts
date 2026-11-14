@@ -1,0 +1,112 @@
+import { UserError } from '@williamthorsen/nmr-core';
+
+import { isForwardVersion } from '../portable/compare-versions.ts';
+import { readJsonFile } from '../portable/readJsonFile.ts';
+import type { ReleaseType } from '../types.ts';
+import { bumpVersion } from './bumpVersion.ts';
+import type { PlannedWrite } from './release-plan.ts';
+
+interface PackageJson {
+  [key: string]: unknown;
+  version: string;
+}
+
+/** A version change computed for a workspace's package files but not yet written. */
+export interface VersionBumpPlan {
+  currentVersion: string;
+  newVersion: string;
+  writes: PlannedWrite[];
+}
+
+/**
+ * Computes the version bump for a workspace's package files without writing them.
+ *
+ * The current version comes from the first package file, and the new one from the release type.
+ * Every file's post-bump content is rendered in full, preserving every field that the file already
+ * contains, with two-space indentation and a trailing newline.
+ */
+export function planVersionBump(packageFiles: readonly string[], releaseType: ReleaseType): VersionBumpPlan {
+  const { firstFile, firstPackageJson } = readPrimaryPackage(packageFiles);
+  const currentVersion = firstPackageJson.version;
+  const newVersion = bumpVersion(currentVersion, releaseType);
+
+  return {
+    currentVersion,
+    newVersion,
+    writes: renderVersionWrites(packageFiles, firstFile, firstPackageJson, newVersion),
+  };
+}
+
+/**
+ * Computes an explicit version assignment for a workspace's package files without writing them,
+ * bypassing commit-derived bump logic. Implements the `--set-version` flag, and so rejects a
+ * `newVersion` that is not greater than the current version.
+ */
+export function planVersionSet(packageFiles: readonly string[], newVersion: string): VersionBumpPlan {
+  const { firstFile, firstPackageJson } = readPrimaryPackage(packageFiles);
+  const currentVersion = firstPackageJson.version;
+  if (!isForwardVersion(currentVersion, newVersion)) {
+    throw new UserError(`--set-version ${newVersion} is not greater than current version ${currentVersion}`);
+  }
+
+  return {
+    currentVersion,
+    newVersion,
+    writes: renderVersionWrites(packageFiles, firstFile, firstPackageJson, newVersion),
+  };
+}
+
+/** Reads a workspace's current version from its first package file, as the version planners do. */
+export function readCurrentVersion(packageFiles: readonly string[]): string {
+  return readPrimaryPackage(packageFiles).firstPackageJson.version;
+}
+
+// region | Helpers
+
+/** Narrows a parsed value to a package manifest with a string `version`. */
+function isPackageJson(value: unknown): value is PackageJson {
+  return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
+}
+
+/**
+ * Reads and parses a package.json file, returning a validated object with a `version` field. Throws if the file cannot
+ * be read, contains invalid JSON, or lacks a `version` field.
+ */
+function readPackageJson(filePath: string): PackageJson {
+  const parsedJson = readJsonFile(filePath);
+  if (!isPackageJson(parsedJson)) {
+    throw new UserError(`No valid 'version' field found in ${filePath}`);
+  }
+
+  return parsedJson;
+}
+
+/**
+ * Reads the first package file, which supplies the pre-change version for the whole workspace. Throws if the list of
+ * package files is empty.
+ */
+function readPrimaryPackage(packageFiles: readonly string[]): { firstFile: string; firstPackageJson: PackageJson } {
+  const firstFile = packageFiles[0];
+  if (firstFile === undefined) {
+    throw new Error('No package files specified');
+  }
+
+  return { firstFile, firstPackageJson: readPackageJson(firstFile) };
+}
+
+/** Renders each package file's complete content with `version` set to `newVersion`. */
+function renderVersionWrites(
+  packageFiles: readonly string[],
+  firstFile: string,
+  firstPackageJson: PackageJson,
+  newVersion: string,
+): PlannedWrite[] {
+  return packageFiles.map((filePath) => {
+    const packageJson = filePath === firstFile ? firstPackageJson : readPackageJson(filePath);
+    packageJson.version = newVersion;
+
+    return { path: filePath, content: JSON.stringify(packageJson, null, 2) + '\n' };
+  });
+}
+
+// endregion | Helpers

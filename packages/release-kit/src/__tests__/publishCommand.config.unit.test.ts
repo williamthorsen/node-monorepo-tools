@@ -23,7 +23,7 @@ const {
 const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
 
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
-vi.mock(import('../assertTarballsComplete.ts'), () => ({
+vi.mock(import('../publish/assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: mockAssertTarballsComplete,
 }));
 
@@ -33,29 +33,29 @@ vi.mock(import('node:fs'), () => ({
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
-vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+vi.mock(import('../targets/discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock(import('../resolveReleaseTags.ts'), () => ({
+vi.mock(import('../tags/resolveReleaseTags.ts'), () => ({
   resolveReleaseTags: mockResolveReleaseTags,
 }));
 
-vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
+vi.mock(import('../config/deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
-vi.mock(import('../detectPackageManager.ts'), () => ({
+vi.mock(import('../publish/detectPackageManager.ts'), () => ({
   detectPackageManager: mockDetectPackageManager,
 }));
 
-vi.mock(import('../publish.ts'), () => ({
+vi.mock(import('../publish/publishPackage.ts'), () => ({
   publishPackage: mockPublishPackage,
 }));
 
-vi.mock(import('../loadConfig.ts'), async () => {
-  const actualModule = await vi.importActual<typeof import('../loadConfig.ts')>('../loadConfig.ts');
+vi.mock(import('../config/loadConfig.ts'), async () => {
+  const actualModule = await vi.importActual<typeof import('../config/loadConfig.ts')>('../config/loadConfig.ts');
   return {
     ...actualModule,
     loadConfig: mockLoadConfig,
@@ -64,25 +64,25 @@ vi.mock(import('../loadConfig.ts'), async () => {
   };
 });
 
-vi.mock(import('../validateConfig.ts'), () => ({
+vi.mock(import('../config/validateConfig.ts'), () => ({
   validateConfig: mockValidateConfig,
 }));
 
-vi.mock(import('../createGithubRelease.ts'), () => ({
+vi.mock(import('../release-notes/createGithubRelease.ts'), () => ({
   createGithubReleases: mockCreateGithubReleases,
 }));
 
-vi.mock(import('../injectReleaseNotesIntoReadme.ts'), () => ({
+vi.mock(import('../release-notes/injectReleaseNotesIntoReadme.ts'), () => ({
   injectReleaseNotesIntoReadme: mockInjectReleaseNotesIntoReadme,
   resolveReadmePath: mockResolveReadmePath,
 }));
 
-vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
+vi.mock(import('../prepare/assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
-import { ConfigProblemError } from '../loadValidatedConfig.ts';
-import { publishCommand } from '../publishCommand.ts';
+import { ConfigProblemError } from '../config/loadValidatedConfig.ts';
+import { publishCommand } from '../publish/publishCommand.ts';
 import { makePublishOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 

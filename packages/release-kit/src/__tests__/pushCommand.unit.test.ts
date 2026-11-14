@@ -11,37 +11,37 @@ const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../pushRelease.ts'), () => ({
+vi.mock(import('../push/pushRelease.ts'), () => ({
   pushRelease: mockPushRelease,
 }));
 
-vi.mock(import('../resolveCommandTags.ts'), () => ({
+vi.mock(import('../tags/resolveCommandTags.ts'), () => ({
   resolveCommandTags: mockResolveCommandTags,
 }));
 
-vi.mock(import('../loadConfig.ts'), async (importOriginal) => ({
+vi.mock(import('../config/loadConfig.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   loadConfig: mockLoadConfig,
   readRootPackageVersion: () => ({ doesExist: true, version: '1.0.0' }),
 }));
 
 // The discovery-level mocks serve the tests that run the real `resolveCommandTags`.
-vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+vi.mock(import('../targets/discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock(import('../resolveReleaseTags.ts'), () => ({
+vi.mock(import('../tags/resolveReleaseTags.ts'), () => ({
   resolveReleaseTags: mockResolveReleaseTags,
 }));
 
-vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
+vi.mock(import('../config/deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
-import { ConfigProblemError } from '../loadValidatedConfig.ts';
-import { pushCommand } from '../pushCommand.ts';
-import type { ResolvedTag } from '../resolveReleaseTags.ts';
+import { ConfigProblemError } from '../config/loadValidatedConfig.ts';
+import { pushCommand } from '../push/pushCommand.ts';
+import type { ResolvedTag } from '../tags/resolveReleaseTags.ts';
 import { makePushOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 
@@ -159,7 +159,9 @@ describe(pushCommand, () => {
     });
 
     it('does not push the tag of an excluded workspace and reports the skip', async () => {
-      const actualModule = await vi.importActual<typeof import('../resolveCommandTags.ts')>('../resolveCommandTags.ts');
+      const actualModule = await vi.importActual<typeof import('../tags/resolveCommandTags.ts')>(
+        '../tags/resolveCommandTags.ts',
+      );
       mockResolveCommandTags.mockImplementation(actualModule.resolveCommandTags);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/cli']));
       mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {
@@ -197,7 +199,9 @@ describe(pushCommand, () => {
     };
 
     beforeEach(async () => {
-      const actualModule = await vi.importActual<typeof import('../resolveCommandTags.ts')>('../resolveCommandTags.ts');
+      const actualModule = await vi.importActual<typeof import('../tags/resolveCommandTags.ts')>(
+        '../tags/resolveCommandTags.ts',
+      );
       mockResolveCommandTags.mockImplementation(actualModule.resolveCommandTags);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/cli']));
       mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => {

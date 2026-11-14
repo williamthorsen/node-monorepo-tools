@@ -5,8 +5,12 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it as baseIt } from 'vitest';
 
-import { mergeChangelogEntriesWithDisk, renderChangelogJson, resolveChangelogJsonPath } from '../changelogJsonFile.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
+import {
+  mergeChangelogEntriesWithDisk,
+  renderChangelogJson,
+  resolveChangelogJsonPath,
+} from '../changelog/changelog-json-file.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const it = baseIt.extend(

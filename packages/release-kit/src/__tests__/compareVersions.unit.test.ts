@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { isForwardVersion } from '../compareVersions.ts';
+import { isForwardVersion } from '../portable/compare-versions.ts';
 
 describe(isForwardVersion, () => {
   it('returns true when the target increments the major component', () => {

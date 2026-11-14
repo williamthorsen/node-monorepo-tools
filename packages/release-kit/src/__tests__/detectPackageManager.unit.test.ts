@@ -8,7 +8,7 @@ vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
 }));
 
-import { detectPackageManager } from '../detectPackageManager.ts';
+import { detectPackageManager } from '../publish/detectPackageManager.ts';
 
 describe(detectPackageManager, () => {
   beforeEach(() => {

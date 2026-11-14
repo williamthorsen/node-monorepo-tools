@@ -1,4 +1,4 @@
-import type { RawCommit } from '../git.ts';
+import type { RawCommit } from '../clients/git/git.ts';
 
 /** A commit that a test describes by its subject and hash alone. */
 export type CommitStub = readonly [subject: string, hash: string];

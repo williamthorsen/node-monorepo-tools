@@ -2,8 +2,11 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it } from 'vitest';
 
 import { collectBuildInfo } from '../packages/build-info/src/collect/index.ts';
-import { renderChangelogJson } from '../packages/release-kit/src/changelogJsonFile.ts';
-import { matchesAudience, renderReleaseNotesSingle } from '../packages/release-kit/src/renderReleaseNotes.ts';
+import { renderChangelogJson } from '../packages/release-kit/src/changelog/changelog-json-file.ts';
+import {
+  matchesAudience,
+  renderReleaseNotesSingle,
+} from '../packages/release-kit/src/release-notes/render-release-notes.ts';
 import type { ChangelogEntry } from '../packages/release-kit/src/types.ts';
 
 const ENTRY: ChangelogEntry = {

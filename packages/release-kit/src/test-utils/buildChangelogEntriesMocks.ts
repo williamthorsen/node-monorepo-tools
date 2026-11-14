@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import type { ReleaseWindow } from '../enumerateReleaseWindows.ts';
+import type { ReleaseWindow } from '../changelog/enumerateReleaseWindows.ts';
 
 // A test loads this module through `vi.hoisted`, before its `vi.mock` calls register, so the module imports nothing
 // under test: Such a module would bind the real dependencies.

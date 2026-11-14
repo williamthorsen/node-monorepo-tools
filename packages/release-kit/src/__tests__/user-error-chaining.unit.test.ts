@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { asUserError, chainUserError, prefixUserError } from '../user-error-chaining.ts';
+import { asUserError, chainUserError, prefixUserError } from '../portable/user-error-chaining.ts';
 
 describe(asUserError, () => {
   it('wraps a plain error in a UserError with the same message and the original as its cause', () => {

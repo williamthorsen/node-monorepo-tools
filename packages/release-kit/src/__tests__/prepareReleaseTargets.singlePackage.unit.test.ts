@@ -25,39 +25,39 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock(import('../hasPrettierConfig.ts'), () => ({
+vi.mock(import('../prepare/hasPrettierConfig.ts'), () => ({
   hasPrettierConfig: mockHasPrettierConfig,
 }));
 
-vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
+vi.mock(import('../release-notes/planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
 // Stub the history reader and the changelog writers so that the tests don't read git history or touch the filesystem.
-vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   readReleaseHistory: mockReadReleaseHistory,
 }));
 
-vi.mock(import('../changelogJsonFile.ts'), () => ({
+vi.mock(import('../changelog/changelog-json-file.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   renderChangelogJson: mockRenderChangelogJson,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
-vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
+vi.mock(import('../changelog/renderChangelogMarkdown.ts'), () => ({
   renderChangelogFiles: (entries: unknown, options: unknown) => ({
     main: String(mockRenderChangelogMarkdown(entries, options)),
     archives: [],
   }),
 }));
 
-vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/changelog-archive.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   listArchiveFiles: () => [],
 }));
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import {
   diagnostics,

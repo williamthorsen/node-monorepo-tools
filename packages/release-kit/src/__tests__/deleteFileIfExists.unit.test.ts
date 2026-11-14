@@ -6,7 +6,7 @@ vi.mock(import('node:fs'), () => ({
   unlinkSync: mockUnlinkSync,
 }));
 
-import { deleteFileIfExists } from '../deleteFileIfExists.ts';
+import { deleteFileIfExists } from '../portable/deleteFileIfExists.ts';
 
 describe(deleteFileIfExists, () => {
   it('deletes the file at the given path', () => {

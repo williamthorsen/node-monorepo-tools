@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { discoverWorkspaces } from '../discoverWorkspaces.ts';
-import { isPublishableManifest } from '../isPublishableManifest.ts';
+import { discoverWorkspaces } from '../targets/discoverWorkspaces.ts';
+import { isPublishableManifest } from '../targets/isPublishableManifest.ts';
 
 /**
  * Reports whether the repo at `root` contains a package that can be published: a discovered workspace, or the root

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { lookUpNpmPackage } from '../npmRegistry.ts';
+import { lookUpNpmPackage } from '../clients/npm/npm-registry.ts';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 

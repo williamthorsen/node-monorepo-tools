@@ -5,10 +5,10 @@ import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/can
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
-import { realGit } from '../git.ts';
+import { realGit } from '../clients/git/git.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 
-const GIT_MODULE_PATH = fileURLToPath(new URL('../git.ts', import.meta.url));
+const GIT_MODULE_PATH = fileURLToPath(new URL('../clients/git/git.ts', import.meta.url));
 
 describe('realGit', () => {
   describe('outside a repository', () => {

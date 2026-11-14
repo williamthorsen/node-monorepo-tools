@@ -7,22 +7,22 @@ import { captureStdio, createTempTree, pointCwdAt, type TempTree } from '@willia
 import { disposeOnTestFinished, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { realGit } from '../git.ts';
-import { mergeMonorepoConfig } from '../mergeConfig.ts';
-import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
-import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
-import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
+import { realGit } from '../clients/git/git.ts';
+import { mergeMonorepoConfig } from '../config/merge-config.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepare/prepareReleaseTargets.ts';
+import { applyReleasePlan, type ReleasePlan } from '../prepare/release-plan.ts';
+import { projectMonorepoConfig } from '../targets/resolveReleaseTargets.ts';
 import { makePrepareOptions } from '../test-utils/commandOptions.ts';
 import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 import type { MonorepoReleaseConfig } from '../types.ts';
 
 // The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
-vi.mock(import('../assertTarballsComplete.ts'), () => ({
+vi.mock(import('../publish/assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: vi.fn(),
 }));
 
-vi.mock(import('../npmRegistry.ts'), () => ({
+vi.mock(import('../clients/npm/npm-registry.ts'), () => ({
   lookUpNpmPackage: () => ({ status: 'published' }),
 }));
 
@@ -423,7 +423,7 @@ describe('project releases (tool)', () => {
     // Exercise the CLI entry point directly so that the test reflects user-observable behavior
     // end-to-end: the named workspace releases, and the project tier is left alone. The
     // untouched root version and the absent root CHANGELOG.md prove the skip.
-    const { prepareCommand } = await import('../prepareCommand.ts');
+    const { prepareCommand } = await import('../prepare/prepareCommand.ts');
 
     // Write a minimal release-kit config that declares the project block.
     tree.write('.config/release-kit.config.ts', 'export default { project: {} };\n');

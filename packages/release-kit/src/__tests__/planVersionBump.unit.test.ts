@@ -9,7 +9,7 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-import { planVersionBump, planVersionSet } from '../planVersionBump.ts';
+import { planVersionBump, planVersionSet } from '../prepare/planVersionBump.ts';
 
 describe(planVersionBump, () => {
   afterEach(() => {

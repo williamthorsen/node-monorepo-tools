@@ -4,11 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateTags = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../createTags.ts'), () => ({
+vi.mock(import('../tags/createTags.ts'), () => ({
   createTags: mockCreateTags,
 }));
 
-import { tagCommand } from '../tagCommand.ts';
+import { tagCommand } from '../tags/tagCommand.ts';
 import { makeTagOptions } from '../test-utils/commandOptions.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };

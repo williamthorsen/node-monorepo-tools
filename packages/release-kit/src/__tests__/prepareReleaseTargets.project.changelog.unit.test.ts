@@ -30,37 +30,37 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   readReleaseHistory: mockReadReleaseHistory,
 }));
 
-vi.mock(import('../changelogJsonFile.ts'), () => ({
+vi.mock(import('../changelog/changelog-json-file.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   renderChangelogJson: mockRenderChangelogJson,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
-vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
+vi.mock(import('../changelog/renderChangelogMarkdown.ts'), () => ({
   renderChangelogFiles: (entries: unknown, options: unknown) => ({
     main: String(mockRenderChangelogMarkdown(entries, options)),
     archives: [],
   }),
 }));
 
-vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/changelog-archive.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   listArchiveFiles: () => [],
 }));
 
-vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
+vi.mock(import('../release-notes/planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
-import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import type { PlannedWrite } from '../releasePlan.ts';
+import { buildEmptyReleaseEntry } from '../changelog/buildEmptyReleaseEntry.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
+import type { PlannedWrite } from '../prepare/release-plan.ts';
 import {
   ENTRY_VIOLATION,
   makeConfig,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { injectSection } from '../injectSection.ts';
+import { injectSection } from '../portable/injectSection.ts';
 
 describe(injectSection, () => {
   it('replaces content between existing markers', () => {

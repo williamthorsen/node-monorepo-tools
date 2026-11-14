@@ -15,12 +15,12 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock(import('../changelogJsonUtils.ts'), () => ({
+vi.mock(import('../changelog/changelog-entries.ts'), () => ({
   extractVersion: mockExtractVersion,
   loadChangelogEntries: mockLoadChangelogEntries,
 }));
 
-vi.mock(import('../renderReleaseNotes.ts'), () => ({
+vi.mock(import('../release-notes/render-release-notes.ts'), () => ({
   matchesAudience: mockMatchesAudience,
   renderReleaseNotesSingle: mockRenderReleaseNotesSingle,
 }));
@@ -30,7 +30,7 @@ import {
   renderInjectedReadme,
   renderInjectedReadmeFromEntries,
   resolveReadmePath,
-} from '../injectReleaseNotesIntoReadme.ts';
+} from '../release-notes/injectReleaseNotesIntoReadme.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 describe(injectReleaseNotesIntoReadme, () => {

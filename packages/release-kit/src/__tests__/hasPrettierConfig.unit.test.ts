@@ -8,7 +8,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { hasPrettierConfig } from '../hasPrettierConfig.ts';
+import { hasPrettierConfig } from '../prepare/hasPrettierConfig.ts';
 
 describe(hasPrettierConfig, () => {
   afterEach(() => {

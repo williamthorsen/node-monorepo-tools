@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { findPackageRoot, isRecord } from '@williamthorsen/nmr-core';
 import { assert, describe, expect, it } from 'vitest';
 
-import { KNOWN_OVERRIDE_FIELDS, OVERRIDE_KEY_PATTERN } from '../loadChangelogOverrides.ts';
+import { KNOWN_OVERRIDE_FIELDS, OVERRIDE_KEY_PATTERN } from '../changelog/loadChangelogOverrides.ts';
 
 const schemaPath = resolve(findPackageRoot(import.meta.url), 'schemas', 'changelog-overrides.json');
 

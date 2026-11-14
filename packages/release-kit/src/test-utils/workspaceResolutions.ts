@@ -1,4 +1,4 @@
-import type { EmptyWorkspace, FailingWorkspaceCause, WorkspaceDiscovery } from '../discoverWorkspaces.ts';
+import type { EmptyWorkspace, FailingWorkspaceCause, WorkspaceDiscovery } from '../targets/discoverWorkspaces.ts';
 
 /**
  * The discoveries that a mocked `discoverWorkspaces` returns, built here rather than spelled out at each mock

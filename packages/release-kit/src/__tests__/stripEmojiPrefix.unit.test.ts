@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { stripEmojiPrefix } from '../stripEmojiPrefix.ts';
+import { stripEmojiPrefix } from '../portable/stripEmojiPrefix.ts';
 
 describe(stripEmojiPrefix, () => {
   it('strips a leading single-codepoint emoji and the following space', () => {

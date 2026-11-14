@@ -2,15 +2,15 @@ import process from 'node:process';
 
 import { createCli } from '@williamthorsen/nmr-core/cli';
 
-import { enterRepoRoot } from '../enterRepoRoot.ts';
+import { validateOverridesCommand } from '../changelog/validateOverridesCommand.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
-import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
-import { validateOverridesCommand } from '../validateOverridesCommand.ts';
+import { showTagPrefixesCommand } from '../tags/showTagPrefixesCommand.ts';
 import { type CommandContext, CONFIG_FLAG, runReportingFailures } from './commandKit.ts';
+import { enterRepoRoot } from './enterRepoRoot.ts';
 
 const { defineCommand, defineGroup } = createCli<CommandContext>();
 

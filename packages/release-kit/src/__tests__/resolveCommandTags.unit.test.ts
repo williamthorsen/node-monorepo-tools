@@ -11,21 +11,21 @@ const mockReadRootPackageVersion = vi.hoisted(() => vi.fn());
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
-vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+vi.mock(import('../targets/discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock(import('../resolveReleaseTags.ts'), () => ({
+vi.mock(import('../tags/resolveReleaseTags.ts'), () => ({
   resolveReleaseTags: mockResolveReleaseTags,
 }));
 
-vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
+vi.mock(import('../config/deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
 // The declared directory exists only in the test, so its derivation is stubbed rather than read from disk.
-vi.mock(import('../deriveDirectoryConfig.ts'), () => ({
+vi.mock(import('../config/deriveDirectoryConfig.ts'), () => ({
   deriveDirectoryConfig: (declaredDirectory: { name: string; path: string }) => ({
     name: declaredDirectory.name,
     path: declaredDirectory.path,
@@ -35,14 +35,14 @@ vi.mock(import('../deriveDirectoryConfig.ts'), () => ({
   }),
 }));
 
-vi.mock(import('../loadConfig.ts'), async (importOriginal) => ({
+vi.mock(import('../config/loadConfig.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   readRootPackageVersion: mockReadRootPackageVersion,
 }));
 
-import type { ReleaseKitConfig } from '../configSchema.ts';
-import { resolveCommandTags } from '../resolveCommandTags.ts';
-import type { ResolvedTag } from '../resolveReleaseTags.ts';
+import type { ReleaseKitConfig } from '../config/config-schema.ts';
+import { resolveCommandTags } from '../tags/resolveCommandTags.ts';
+import type { ResolvedTag } from '../tags/resolveReleaseTags.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 import type { WorkspaceConfig } from '../types.ts';
 

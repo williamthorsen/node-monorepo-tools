@@ -10,10 +10,10 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import type { ReleaseKitConfig } from '../configSchema.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
-import type { WorkspaceDiscovery } from '../discoverWorkspaces.ts';
-import { isSinglePackageTargets, resolveReleaseTargets } from '../resolveReleaseTargets.ts';
+import type { ReleaseKitConfig } from '../config/config-schema.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../config/defaults.ts';
+import type { WorkspaceDiscovery } from '../targets/discoverWorkspaces.ts';
+import { isSinglePackageTargets, resolveReleaseTargets } from '../targets/resolveReleaseTargets.ts';
 import type { ReleaseTarget } from '../types.ts';
 
 /** Manifests keyed by repo-relative path; every test declares the files that the projection may read. */

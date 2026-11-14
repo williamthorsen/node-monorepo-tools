@@ -17,16 +17,16 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
-vi.mock(import('../injectReleaseNotesIntoReadme.ts'), () => ({
+vi.mock(import('../release-notes/injectReleaseNotesIntoReadme.ts'), () => ({
   renderInjectedReadme: mockRenderInjectedReadme,
   renderInjectedReadmeFromEntries: mockRenderInjectedReadmeFromEntries,
 }));
 
-vi.mock(import('../changelogJsonUtils.ts'), () => ({
+vi.mock(import('../changelog/changelog-entries.ts'), () => ({
   extractVersion: mockExtractVersion,
 }));
 
-import { planReleaseNotesPreviews } from '../planReleaseNotesPreviews.ts';
+import { planReleaseNotesPreviews } from '../release-notes/planReleaseNotesPreviews.ts';
 
 describe(planReleaseNotesPreviews, () => {
   beforeEach(() => {

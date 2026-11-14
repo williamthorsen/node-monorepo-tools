@@ -5,7 +5,7 @@ import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/can
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
-import { packFromCleanCheckout } from '../packFromCleanCheckout.ts';
+import { packFromCleanCheckout } from '../publish/packFromCleanCheckout.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 
 /** Writes `built/out.js`, standing in for a build that the package runs in its publish lifecycle. */

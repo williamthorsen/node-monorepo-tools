@@ -26,7 +26,7 @@ import {
   type Workspace,
 } from 'readyup/check-utils';
 
-import { lookUpNpmPackage, runNpmJson } from '../../src/npmRegistry.ts';
+import { lookUpNpmPackage, runNpmJson } from '../../src/clients/npm/npm-registry.ts';
 import {
   classifyNpmAuth,
   classifyProvenanceSetting,

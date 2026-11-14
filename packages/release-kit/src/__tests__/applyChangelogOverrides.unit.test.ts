@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { applyChangelogOverrides, formatStaleOverrideKeyWarning } from '../applyChangelogOverrides.ts';
+import { applyChangelogOverrides, formatStaleOverrideKeyWarning } from '../changelog/applyChangelogOverrides.ts';
 import type { ChangelogEntry, ChangelogOverride } from '../types.ts';
 
 describe(applyChangelogOverrides, () => {

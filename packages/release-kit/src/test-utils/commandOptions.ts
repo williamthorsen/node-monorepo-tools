@@ -1,11 +1,11 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
 
-import type { CommitCommandOptions } from '../commitCommand.ts';
-import type { CreateGithubReleaseCommandOptions } from '../createGithubReleaseCommand.ts';
-import type { PrepareCommandOptions } from '../prepareCommand.ts';
-import type { PublishCommandOptions } from '../publishCommand.ts';
-import type { PushCommandOptions } from '../pushCommand.ts';
-import type { TagCommandOptions } from '../tagCommand.ts';
+import type { CommitCommandOptions } from '../prepare/commitCommand.ts';
+import type { PrepareCommandOptions } from '../prepare/prepareCommand.ts';
+import type { PublishCommandOptions } from '../publish/publishCommand.ts';
+import type { PushCommandOptions } from '../push/pushCommand.ts';
+import type { CreateGithubReleaseCommandOptions } from '../release-notes/createGithubReleaseCommand.ts';
+import type { TagCommandOptions } from '../tags/tagCommand.ts';
 
 const DEFAULT_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 

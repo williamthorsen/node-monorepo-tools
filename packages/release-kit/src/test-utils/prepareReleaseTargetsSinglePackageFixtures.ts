@@ -1,11 +1,11 @@
-import type { ChangelogDiagnostics } from '../buildChangelogItem.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
+import type { ChangelogDiagnostics } from '../changelog/changelog-item.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
 import {
   prepareReleaseTargets,
   type TargetPrepareConfig,
   type TargetPrepareOptions,
-} from '../prepareReleaseTargets.ts';
-import type { ReleasePlan } from '../releasePlan.ts';
+} from '../prepare/prepareReleaseTargets.ts';
+import type { ReleasePlan } from '../prepare/release-plan.ts';
 import type { PackageTarget, ReleaseSettings, WorkTypeConfig } from '../types.ts';
 import { makeFakeGit } from './fakeGit.ts';
 

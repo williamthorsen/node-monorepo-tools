@@ -8,9 +8,9 @@ import {
 } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
-import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from '../discoverWorkspaces.ts';
-import { CONFIG_FILE_PATH } from '../loadConfig.ts';
-import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
+import { CONFIG_FILE_PATH } from '../config/loadConfig.ts';
+import { loadValidatedConfig, reportConfigProblem } from '../config/loadValidatedConfig.ts';
+import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from '../targets/discoverWorkspaces.ts';
 import { generateCommand, LABELS_OUTPUT_PATH } from './generateCommand.ts';
 import {
   buildScopeLabels,

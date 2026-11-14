@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { findMissingManifestPaths } from '../findMissingManifestPaths.ts';
+import { findMissingManifestPaths } from '../publish/findMissingManifestPaths.ts';
 
 describe(findMissingManifestPaths, () => {
   it('returns nothing for a manifest that does not declare any entry field', () => {

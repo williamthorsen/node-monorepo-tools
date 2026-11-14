@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { enumerateReleaseWindows, type ReleaseWindow } from '../enumerateReleaseWindows.ts';
-import { realGit } from '../git.ts';
+import { enumerateReleaseWindows, type ReleaseWindow } from '../changelog/enumerateReleaseWindows.ts';
+import { realGit } from '../clients/git/git.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 
 describe(enumerateReleaseWindows, () => {

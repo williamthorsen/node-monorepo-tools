@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { assertCleanWorkingTree } from '../assertCleanWorkingTree.ts';
+import { assertCleanWorkingTree } from '../prepare/assertCleanWorkingTree.ts';
 import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(assertCleanWorkingTree, () => {

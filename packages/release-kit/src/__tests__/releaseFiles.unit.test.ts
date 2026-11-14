@@ -9,7 +9,12 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE, resolveReleaseTagsPath } from '../releaseFiles.ts';
+import {
+  readReleaseTags,
+  RELEASE_SUMMARY_FILE,
+  RELEASE_TAGS_FILE,
+  resolveReleaseTagsPath,
+} from '../prepare/release-files.ts';
 
 describe('RELEASE_TAGS_FILE', () => {
   it('is the project-root-relative path read by the reusable release workflow', () => {

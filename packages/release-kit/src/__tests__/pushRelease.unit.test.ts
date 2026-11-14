@@ -1,8 +1,8 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { pushRelease } from '../pushRelease.ts';
-import type { ResolvedTag } from '../resolveReleaseTags.ts';
+import { pushRelease } from '../push/pushRelease.ts';
+import type { ResolvedTag } from '../tags/resolveReleaseTags.ts';
 import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 const TAGS: ResolvedTag[] = [

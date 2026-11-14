@@ -9,7 +9,7 @@ const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
 
 // Mock the enumerator so that the test exercises buildChangelogEntries' transformation logic
 // without reading git history. `buildChangelogEntries.tool.test.ts` covers the real reader.
-vi.mock(import('../enumerateReleaseWindows.ts'), () => ({
+vi.mock(import('../changelog/enumerateReleaseWindows.ts'), () => ({
   enumerateReleaseWindows: mockEnumerateReleaseWindows,
 }));
 
@@ -17,7 +17,7 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-import { buildChangelogEntries } from '../buildChangelogEntries.ts';
+import { buildChangelogEntries } from '../changelog/buildChangelogEntries.ts';
 
 describe(buildChangelogEntries, () => {
   beforeEach(() => {

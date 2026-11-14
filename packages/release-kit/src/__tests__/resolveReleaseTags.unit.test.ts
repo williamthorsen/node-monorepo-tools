@@ -1,7 +1,7 @@
 import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveReleaseTags } from '../resolveReleaseTags.ts';
+import { resolveReleaseTags } from '../tags/resolveReleaseTags.ts';
 import { type FakeGit, makeFakeGit } from '../test-utils/fakeGit.ts';
 import type { WorkspaceConfig } from '../types.ts';
 

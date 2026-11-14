@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { decideRelease, type DecideReleaseResult } from '../decideRelease.ts';
+import { decideRelease, type DecideReleaseResult } from '../prepare/decideRelease.ts';
 import type { ReleaseType } from '../types.ts';
 
 const skipReasons = {

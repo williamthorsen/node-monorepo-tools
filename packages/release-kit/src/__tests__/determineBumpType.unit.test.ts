@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_VERSION_PATTERNS } from '../defaults.ts';
-import { type BumpSignal, determineBumpType } from '../determineBumpType.ts';
+import { type BumpSignal, determineBumpType } from '../commits/determineBumpType.ts';
+import { DEFAULT_VERSION_PATTERNS } from '../config/defaults.ts';
 import type { VersionPatterns, WorkTypeConfig } from '../types.ts';
 
 const workTypes: Record<string, WorkTypeConfig> = {

@@ -1,9 +1,9 @@
 import { assert } from 'vitest';
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
-import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
-import type { PlannedWrite } from '../releasePlan.ts';
-import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../config/defaults.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepare/prepareReleaseTargets.ts';
+import type { PlannedWrite } from '../prepare/release-plan.ts';
+import { projectMonorepoConfig } from '../targets/resolveReleaseTargets.ts';
 import type {
   ChangelogEntry,
   ChangelogSection,

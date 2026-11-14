@@ -25,45 +25,45 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-vi.mock(import('../hasPrettierConfig.ts'), () => ({
+vi.mock(import('../prepare/hasPrettierConfig.ts'), () => ({
   hasPrettierConfig: mockHasPrettierConfig,
 }));
 
-vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
+vi.mock(import('../release-notes/planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
 // Stub the history reader and the changelog constructors and renderers. The default stubs return
 // deterministic values without reading git history or touching the filesystem; `convertToChangelogEntries`
 // stays real, so the planned changelog contains a history's sections, labeled with the new tag.
-vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   readReleaseHistory: mockReadReleaseHistory,
 }));
 
-vi.mock(import('../buildSyntheticChangelogEntry.ts'), () => ({
+vi.mock(import('../changelog/buildSyntheticChangelogEntry.ts'), () => ({
   buildSyntheticChangelogEntry: mockBuildSyntheticChangelogEntry,
 }));
 
-vi.mock(import('../buildEmptyReleaseEntry.ts'), () => ({
+vi.mock(import('../changelog/buildEmptyReleaseEntry.ts'), () => ({
   buildEmptyReleaseEntry: mockBuildEmptyReleaseEntry,
 }));
 
-vi.mock(import('../changelogJsonFile.ts'), () => ({
+vi.mock(import('../changelog/changelog-json-file.ts'), () => ({
   resolveChangelogJsonPath: (config: { changelogJson: { outputPath: string } }, changelogPath: string): string =>
     `${changelogPath}/${config.changelogJson.outputPath}`,
   renderChangelogJson: mockRenderChangelogJson,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
-vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
+vi.mock(import('../changelog/renderChangelogMarkdown.ts'), () => ({
   renderChangelogFiles: (entries: unknown, options: unknown) => ({
     main: String(mockRenderChangelogMarkdown(entries, options)),
     archives: [],
   }),
 }));
 
-vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/changelog-archive.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   listArchiveFiles: () => [],
 }));

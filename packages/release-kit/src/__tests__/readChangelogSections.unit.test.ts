@@ -4,7 +4,11 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { parseChangelogSections, planPreservedSections, readChangelogSections } from '../readChangelogSections.ts';
+import {
+  parseChangelogSections,
+  planPreservedSections,
+  readChangelogSections,
+} from '../changelog/readChangelogSections.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const FOOTER =

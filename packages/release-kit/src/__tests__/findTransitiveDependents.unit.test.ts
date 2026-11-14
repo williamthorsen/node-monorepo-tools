@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DependencyGraph } from '../buildDependencyGraph.ts';
-import { findTransitiveDependents } from '../findTransitiveDependents.ts';
+import type { DependencyGraph } from '../targets/buildDependencyGraph.ts';
+import { findTransitiveDependents } from '../targets/findTransitiveDependents.ts';
 import { makeWorkspaceTarget } from '../test-utils/packageTargets.ts';
 
 describe(findTransitiveDependents, () => {

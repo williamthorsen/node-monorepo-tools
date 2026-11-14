@@ -1,8 +1,8 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { assertReleasesOnNpm } from '../assertReleasesOnNpm.ts';
-import type { NpmPackageLookup } from '../npmRegistry.ts';
+import type { NpmPackageLookup } from '../clients/npm/npm-registry.ts';
+import { assertReleasesOnNpm } from '../publish/assertReleasesOnNpm.ts';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockLookUpNpmPackage = vi.hoisted(() => vi.fn());
@@ -11,7 +11,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../npmRegistry.ts'), () => ({
+vi.mock(import('../clients/npm/npm-registry.ts'), () => ({
   lookUpNpmPackage: mockLookUpNpmPackage,
 }));
 

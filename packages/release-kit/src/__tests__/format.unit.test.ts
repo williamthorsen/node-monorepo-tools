@@ -3,7 +3,7 @@ import { WriteStream } from 'node:tty';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { bold, dim, renderSectionHeader } from '../format.ts';
+import { bold, dim, renderSectionHeader } from '../cli/format.ts';
 
 /** SGR codes that open each style. The closing code is Node's choice, so these tests do not assert on it. */
 const BOLD_OPEN = '\u{1B}[1m';

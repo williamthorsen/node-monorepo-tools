@@ -10,7 +10,7 @@ import {
   isChangelogEntry,
   loadChangelogEntries,
   readChangelogEntries,
-} from '../changelogJsonUtils.ts';
+} from '../changelog/changelog-entries.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const it = baseIt.extend(

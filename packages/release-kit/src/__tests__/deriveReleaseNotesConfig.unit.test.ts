@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { deriveDependenciesHeader, deriveReleaseNotesConfig } from '../deriveReleaseNotesConfig.ts';
-import { resolveWorkTypes } from '../mergeConfig.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
+import { deriveDependenciesHeader, deriveReleaseNotesConfig } from '../config/deriveReleaseNotesConfig.ts';
+import { resolveWorkTypes } from '../config/merge-config.ts';
 
 const defaultSectionOrder = Object.values(DEFAULT_WORK_TYPES).map((entry) => entry.header);
 

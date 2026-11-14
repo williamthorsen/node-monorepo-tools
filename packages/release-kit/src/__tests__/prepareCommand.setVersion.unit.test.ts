@@ -18,7 +18,7 @@ const {
 } = await vi.hoisted(() => import('../test-utils/prepareCommandMocks.ts'));
 
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
-vi.mock(import('../assertTarballsComplete.ts'), () => ({
+vi.mock(import('../publish/assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: vi.fn(),
 }));
 
@@ -31,30 +31,30 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../npmRegistry.ts'), () => ({
+vi.mock(import('../clients/npm/npm-registry.ts'), () => ({
   lookUpNpmPackage: mockLookUpNpmPackage,
 }));
 
-vi.mock(import('../assertCleanWorkingTree.ts'), () => ({
+vi.mock(import('../prepare/assertCleanWorkingTree.ts'), () => ({
   assertCleanWorkingTree: mockAssertCleanWorkingTree,
 }));
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
-vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+vi.mock(import('../targets/discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
-  const actualModule = await importOriginal<typeof import('../loadConfig.ts')>();
+vi.mock(import('../config/loadConfig.ts'), async (importOriginal) => {
+  const actualModule = await importOriginal<typeof import('../config/loadConfig.ts')>();
   return {
     ...actualModule,
     loadConfig: mockLoadConfig,
   };
 });
 
-vi.mock(import('../prepareReleaseTargets.ts'), () => ({
+vi.mock(import('../prepare/prepareReleaseTargets.ts'), () => ({
   prepareReleaseTargets: mockPrepareReleaseTargets,
 }));
 
@@ -66,8 +66,8 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
-import { realGit } from '../git.ts';
-import { prepareCommand } from '../prepareCommand.ts';
+import { realGit } from '../clients/git/git.ts';
+import { prepareCommand } from '../prepare/prepareCommand.ts';
 import { makePrepareOptions } from '../test-utils/commandOptions.ts';
 import { makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 

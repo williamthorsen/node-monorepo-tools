@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { stripScope } from '../stripScope.ts';
+import { stripScope } from '../commits/stripScope.ts';
 
 describe(stripScope, () => {
   it.each([

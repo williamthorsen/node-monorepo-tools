@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { validateConfig } from '../config/validateConfig.ts';
 import { expectErrorAtPath, expectErrorMentioning } from '../test-utils/validationErrors.ts';
-import { validateConfig } from '../validateConfig.ts';
 
 describe(validateConfig, () => {
   it("doesn't return any errors for an empty config object", () => {

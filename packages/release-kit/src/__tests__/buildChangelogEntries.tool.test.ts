@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildChangelogEntries, convertToChangelogEntries, readReleaseHistory } from '../buildChangelogEntries.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import { realGit } from '../git.ts';
+import {
+  buildChangelogEntries,
+  convertToChangelogEntries,
+  readReleaseHistory,
+} from '../changelog/buildChangelogEntries.ts';
+import { realGit } from '../clients/git/git.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 import type { ChangelogEntry } from '../types.ts';
 

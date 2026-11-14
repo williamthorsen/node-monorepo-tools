@@ -1,7 +1,7 @@
 import { measureWidth } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { reportPrepare } from '../reportPrepare.ts';
+import { reportPrepare } from '../prepare/reportPrepare.ts';
 import { makeReleasedWorkspace } from '../test-utils/reportPrepareFixtures.ts';
 import type {
   PrepareResult,

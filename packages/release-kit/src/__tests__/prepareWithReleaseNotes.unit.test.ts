@@ -2,8 +2,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { planReleaseNotesPreviews } from '../planReleaseNotesPreviews.ts';
-import { applyReleasePlan } from '../releasePlan.ts';
+import { applyReleasePlan } from '../prepare/release-plan.ts';
+import { planReleaseNotesPreviews } from '../release-notes/planReleaseNotesPreviews.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 /** Minimal changelog.json fixture with a public feature section and a dev-only internal section. */

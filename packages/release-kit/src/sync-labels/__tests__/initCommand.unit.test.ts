@@ -20,17 +20,17 @@ vi.mock(import('node:fs'), () => ({
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
-vi.mock(import('../../discoverWorkspaces.ts'), async (importOriginal) => ({
+vi.mock(import('../../targets/discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock(import('../../loadConfig.ts'), async (importOriginal) => {
+vi.mock(import('../../config/loadConfig.ts'), async (importOriginal) => {
   const originalModule = await importOriginal();
   return { ...originalModule, loadConfig: mockLoadConfig };
 });
 
-vi.mock(import('../../validateConfig.ts'), () => ({
+vi.mock(import('../../config/validateConfig.ts'), () => ({
   validateConfig: mockValidateConfig,
 }));
 
@@ -52,7 +52,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => ({
   writeFileWithCheck: mockWriteFileWithCheck,
 }));
 
-import { CONFIG_FILE_PATH } from '../../loadConfig.ts';
+import { CONFIG_FILE_PATH } from '../../config/loadConfig.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../../test-utils/workspaceResolutions.ts';
 import { syncLabelsInitCommand } from '../initCommand.ts';
 import { buildScopeLabels } from '../templates.ts';

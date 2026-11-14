@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import type { Git } from '../git.ts';
+import type { Git } from '../clients/git/git.ts';
 
 /** A `Git` whose every method is a spy. */
 export type FakeGit = { [Method in keyof Git]: ReturnType<typeof vi.fn<Git[Method]>> };

@@ -13,7 +13,7 @@ import {
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { readSyncLabelsWorkflowTemplate } from '../sync-labels/templates.ts';
-import { type RepoType } from './detectRepoType.ts';
+import type { RepoType } from './detectRepoType.ts';
 import { resolveEligibleRepoType } from './eligibility.ts';
 import { formatPrivateWorkflowSkip, hasPublishablePackage } from './hasPublishablePackage.ts';
 import {

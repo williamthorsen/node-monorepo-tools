@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { matchesTagPrefix } from '../matchesTagPrefix.ts';
+import { matchesTagPrefix } from '../tags/matchesTagPrefix.ts';
 
 describe(matchesTagPrefix, () => {
   it.each(['v1.0.0', 'v0.10.2', 'v1.0.0-beta.1', 'v1.0.0+build.5', 'v1.0.0-rc.1+build.5'])(

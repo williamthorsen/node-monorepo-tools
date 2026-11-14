@@ -2,7 +2,7 @@ import { UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { assertTarballsComplete } from '../assertTarballsComplete.ts';
+import { assertTarballsComplete } from '../publish/assertTarballsComplete.ts';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 
@@ -10,7 +10,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../detectPackageManager.ts'), () => ({
+vi.mock(import('../publish/detectPackageManager.ts'), () => ({
   detectPackageManager: () => 'pnpm',
 }));
 

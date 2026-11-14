@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import type { ReleaseWindow } from '../enumerateReleaseWindows.ts';
+import type { ReleaseWindow } from '../changelog/enumerateReleaseWindows.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
 import {
   buildMergeMessage,
   makeConfig,
@@ -19,7 +19,7 @@ const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
 
 // Mock the enumerator so that the test exercises buildChangelogEntries' transformation logic
 // without reading git history. `buildChangelogEntries.tool.test.ts` covers the real reader.
-vi.mock(import('../enumerateReleaseWindows.ts'), () => ({
+vi.mock(import('../changelog/enumerateReleaseWindows.ts'), () => ({
   enumerateReleaseWindows: mockEnumerateReleaseWindows,
 }));
 
@@ -27,8 +27,8 @@ vi.mock(import('node:fs'), () => ({
   writeFileSync: mockWriteFileSync,
 }));
 
-import { readReleaseHistory, type ReleaseHistory } from '../buildChangelogEntries.ts';
-import { decideTargetRelease } from '../prepareTarget.ts';
+import { readReleaseHistory, type ReleaseHistory } from '../changelog/buildChangelogEntries.ts';
+import { decideTargetRelease } from '../prepare/prepare-target.ts';
 import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(readReleaseHistory, () => {

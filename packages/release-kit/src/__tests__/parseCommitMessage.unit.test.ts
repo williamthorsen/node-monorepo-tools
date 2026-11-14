@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseCommitMessage } from '../parseCommitMessage.ts';
+import { parseCommitMessage } from '../commits/parseCommitMessage.ts';
 import { workTypes } from '../test-utils/workTypes.ts';
 import type { WorkTypeConfig } from '../types.ts';
 

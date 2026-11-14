@@ -5,7 +5,7 @@ import { captureError, createTempTree } from '@williamthorsen/toolbelt.testing/c
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
-import { readJsonFile } from '../readJsonFile.ts';
+import { readJsonFile } from '../portable/readJsonFile.ts';
 
 describe(readJsonFile, () => {
   it('returns the parsed content of a JSON file', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractMigration } from '../extractMigration.ts';
+import { extractMigration } from '../commits/extractMigration.ts';
 
 describe(extractMigration, () => {
   it('returns undefined when the body is absent', () => {

@@ -15,28 +15,28 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../buildChangelogEntries.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/buildChangelogEntries.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   readReleaseHistory: mockReadReleaseHistory,
 }));
 
-vi.mock(import('../assertTaggedBaseline.ts'), async (importOriginal) => ({
+vi.mock(import('../prepare/assertTaggedBaseline.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   findUntaggedBaseline: mockFindUntaggedBaseline,
 }));
 
-vi.mock(import('../changelogJsonFile.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/changelog-json-file.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   renderChangelogJson: (entries: unknown[]): string => `json:${entries.length}`,
   mergeChangelogEntriesWithDisk: mockMergeChangelogEntriesWithDisk,
 }));
 
-vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
+vi.mock(import('../changelog/changelog-archive.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   listArchiveFiles: mockListArchiveFiles,
 }));
 
-vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
+vi.mock(import('../changelog/renderChangelogMarkdown.ts'), () => ({
   // Archives the oldest entry under major 0 whenever `keptVersionCount` is set.
   renderChangelogFiles: (entries: unknown[], options?: { keptVersionCount?: number }) => ({
     main: `md:${entries.length}`,
@@ -44,13 +44,13 @@ vi.mock(import('../renderChangelogMarkdown.ts'), () => ({
   }),
 }));
 
-vi.mock(import('../planReleaseNotesPreviews.ts'), () => ({
+vi.mock(import('../release-notes/planReleaseNotesPreviews.ts'), () => ({
   planReleaseNotesPreviews: mockPlanReleaseNotesPreviews,
 }));
 
-import type { ReleaseHistory } from '../buildChangelogEntries.ts';
-import type { OverrideContext } from '../changelogOverrides.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
+import type { ReleaseHistory } from '../changelog/buildChangelogEntries.ts';
+import type { OverrideContext } from '../changelog/changelog-overrides.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
 import {
   buildSkippedTargetResult,
   decideTargetRelease,
@@ -58,7 +58,7 @@ import {
   type PlanTargetReleaseArgs,
   readTargetHistory,
   type TargetPrepareSettings,
-} from '../prepareTarget.ts';
+} from '../prepare/prepare-target.ts';
 import { makeFakeGit } from '../test-utils/fakeGit.ts';
 import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import type { ChangelogEntry, CompositeTarget, PackageTarget } from '../types.ts';

@@ -10,7 +10,7 @@ vi.mock(import('node:fs'), () => ({
   unlinkSync: mockUnlinkSync,
 }));
 
-import { createTags } from '../createTags.ts';
+import { createTags } from '../tags/createTags.ts';
 import { type FakeGit, makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(createTags, () => {

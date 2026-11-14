@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { parseCommitMessage, type PolicyViolationHandler } from '../parseCommitMessage.ts';
+import { parseCommitMessage, type PolicyViolationHandler } from '../commits/parseCommitMessage.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
 import type { Commit } from '../types.ts';
 
 describe('parseCommitMessage `!` policy enforcement', () => {

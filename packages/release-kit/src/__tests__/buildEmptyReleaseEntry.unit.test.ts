@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
+import { buildEmptyReleaseEntry } from '../changelog/buildEmptyReleaseEntry.ts';
 
 describe(buildEmptyReleaseEntry, () => {
   it('produces a ChangelogEntry with a single Notes section', () => {

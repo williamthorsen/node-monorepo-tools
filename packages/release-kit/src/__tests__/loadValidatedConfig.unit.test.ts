@@ -4,19 +4,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoadConfig = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
+vi.mock(import('../config/loadConfig.ts'), async (importOriginal) => {
   const originalModule = await importOriginal();
   return { ...originalModule, loadConfig: mockLoadConfig };
 });
 
-import { CONFIG_FILE_PATH } from '../loadConfig.ts';
+import { CONFIG_FILE_PATH } from '../config/loadConfig.ts';
 import {
   ConfigProblemError,
   loadUsableConfig,
   loadValidatedConfig,
   reportConfigProblem,
   reportConfigWarnings,
-} from '../loadValidatedConfig.ts';
+} from '../config/loadValidatedConfig.ts';
 
 describe(loadValidatedConfig, () => {
   afterEach(() => {

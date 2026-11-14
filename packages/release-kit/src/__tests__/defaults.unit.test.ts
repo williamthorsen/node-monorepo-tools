@@ -1,7 +1,7 @@
 import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 import { describe, expect, it } from 'vitest';
 
-import { composeHeader, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { composeHeader, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
 
 describe('DEFAULT_WORK_TYPES derivation from CANONICAL_TAXONOMY', () => {
   it('contains every entry from CANONICAL_TAXONOMY under its canonical key', () => {

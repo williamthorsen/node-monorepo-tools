@@ -6,7 +6,7 @@ const mockPreview = vi.hoisted(() => vi.fn());
 const mockDetectRepoType = vi.hoisted(() => vi.fn());
 const mockLoadValidatedConfig = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../previewTagPrefixes.ts'), () => ({
+vi.mock(import('../tags/previewTagPrefixes.ts'), () => ({
   previewTagPrefixes: mockPreview,
 }));
 
@@ -16,13 +16,13 @@ vi.mock(import('../init/detectRepoType.ts'), () => ({
 
 // Partial, so that `reportConfigProblem` stays the real renderer: The stderr form that a caller emits
 // on an unusable config is the subject of the assertions below.
-vi.mock(import('../loadValidatedConfig.ts'), async (importOriginal) => ({
+vi.mock(import('../config/loadValidatedConfig.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   loadValidatedConfig: mockLoadValidatedConfig,
 }));
 
-import type { TagPrefixPreview, TagPrefixPreviewRow } from '../previewTagPrefixes.ts';
-import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
+import type { TagPrefixPreview, TagPrefixPreviewRow } from '../tags/previewTagPrefixes.ts';
+import { showTagPrefixesCommand } from '../tags/showTagPrefixesCommand.ts';
 
 const PLAIN_STYLES: StreamStyles = { stderr: 'plain', stdout: 'plain' };
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };

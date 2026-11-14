@@ -3,13 +3,13 @@ import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolb
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { enumerateReleaseWindows } from '../enumerateReleaseWindows.ts';
-import type { GenerateChangelogOptions } from '../generateChangelogs.ts';
-import { realGit } from '../git.ts';
+import { enumerateReleaseWindows } from '../changelog/enumerateReleaseWindows.ts';
+import { formatValidateOverridesResult, validateOverridesCommand } from '../changelog/validateOverridesCommand.ts';
+import { realGit } from '../clients/git/git.ts';
+import type { GenerateChangelogOptions } from '../tags/getAllTagPrefixes.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 import type { ChangelogEntry } from '../types.ts';
-import { formatValidateOverridesResult, validateOverridesCommand } from '../validateOverridesCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
@@ -17,7 +17,7 @@ const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 // `validateOverridesCommand → buildChangelogEntries → validateAllChangelogOverrides` pipeline
 // without reading git history. Other tests in this file inject `buildEntries` directly,
 // so they never reach the stubbed call site.
-vi.mock(import('../enumerateReleaseWindows.ts'), () => ({
+vi.mock(import('../changelog/enumerateReleaseWindows.ts'), () => ({
   enumerateReleaseWindows: vi.fn(() => []),
 }));
 

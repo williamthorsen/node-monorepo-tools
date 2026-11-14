@@ -6,11 +6,11 @@ import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolb
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
-import { realGit } from '../git.ts';
-import { mergeMonorepoConfig } from '../mergeConfig.ts';
-import { prepareReleaseTargets } from '../prepareReleaseTargets.ts';
-import { applyReleasePlan } from '../releasePlan.ts';
-import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
+import { realGit } from '../clients/git/git.ts';
+import { mergeMonorepoConfig } from '../config/merge-config.ts';
+import { prepareReleaseTargets } from '../prepare/prepareReleaseTargets.ts';
+import { applyReleasePlan } from '../prepare/release-plan.ts';
+import { projectMonorepoConfig } from '../targets/resolveReleaseTargets.ts';
 import { selectCompositeResult } from '../test-utils/prepareResults.ts';
 
 /** The root changelog, hand-written before release-kit was adopted. */

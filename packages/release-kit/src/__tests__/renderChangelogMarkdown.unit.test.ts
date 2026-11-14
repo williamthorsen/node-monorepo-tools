@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderChangelogFiles, renderChangelogMarkdown } from '../renderChangelogMarkdown.ts';
+import { renderChangelogFiles, renderChangelogMarkdown } from '../changelog/renderChangelogMarkdown.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 describe(renderChangelogMarkdown, () => {

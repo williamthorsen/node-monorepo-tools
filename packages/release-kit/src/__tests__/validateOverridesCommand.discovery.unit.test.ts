@@ -1,7 +1,10 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { validateOverridesCommand, type ValidateOverridesCommandDependencies } from '../validateOverridesCommand.ts';
+import {
+  validateOverridesCommand,
+  type ValidateOverridesCommandDependencies,
+} from '../changelog/validateOverridesCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 

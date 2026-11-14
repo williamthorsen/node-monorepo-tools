@@ -7,8 +7,8 @@ vi.mock(import('node:child_process'), () => ({
   execFileSync: mockExecFileSync,
 }));
 
-import { publishPackage } from '../publish.ts';
-import type { ResolvedTag } from '../resolveReleaseTags.ts';
+import { publishPackage } from '../publish/publishPackage.ts';
+import type { ResolvedTag } from '../tags/resolveReleaseTags.ts';
 
 describe(publishPackage, () => {
   afterEach(() => {

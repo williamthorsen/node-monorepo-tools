@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { type ChangelogClassification, classifyChangelogCommit } from '../classifyChangelogCommit.ts';
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import type { PolicyViolationSurface } from '../parseCommitMessage.ts';
+import { type ChangelogClassification, classifyChangelogCommit } from '../changelog/classifyChangelogCommit.ts';
+import type { PolicyViolationSurface } from '../commits/parseCommitMessage.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
 import type { WorkTypeConfig } from '../types.ts';
 
 /** Types whose commits appear in a changelog, each paired with the header that its type declares. */

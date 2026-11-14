@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseSubject } from '../parseCommitMessage.ts';
+import { parseSubject } from '../commits/parseCommitMessage.ts';
 import { workTypes } from '../test-utils/workTypes.ts';
 
 describe(parseSubject, () => {

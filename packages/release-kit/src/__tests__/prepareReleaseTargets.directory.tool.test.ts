@@ -4,17 +4,17 @@ import { captureStdio, createTempTree, pointCwdAt, type TempTree } from '@willia
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ReleaseKitConfig } from '../configSchema.ts';
-import { realGit } from '../git.ts';
-import { mergeMonorepoConfig } from '../mergeConfig.ts';
-import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
-import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
-import { reportPrepare } from '../reportPrepare.ts';
-import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
+import { realGit } from '../clients/git/git.ts';
+import type { ReleaseKitConfig } from '../config/config-schema.ts';
+import { mergeMonorepoConfig } from '../config/merge-config.ts';
+import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepare/prepareReleaseTargets.ts';
+import { applyReleasePlan, type ReleasePlan } from '../prepare/release-plan.ts';
+import { reportPrepare } from '../prepare/reportPrepare.ts';
+import { projectMonorepoConfig } from '../targets/resolveReleaseTargets.ts';
 import type { TargetPrepareResult } from '../types.ts';
 
 // The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
-vi.mock(import('../npmRegistry.ts'), () => ({
+vi.mock(import('../clients/npm/npm-registry.ts'), () => ({
   lookUpNpmPackage: () => ({ status: 'published' }),
 }));
 

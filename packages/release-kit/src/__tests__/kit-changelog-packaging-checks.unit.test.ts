@@ -9,7 +9,7 @@ import {
   packagesShipChangelogJson,
   resolveChangelogJsonOutputPath,
 } from '../../.readyup/lib/changelog-checks.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
 import { PNPM_WORKSPACE, scaffoldRepo } from '../test-utils/scaffoldRepo.ts';
 
 const CONFIG_PATH = '.config/release-kit.config.ts';

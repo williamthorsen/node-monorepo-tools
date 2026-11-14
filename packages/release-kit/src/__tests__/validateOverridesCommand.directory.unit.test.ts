@@ -3,9 +3,9 @@ import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolb
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { GenerateChangelogOptions } from '../generateChangelogs.ts';
+import { validateOverridesCommand } from '../changelog/validateOverridesCommand.ts';
+import type { GenerateChangelogOptions } from '../tags/getAllTagPrefixes.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
-import { validateOverridesCommand } from '../validateOverridesCommand.ts';
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 

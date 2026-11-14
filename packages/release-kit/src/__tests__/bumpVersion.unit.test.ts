@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import { bumpVersion } from '../bumpVersion.ts';
+import { bumpVersion } from '../prepare/bumpVersion.ts';
 
 describe(bumpVersion, () => {
   it('bumps the patch version', () => {

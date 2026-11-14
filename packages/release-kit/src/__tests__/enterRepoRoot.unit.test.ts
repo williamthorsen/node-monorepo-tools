@@ -3,7 +3,7 @@ import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/can
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
-import { enterRepoRoot } from '../enterRepoRoot.ts';
+import { enterRepoRoot } from '../cli/enterRepoRoot.ts';
 import { PNPM_WORKSPACE } from '../test-utils/scaffoldRepo.ts';
 
 const MONOREPO_ENTRIES = {

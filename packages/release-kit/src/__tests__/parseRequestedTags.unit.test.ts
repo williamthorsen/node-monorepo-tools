@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseRequestedTags } from '../parseRequestedTags.ts';
+import { parseRequestedTags } from '../tags/parseRequestedTags.ts';
 
 describe(parseRequestedTags, () => {
   it('returns undefined when flag value is undefined', () => {

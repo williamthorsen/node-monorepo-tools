@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildReleaseSummary } from '../buildReleaseSummary.ts';
+import { buildReleaseSummary } from '../prepare/buildReleaseSummary.ts';
 import type { PrepareResult } from '../types.ts';
 
 describe(buildReleaseSummary, () => {

@@ -5,8 +5,8 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { assertTaggedBaseline, type BaselineTarget, findUntaggedBaseline } from '../assertTaggedBaseline.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../config/defaults.ts';
+import { assertTaggedBaseline, type BaselineTarget, findUntaggedBaseline } from '../prepare/assertTaggedBaseline.ts';
 
 const config = { changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } };
 

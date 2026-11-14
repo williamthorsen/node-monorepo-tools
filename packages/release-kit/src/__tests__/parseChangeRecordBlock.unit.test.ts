@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseChangeRecordBlock, stripChangeRecordBlocks } from '../parseChangeRecordBlock.ts';
+import { parseChangeRecordBlock, stripChangeRecordBlocks } from '../commits/parseChangeRecordBlock.ts';
 
 describe(parseChangeRecordBlock, () => {
   it('reads a message without a block as absent', () => {

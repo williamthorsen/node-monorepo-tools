@@ -9,8 +9,8 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { mergeMonorepoConfig, mergeSinglePackageConfig } from '../mergeConfig.ts';
+import { DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
+import { mergeMonorepoConfig, mergeSinglePackageConfig } from '../config/merge-config.ts';
 
 describe(mergeMonorepoConfig, () => {
   const discoveredPaths = ['packages/arrays', 'packages/strings'];

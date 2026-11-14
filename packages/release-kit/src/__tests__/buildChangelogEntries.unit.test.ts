@@ -2,8 +2,8 @@ import { UserError } from '@williamthorsen/nmr-core';
 import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
-import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
+import { matchesAudience, renderReleaseNotesSingle } from '../release-notes/render-release-notes.ts';
 import { makeCommit, makeConfig, makeFakeHash, makeWindow, OPTIONS } from '../test-utils/changelogCommits.ts';
 
 const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
@@ -12,7 +12,7 @@ const { mockEnumerateReleaseWindows, mockWriteFileSync } = await vi.hoisted(
 
 // Mock the enumerator so that the test exercises buildChangelogEntries' transformation logic
 // without reading git history. `buildChangelogEntries.tool.test.ts` covers the real reader.
-vi.mock(import('../enumerateReleaseWindows.ts'), () => ({
+vi.mock(import('../changelog/enumerateReleaseWindows.ts'), () => ({
   enumerateReleaseWindows: mockEnumerateReleaseWindows,
 }));
 
@@ -25,8 +25,8 @@ import {
   convertToChangelogEntries,
   convertToReleaseEntries,
   readReleaseHistory,
-} from '../buildChangelogEntries.ts';
-import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
+} from '../changelog/buildChangelogEntries.ts';
+import { buildEmptyReleaseEntry } from '../changelog/buildEmptyReleaseEntry.ts';
 import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(buildChangelogEntries, () => {

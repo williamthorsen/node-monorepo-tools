@@ -2,19 +2,19 @@ import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it, vi } from 'vitest';
 
-import { enterRepoRoot } from '../enterRepoRoot.ts';
-import { prepareCommand } from '../prepareCommand.ts';
+import { enterRepoRoot } from '../cli/enterRepoRoot.ts';
+import { prepareCommand } from '../prepare/prepareCommand.ts';
 import { makePrepareOptions } from '../test-utils/commandOptions.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 import { PNPM_WORKSPACE } from '../test-utils/scaffoldRepo.ts';
 
 // The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
-vi.mock(import('../assertTarballsComplete.ts'), () => ({
+vi.mock(import('../publish/assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: vi.fn(),
 }));
 
-vi.mock(import('../npmRegistry.ts'), () => ({
+vi.mock(import('../clients/npm/npm-registry.ts'), () => ({
   lookUpNpmPackage: () => ({ status: 'published' }),
 }));
 

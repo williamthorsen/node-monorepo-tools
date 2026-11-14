@@ -17,28 +17,28 @@ const {
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
-vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+vi.mock(import('../targets/discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock(import('../resolveReleaseTags.ts'), () => ({
+vi.mock(import('../tags/resolveReleaseTags.ts'), () => ({
   resolveReleaseTags: mockResolveReleaseTags,
 }));
 
-vi.mock(import('../createGithubRelease.ts'), () => ({
+vi.mock(import('../release-notes/createGithubRelease.ts'), () => ({
   createGithubReleases: mockCreateGithubReleases,
 }));
 
-vi.mock(import('../deriveReleaseNotesConfig.ts'), () => ({
+vi.mock(import('../config/deriveReleaseNotesConfig.ts'), () => ({
   deriveReleaseNotesConfig: mockDeriveReleaseNotesConfig,
 }));
 
-vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
+vi.mock(import('../config/deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
-vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
+vi.mock(import('../config/loadConfig.ts'), async (importOriginal) => {
   const originalModule = await importOriginal();
   return {
     ...originalModule,
@@ -47,8 +47,8 @@ vi.mock(import('../loadConfig.ts'), async (importOriginal) => {
   };
 });
 
-import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
-import { ConfigProblemError } from '../loadValidatedConfig.ts';
+import { ConfigProblemError } from '../config/loadValidatedConfig.ts';
+import { createGithubReleaseCommand } from '../release-notes/createGithubReleaseCommand.ts';
 import { makeCreateGithubReleaseOptions } from '../test-utils/commandOptions.ts';
 import { makeResolvedPackages } from '../test-utils/workspaceResolutions.ts';
 

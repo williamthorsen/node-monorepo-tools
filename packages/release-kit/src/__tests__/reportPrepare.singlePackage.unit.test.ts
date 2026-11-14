@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { bold, dim } from '../format.ts';
-import { reportPrepare } from '../reportPrepare.ts';
+import { bold, dim } from '../cli/format.ts';
+import { reportPrepare } from '../prepare/reportPrepare.ts';
 import { makeReleasedWorkspace } from '../test-utils/reportPrepareFixtures.ts';
 import type { PrepareResult } from '../types.ts';
 

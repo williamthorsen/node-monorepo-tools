@@ -5,7 +5,7 @@ import { createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolb
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { applyChangelogOverrides } from '../applyChangelogOverrides.ts';
+import { applyChangelogOverrides } from '../changelog/applyChangelogOverrides.ts';
 import {
   applyWorkspaceOverrides,
   composeOverrides,
@@ -13,7 +13,7 @@ import {
   loadOverridesForScopes,
   type OverrideContext,
   resolveOverridePath,
-} from '../changelogOverrides.ts';
+} from '../changelog/changelog-overrides.ts';
 import type { ChangelogEntry, ChangelogOverride } from '../types.ts';
 
 describe(resolveOverridePath, () => {

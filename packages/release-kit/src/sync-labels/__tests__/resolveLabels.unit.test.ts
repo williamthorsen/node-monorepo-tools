@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { RepoLabelsConfig } from '../../configSchema.ts';
+import type { RepoLabelsConfig } from '../../config/config-schema.ts';
 import type { LabelDefinition } from '../types.ts';
 
 const mockLoadPreset = vi.hoisted(() => vi.fn());

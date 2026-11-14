@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { bold, dim, renderSectionHeader } from '../format.ts';
-import { reportPrepare } from '../reportPrepare.ts';
+import { bold, dim, renderSectionHeader } from '../cli/format.ts';
+import { reportPrepare } from '../prepare/reportPrepare.ts';
 import type { PrepareResult } from '../types.ts';
 
 describe(reportPrepare, () => {

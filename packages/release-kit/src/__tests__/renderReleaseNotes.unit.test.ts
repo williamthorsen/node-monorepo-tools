@@ -1,7 +1,7 @@
 import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 import { describe, expect, it } from 'vitest';
 
-import { matchesAudience, renderReleaseNotesSingle } from '../renderReleaseNotes.ts';
+import { matchesAudience, renderReleaseNotesSingle } from '../release-notes/render-release-notes.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const sampleEntry: ChangelogEntry = {

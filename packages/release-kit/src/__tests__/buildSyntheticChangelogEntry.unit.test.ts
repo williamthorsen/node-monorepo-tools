@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSyntheticChangelogEntry } from '../buildSyntheticChangelogEntry.ts';
+import { buildSyntheticChangelogEntry } from '../changelog/buildSyntheticChangelogEntry.ts';
 
 describe(buildSyntheticChangelogEntry, () => {
   it('produces a ChangelogEntry with one dev-audience section under the given title', () => {

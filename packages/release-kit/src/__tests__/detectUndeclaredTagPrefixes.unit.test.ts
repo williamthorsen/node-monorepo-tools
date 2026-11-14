@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { detectUndeclaredTagPrefixes } from '../detectUndeclaredTagPrefixes.ts';
-import type { Git } from '../git.ts';
+import type { Git } from '../clients/git/git.ts';
+import { detectUndeclaredTagPrefixes } from '../tags/detectUndeclaredTagPrefixes.ts';
 import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(detectUndeclaredTagPrefixes, () => {

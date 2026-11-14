@@ -1,8 +1,8 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { describe, expect, it } from 'vitest';
 
-import type { ReleaseKitConfig } from '../configSchema.ts';
-import { resolveReleaseDeclaration } from '../resolveReleaseDeclaration.ts';
+import type { ReleaseKitConfig } from '../config/config-schema.ts';
+import { resolveReleaseDeclaration } from '../config/resolveReleaseDeclaration.ts';
 import type { WorkspaceConfig } from '../types.ts';
 
 const WORKSPACES = [makeWorkspace('core'), makeWorkspace('cli')];

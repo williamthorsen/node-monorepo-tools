@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { packsPath } from '../packsPath.ts';
+import { packsPath } from '../publish/packsPath.ts';
 
 const CHANGELOG = 'CHANGELOG.md';
 const CHANGELOG_JSON = '.meta/changelog.json';

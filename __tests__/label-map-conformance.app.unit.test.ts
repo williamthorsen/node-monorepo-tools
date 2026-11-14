@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { assert, describe, expect, it } from 'vitest';
 
 import { isRecord } from '../packages/nmr-core/src/portable/isRecord.ts';
-import { isUnknownArray } from '../packages/release-kit/src/typeGuards.ts';
+import { isUnknownArray } from '../packages/release-kit/src/portable/isUnknownArray.ts';
 
 const schemaPath = join(import.meta.dirname, '..', 'packages', 'change-grammar', 'schemas', 'label-map.json');
 const labelMapPath = join(import.meta.dirname, '..', '.meta', 'label-map.json');

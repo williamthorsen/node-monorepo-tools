@@ -5,8 +5,8 @@ import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
-import { deriveDirectoryConfig } from '../deriveDirectoryConfig.ts';
-import type { DeclaredDirectory } from '../resolveReleaseDeclaration.ts';
+import { deriveDirectoryConfig } from '../config/deriveDirectoryConfig.ts';
+import type { DeclaredDirectory } from '../config/resolveReleaseDeclaration.ts';
 
 const VERSION_JSON = JSON.stringify({ version: '1.2.0' });
 

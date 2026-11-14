@@ -10,8 +10,10 @@ vi.mock(import('node:child_process'), () => ({
   execFileSync: vi.fn(),
 }));
 
-vi.mock(import('../renderReleaseNotes.ts'), async () => {
-  const actualModule = await vi.importActual<typeof import('../renderReleaseNotes.ts')>('../renderReleaseNotes.ts');
+vi.mock(import('../release-notes/render-release-notes.ts'), async () => {
+  const actualModule = await vi.importActual<typeof import('../release-notes/render-release-notes.ts')>(
+    '../release-notes/render-release-notes.ts',
+  );
   return {
     ...actualModule,
     renderReleaseNotesSingle: vi.fn(actualModule.renderReleaseNotesSingle),
@@ -19,8 +21,8 @@ vi.mock(import('../renderReleaseNotes.ts'), async () => {
 });
 
 const { execFileSync } = await import('node:child_process');
-const { renderReleaseNotesSingle } = await import('../renderReleaseNotes.ts');
-const { createGithubRelease, createGithubReleases } = await import('../createGithubRelease.ts');
+const { renderReleaseNotesSingle } = await import('../release-notes/render-release-notes.ts');
+const { createGithubRelease, createGithubReleases } = await import('../release-notes/createGithubRelease.ts');
 
 const mockedExecFileSync = vi.mocked(execFileSync);
 const mockedRenderReleaseNotesSingle = vi.mocked(renderReleaseNotesSingle);

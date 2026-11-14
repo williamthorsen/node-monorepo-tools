@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { stripGroupDecorations } from '../buildChangelogEntries.ts';
-import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { stripGroupDecorations } from '../changelog/buildChangelogEntries.ts';
+import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
 
 /**
  * Bare section names intended for all audiences (not dev-only).

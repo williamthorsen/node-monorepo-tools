@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isPublishableManifest } from '../isPublishableManifest.ts';
+import { isPublishableManifest } from '../targets/isPublishableManifest.ts';
 
 describe(isPublishableManifest, () => {
   it('returns true when `private` is absent', () => {

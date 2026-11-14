@@ -7,7 +7,7 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-import { deriveWorkspaceConfig } from '../deriveWorkspaceConfig.ts';
+import { deriveWorkspaceConfig } from '../config/deriveWorkspaceConfig.ts';
 
 describe(deriveWorkspaceConfig, () => {
   afterEach(() => {

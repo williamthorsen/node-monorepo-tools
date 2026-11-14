@@ -1,0 +1,231 @@
+import {
+  formatErrorLine,
+  formatStatusLine,
+  isAnticipatedFailure,
+  type OutputStyle,
+  type StreamStyles,
+} from '@williamthorsen/nmr-core';
+import { describeError } from '@williamthorsen/toolbelt.errors';
+
+import { BIN } from '../bin.ts';
+import type { ReleaseKitConfig } from '../config/config-schema.ts';
+import {
+  type ConfigProblem,
+  loadValidatedConfig,
+  type LoadValidatedConfigResult,
+} from '../config/loadValidatedConfig.ts';
+import { describeHistoryWindow } from '../prepare/prepare-target.ts';
+import type { GenerateChangelogOptions } from '../tags/getAllTagPrefixes.ts';
+import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from '../targets/discoverWorkspaces.ts';
+import {
+  isSinglePackageTargets,
+  type ResolvedReleaseTargets,
+  resolveReleaseTargets,
+} from '../targets/resolveReleaseTargets.ts';
+import type { ChangelogEntry } from '../types.ts';
+import { buildChangelogEntries, type ReleaseHistoryConfig } from './buildChangelogEntries.ts';
+import { resolveOverridePath } from './changelog-overrides.ts';
+import {
+  type OverrideTargetItem,
+  validateAllChangelogOverrides,
+  type ValidateAllChangelogOverridesInputs,
+  type ValidateAllChangelogOverridesResult,
+} from './validateAllChangelogOverrides.ts';
+
+/**
+ * Synthetic unreleased-tag label passed to `buildChangelogEntries` during validation. The label names the unreleased
+ * entry alone; the tag prefixes and paths decide which commits the windows contain. `validate` persists nothing, so
+ * any non-empty string works; a recognizably synthetic literal aids debugging if the value ever appears in output.
+ */
+const SYNTHETIC_VALIDATE_TAG = 'validate-only';
+
+/**
+ * Result of {@link validateOverridesCommand}: a tiered exit code paired with a human-readable message.
+ *
+ * Exit codes:
+ * - `0`: clean, with no errors and no warnings.
+ * - `1`: only stale-key warnings.
+ * - `2`: schema or parse errors, or keys that fail to match (an ambiguous prefix, overlapping keys, or a bare key
+ *   that sets fields on several items). Errors take precedence when both classes exist.
+ */
+export interface ValidateOverridesCommandResult {
+  exitCode: 0 | 1 | 2;
+  message: string;
+}
+
+/** Injection seams for unit testing. Production callers leave defaults; tests substitute deterministic fakes. */
+export interface ValidateOverridesCommandDependencies {
+  discoverWorkspaces?: () => WorkspaceDiscovery;
+  loadValidatedConfig?: () => Promise<LoadValidatedConfigResult>;
+  /**
+   * Builds changelog entries for a scope. Defaults to `buildChangelogEntries`, which `release-kit prepare` also
+   * uses, so that `validate` sees the same items as `prepare`.
+   */
+  buildEntries?: (config: ReleaseHistoryConfig, options: GenerateChangelogOptions) => ChangelogEntry[];
+  /** Validator; defaults to `validateAllChangelogOverrides`. Tests use it to feed specific results to the formatter. */
+  validate?: (inputs: ValidateAllChangelogOverridesInputs) => ValidateAllChangelogOverridesResult;
+}
+
+/**
+ * Validates every changelog override file across the project and per-workspace scopes, and
+ * returns a tiered exit-code-plus-message result. Performs workspace discovery, config load,
+ * and per-scope item collection, then delegates the actual validation to
+ * {@link validateAllChangelogOverrides}.
+ *
+ * Single-package and monorepo modes are handled uniformly: Single-package collapses to one
+ * project scope; monorepo expands to a project scope plus one scope per workspace. A workspace that doesn't resolve
+ * to any package is neither, and the command returns exit code `2` for it.
+ *
+ * `configPath` names the config file to read, relative to the working directory; it defaults to
+ * `CONFIG_FILE_PATH`.
+ */
+export async function validateOverridesCommand(
+  styles: StreamStyles,
+  configPath?: string,
+  dependencies: ValidateOverridesCommandDependencies = {},
+): Promise<ValidateOverridesCommandResult> {
+  const discover = dependencies.discoverWorkspaces ?? discoverWorkspaces;
+  const load = dependencies.loadValidatedConfig ?? (() => loadValidatedConfig(configPath));
+  const buildEntries = dependencies.buildEntries ?? buildEntriesByDefault;
+  const validate = dependencies.validate ?? validateAllChangelogOverrides;
+
+  const configResult = await load();
+  if (configResult.status === 'invalid') {
+    return { exitCode: 2, message: formatConfigProblem(configResult.problem) };
+  }
+  const userConfig: ReleaseKitConfig | undefined = configResult.status === 'ok' ? configResult.config : undefined;
+
+  let workspace: WorkspaceDiscovery;
+  try {
+    workspace = discover();
+  } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
+    return { exitCode: 2, message: formatErrorLine(BIN, `Failed to discover workspaces: ${describeError(error)}`) };
+  }
+
+  if (workspace.kind === 'empty') {
+    return {
+      exitCode: 2,
+      message: formatErrorLine(BIN, `No workspace package to validate. ${describeEmptyWorkspace(workspace)}`),
+    };
+  }
+
+  let inputs: ValidateAllChangelogOverridesInputs;
+  try {
+    inputs = buildValidationInputs(resolveReleaseTargets(userConfig, workspace), buildEntries);
+  } catch (error: unknown) {
+    if (!isAnticipatedFailure(error)) {
+      throw error;
+    }
+    return { exitCode: 2, message: formatErrorLine(BIN, `Failed to resolve overrides scope: ${describeError(error)}`) };
+  }
+
+  const result = validate(inputs);
+  // A message has glyphs only when its exit code is non-zero, and the entry point writes that one to stderr.
+  return formatValidateOverridesResult(result, styles.stderr);
+}
+
+/** Returns the tiered exit code and rendered message for an aggregated validation result. */
+export function formatValidateOverridesResult(
+  result: ValidateAllChangelogOverridesResult,
+  style: OutputStyle,
+): ValidateOverridesCommandResult {
+  const { errors, warnings } = result;
+  if (errors.length === 0 && warnings.length === 0) {
+    return { exitCode: 0, message: 'All override files are valid (no errors, no stale keys).' };
+  }
+
+  const exitCode = errors.length > 0 ? 2 : 1;
+  const summary = formatSummaryLine(errors.length, warnings.length);
+  const errorLines = errors.map((message) => `  ${formatStatusLine(style, 'failed', message)}`);
+  const warningLines = warnings.map((message) => `  ${formatStatusLine(style, 'warning', message)}`);
+  const message = [summary, '', ...errorLines, ...warningLines].join('\n');
+  return { exitCode, message };
+}
+
+// region | Helpers
+
+/** Builds changelog entries through `buildChangelogEntries` under a throwaway tag label. */
+function buildEntriesByDefault(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ChangelogEntry[] {
+  return buildChangelogEntries(config, SYNTHETIC_VALIDATE_TAG, options).entries;
+}
+
+/**
+ * Builds the validation inputs from the release targets, so that each scope's items are those that `prepare` reads for
+ * its target. A workspace target, and a directory target other than the repo root, is a workspace scope, under its
+ * own override file. The project scope reads the root override file, with the items of the composite target, of the
+ * repo-root directory target, or of the single-package root; a monorepo that has none of them validates the root
+ * file without any items of its own.
+ */
+function buildValidationInputs(
+  { targets, settings }: ResolvedReleaseTargets,
+  buildEntries: NonNullable<ValidateOverridesCommandDependencies['buildEntries']>,
+): ValidateAllChangelogOverridesInputs {
+  const projectScope: { filePath: string; items?: readonly OverrideTargetItem[] } = {
+    filePath: resolveOverridePath('.'),
+  };
+  const workspaces: Array<{ filePath: string; items: readonly OverrideTargetItem[] }> = [];
+
+  for (const target of targets) {
+    const items = flattenEntriesToItems(buildEntries(settings, describeHistoryWindow(target)));
+    if (target.kind === 'package' && target.isWorkspace) {
+      workspaces.push({ filePath: resolveOverridePath(target.packagePath), items });
+    } else if (target.kind === 'directory' && target.directoryPath !== '.') {
+      workspaces.push({ filePath: resolveOverridePath(target.directoryPath), items });
+    } else {
+      projectScope.items = items;
+    }
+  }
+
+  return isSinglePackageTargets(targets) ? { project: projectScope } : { project: projectScope, workspaces };
+}
+
+/**
+ * Projects every release's items down to a flat list of hashes and entry positions. Synthetic propagation entries
+ * (no `hash`) contribute nothing, because they cannot match an override key.
+ */
+function flattenEntriesToItems(entries: readonly ChangelogEntry[]): OverrideTargetItem[] {
+  const items: OverrideTargetItem[] = [];
+  for (const entry of entries) {
+    for (const section of entry.sections) {
+      for (const { hash, entry: position } of section.items) {
+        if (hash === undefined) continue;
+        items.push(position === undefined ? { hash } : { hash, entry: position });
+      }
+    }
+  }
+  return items;
+}
+
+/**
+ * Renders an unusable config as this command's exit-2 message.
+ *
+ * A load failure is a failed operation and takes the error prefix; an invalid config is a verdict and is
+ * returned without it. The kind picks the message shape alone: Both abort.
+ */
+function formatConfigProblem(problem: ConfigProblem): string {
+  return problem.kind === 'load'
+    ? formatErrorLine(BIN, `Failed to load config: ${problem.message}`)
+    : `Invalid config:\n  - ${problem.errors.join('\n  - ')}`;
+}
+
+/** Renders the leading summary, omitting a zero-count category (e.g., `Found 1 warning:`). */
+function formatSummaryLine(errorCount: number, warningCount: number): string {
+  const parts: string[] = [];
+  if (errorCount > 0) {
+    parts.push(pluralize(errorCount, 'error'));
+  }
+  if (warningCount > 0) {
+    parts.push(pluralize(warningCount, 'warning'));
+  }
+  return `Found ${parts.join(' and ')}:`;
+}
+
+/** Formats `count` with `noun`, adding `s` unless the count is 1. */
+function pluralize(count: number, noun: string): string {
+  return count === 1 ? `${count} ${noun}` : `${count} ${noun}s`;
+}
+
+// endregion | Helpers

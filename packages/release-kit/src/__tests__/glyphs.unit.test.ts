@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { RELEASE_GLYPHS } from '../glyphs.ts';
+import { RELEASE_GLYPHS } from '../cli/glyphs.ts';
 
 describe('RELEASE_GLYPHS', () => {
   it('does not have a pictographic character in any plain variant', () => {

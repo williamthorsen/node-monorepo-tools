@@ -1,6 +1,6 @@
-import type { ReleaseHistory } from '../buildChangelogEntries.ts';
-import type { ChangelogDiagnostics } from '../buildChangelogItem.ts';
-import type { RawCommit } from '../git.ts';
+import type { ReleaseHistory } from '../changelog/buildChangelogEntries.ts';
+import type { ChangelogDiagnostics } from '../changelog/changelog-item.ts';
+import type { RawCommit } from '../clients/git/git.ts';
 import type { ChangelogEntry, ChangelogSection, ReleaseType } from '../types.ts';
 import { type CommitStub, makeStubbedCommits } from './commitStubs.ts';
 

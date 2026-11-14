@@ -4,7 +4,11 @@ import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it } from 'vitest';
 
-import { loadChangelogOverrides, parseOverrideKey, validateChangelogOverrides } from '../loadChangelogOverrides.ts';
+import {
+  loadChangelogOverrides,
+  parseOverrideKey,
+  validateChangelogOverrides,
+} from '../changelog/loadChangelogOverrides.ts';
 
 describe(loadChangelogOverrides, () => {
   let tree: TempTree;

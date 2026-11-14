@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import type { ReleasePlan } from '../releasePlan.ts';
+import type { ReleasePlan } from '../prepare/release-plan.ts';
 import { makeResolvedPackages } from './workspaceResolutions.ts';
 
 // A test loads this module through `vi.hoisted`, before its `vi.mock` calls register, so the module imports nothing

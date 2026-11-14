@@ -7,24 +7,24 @@ const mockDeriveDirectoryConfig = vi.hoisted(() => vi.fn());
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
-vi.mock(import('../discoverWorkspaces.ts'), async (importOriginal) => ({
+vi.mock(import('../targets/discoverWorkspaces.ts'), async (importOriginal) => ({
   ...(await importOriginal()),
   discoverWorkspaces: mockDiscoverWorkspaces,
 }));
 
-vi.mock(import('../deriveWorkspaceConfig.ts'), () => ({
+vi.mock(import('../config/deriveWorkspaceConfig.ts'), () => ({
   deriveWorkspaceConfig: mockDeriveWorkspaceConfig,
 }));
 
-vi.mock(import('../deriveDirectoryConfig.ts'), () => ({
+vi.mock(import('../config/deriveDirectoryConfig.ts'), () => ({
   deriveDirectoryConfig: mockDeriveDirectoryConfig,
 }));
 
-vi.mock(import('../detectUndeclaredTagPrefixes.ts'), () => ({
+vi.mock(import('../tags/detectUndeclaredTagPrefixes.ts'), () => ({
   detectUndeclaredTagPrefixes: mockDetectUndeclared,
 }));
 
-import { previewTagPrefixes } from '../previewTagPrefixes.ts';
+import { previewTagPrefixes } from '../tags/previewTagPrefixes.ts';
 import { type FakeGit, makeFakeGit } from '../test-utils/fakeGit.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 
