@@ -138,7 +138,7 @@ describe(readRootPackageVersion, () => {
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue('{ not valid json');
     expect(() => readRootPackageVersion()).toThrow(UserError);
-    expect(() => readRootPackageVersion()).toThrow(/Failed to parse root package\.json/);
+    expect(() => readRootPackageVersion()).toThrow(/^Failed to parse JSON in package\.json: /);
   });
 
   it('throws an error when reading the root package.json fails (I/O error)', () => {
@@ -147,7 +147,7 @@ describe(readRootPackageVersion, () => {
       throw new Error('permission denied');
     });
     expect(() => readRootPackageVersion()).toThrow(UserError);
-    expect(() => readRootPackageVersion()).toThrow(/Failed to read root package\.json/);
+    expect(() => readRootPackageVersion()).toThrow(/^Failed to read package\.json: /);
   });
 
   it('preserves the underlying error as the cause when the root package.json cannot be read', () => {

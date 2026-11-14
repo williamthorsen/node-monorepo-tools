@@ -1,10 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
-import { chainUserError } from './user-error-chaining.ts';
+import { readJsonFile } from './readJsonFile.ts';
 
 /** Path of the root `package.json` consulted when validating a `project` block. */
 export const ROOT_PACKAGE_JSON_PATH = 'package.json';
@@ -23,20 +23,7 @@ export function readRootPackageVersion(): { doesExist: boolean; version: string 
     return { doesExist: false, version: undefined };
   }
 
-  let contents: string;
-  try {
-    contents = readFileSync(absolutePath, 'utf8');
-  } catch (error: unknown) {
-    throw chainUserError(`Failed to read root ${ROOT_PACKAGE_JSON_PATH}`, error);
-  }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(contents);
-  } catch (error: unknown) {
-    throw chainUserError(`Failed to parse root ${ROOT_PACKAGE_JSON_PATH}`, error);
-  }
-
+  const parsedJson = readJsonFile(ROOT_PACKAGE_JSON_PATH);
   if (!isRecord(parsedJson)) {
     return { doesExist: true, version: undefined };
   }

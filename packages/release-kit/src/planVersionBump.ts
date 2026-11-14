@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
-
 import { UserError } from '@williamthorsen/nmr-core';
 
 import { bumpVersion } from './bumpVersion.ts';
 import { isForwardVersion } from './compareVersions.ts';
+import { readJsonFile } from './readJsonFile.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { ReleaseType } from './types.ts';
-import { chainUserError } from './user-error-chaining.ts';
 
 interface PackageJson {
   [key: string]: unknown;
@@ -101,20 +99,7 @@ function renderVersionWrites(
  * be read, contains invalid JSON, or lacks a `version` field.
  */
 function readPackageJson(filePath: string): PackageJson {
-  let content: string;
-  try {
-    content = readFileSync(filePath, 'utf8');
-  } catch (error: unknown) {
-    throw chainUserError(`Failed to read ${filePath}`, error);
-  }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(content);
-  } catch (error: unknown) {
-    throw chainUserError(`Failed to parse JSON in ${filePath}`, error);
-  }
-
+  const parsedJson = readJsonFile(filePath);
   if (!isPackageJson(parsedJson)) {
     throw new UserError(`No valid 'version' field found in ${filePath}`);
   }

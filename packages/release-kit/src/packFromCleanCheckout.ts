@@ -1,12 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { type PackageManager, resolveExecutable } from './detectPackageManager.ts';
-import { chainUserError } from './user-error-chaining.ts';
+import { readJsonFile } from './readJsonFile.ts';
 
 /**
  * Packs each workspace as the publish environment would and returns each one's tarball entries, keyed by workspace
@@ -80,12 +80,7 @@ const PACKAGE_MANAGER_COMMANDS: Record<
 /** Reports whether the package in `packageDir` declares a `prepublishOnly` script. */
 function declaresPrepublishOnly(packageDir: string): boolean {
   const manifestPath = join(packageDir, 'package.json');
-  let manifest: unknown;
-  try {
-    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  } catch (error: unknown) {
-    throw chainUserError(`Failed to parse ${manifestPath}`, error);
-  }
+  const manifest = readJsonFile(manifestPath);
   const scripts = isRecord(manifest) ? manifest['scripts'] : undefined;
   return isRecord(scripts) && typeof scripts['prepublishOnly'] === 'string';
 }
