@@ -9,4 +9,8 @@ import path from 'node:path';
 
 import { defineVitestConfig } from '@williamthorsen/nmr/vitest';
 
-export default defineVitestConfig({ project: { setupFiles: [path.join(import.meta.dirname, 'vitest.setup.ts')] } });
+export default defineVitestConfig({
+  project: { setupFiles: [path.join(import.meta.dirname, 'vitest.setup.ts')] },
+  // Send console output to the process streams, where the setup file's guard fails a test that leaves it unsilenced.
+  root: { test: { disableConsoleIntercept: true } },
+});
