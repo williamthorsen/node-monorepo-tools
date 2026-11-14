@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
@@ -88,6 +90,15 @@ describe(deriveDirectoryConfig, () => {
 
     expect(() => deriveDirectoryConfig(declare('app', directoryPath), root)).toThrow(UserError);
     expect(() => deriveDirectoryConfig(declare('app', directoryPath), root)).toThrow(message);
+  });
+
+  it('rejects a version file that does not parse, under its label', () => {
+    const root = makeTree({ 'apps/app/version.json': '{ not valid json' });
+    const versionPath = path.join(root, 'apps/app/version.json');
+
+    expect(() => deriveDirectoryConfig(declare('app', 'apps/app'), root)).toThrow(
+      new RegExp(`^releases\\.app: Failed to parse JSON in ${RegExp.escape(versionPath)}: `),
+    );
   });
 });
 

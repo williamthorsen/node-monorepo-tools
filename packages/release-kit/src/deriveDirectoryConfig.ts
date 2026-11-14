@@ -1,11 +1,12 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
+import { readJsonFile } from './readJsonFile.ts';
 import type { DeclaredDirectory } from './resolveReleaseDeclaration.ts';
 import type { DirectoryConfig } from './types.ts';
-import { chainUserError } from './user-error-chaining.ts';
+import { prefixUserError } from './user-error-chaining.ts';
 
 /** Name of the version file of a directory that doesn't contain a `package.json`. */
 export const DIRECTORY_VERSION_FILE = 'version.json';
@@ -63,9 +64,9 @@ function assertVersionField(label: string, versionFile: string, root: string): v
 
   let parsedJson: unknown;
   try {
-    parsedJson = JSON.parse(readFileSync(absolutePath, 'utf8'));
+    parsedJson = readJsonFile(absolutePath);
   } catch (error: unknown) {
-    throw chainUserError(`${label}: failed to read ${versionFile}`, error);
+    throw prefixUserError(label, error);
   }
   if (!isRecord(parsedJson) || typeof parsedJson['version'] !== 'string') {
     throw new UserError(`${label}: ${versionFile} does not contain a string 'version' field; add one`);

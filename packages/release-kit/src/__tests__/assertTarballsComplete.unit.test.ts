@@ -87,7 +87,7 @@ describe(assertTarballsComplete, () => {
 
     const error = await captureError(UserError, () => assertTarballsComplete(['packages/broken'], [], pack));
 
-    expect(error.message).toMatch(/^Failed to parse packages\/broken\/package\.json: /);
+    expect(error.message).toMatch(/^Failed to parse JSON in packages\/broken\/package\.json: /);
   });
 
   it('does not pack a private package', () => {

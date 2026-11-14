@@ -113,7 +113,7 @@ describe(deriveWorkspaceConfig, () => {
 
     expect(() => deriveWorkspaceConfig('packages/malformed')).toThrow(UserError);
     expect(() => deriveWorkspaceConfig('packages/malformed')).toThrow(
-      /^Failed to read packages\/malformed\/package\.json: /,
+      /^Failed to parse JSON in packages\/malformed\/package\.json: /,
     );
   });
 

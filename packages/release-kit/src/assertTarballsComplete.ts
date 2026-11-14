@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { isAnticipatedFailure, isRecord, UserError } from '@williamthorsen/nmr-core';
@@ -8,7 +7,7 @@ import { detectPackageManager } from './detectPackageManager.ts';
 import { findMissingManifestPaths, type MissingManifestPath } from './findMissingManifestPaths.ts';
 import { isPublishableManifest } from './isPublishableManifest.ts';
 import { packFromCleanCheckout } from './packFromCleanCheckout.ts';
-import { chainUserError } from './user-error-chaining.ts';
+import { readJsonFile } from './readJsonFile.ts';
 
 /**
  * Throws when the tarball of a publishable package among the given workspaces would lack a file that its manifest
@@ -95,12 +94,7 @@ function describeRefusal(
 /** Reads a workspace's `package.json`, returning an empty record when it is not an object. */
 function readManifest(workspacePath: string): Record<string, unknown> {
   const manifestPath = join(workspacePath, 'package.json');
-  let manifest: unknown;
-  try {
-    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  } catch (error: unknown) {
-    throw chainUserError(`Failed to parse ${manifestPath}`, error);
-  }
+  const manifest = readJsonFile(manifestPath);
   return isRecord(manifest) ? manifest : {};
 }
 

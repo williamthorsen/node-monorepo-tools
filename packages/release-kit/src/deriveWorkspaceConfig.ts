@@ -1,11 +1,10 @@
-import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
 import { isPublishableManifest } from './isPublishableManifest.ts';
+import { readJsonFile } from './readJsonFile.ts';
 import type { WorkspaceConfig } from './types.ts';
-import { chainUserError } from './user-error-chaining.ts';
 
 /**
  * Derives a workspace configuration from a workspace-relative path.
@@ -17,12 +16,7 @@ import { chainUserError } from './user-error-chaining.ts';
 export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   const dir = basename(workspacePath);
   const packageJsonPath = `${workspacePath}/package.json`;
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-  } catch (error) {
-    throw chainUserError(`Failed to read ${packageJsonPath}`, error);
-  }
+  const parsedJson = readJsonFile(packageJsonPath);
   const name = isRecord(parsedJson) ? parsedJson['name'] : undefined;
 
   if (typeof name !== 'string' || name.length === 0) {

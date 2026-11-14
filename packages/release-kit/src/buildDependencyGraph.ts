@@ -1,9 +1,7 @@
-import { readFileSync } from 'node:fs';
-
 import { UserError } from '@williamthorsen/nmr-core';
 
+import { readJsonFile } from './readJsonFile.ts';
 import type { PackageTarget } from './types.ts';
-import { chainUserError } from './user-error-chaining.ts';
 
 /** Identities, current versions, and `workspace:` dependency edges of the package targets. */
 export interface DependencyGraph {
@@ -101,20 +99,7 @@ export function buildDependencyGraph(targets: readonly PackageTarget[]): Depende
 
 /** Reads and parses a `package.json` file as the subset of fields that the graph reads. */
 function readPackageJsonSubset(filePath: string): PackageJsonSubset {
-  let content: string;
-  try {
-    content = readFileSync(filePath, 'utf8');
-  } catch (error: unknown) {
-    throw chainUserError(`Failed to read ${filePath}`, error);
-  }
-
-  let parsedJson: unknown;
-  try {
-    parsedJson = JSON.parse(content);
-  } catch (error: unknown) {
-    throw chainUserError(`Failed to parse JSON in ${filePath}`, error);
-  }
-
+  const parsedJson = readJsonFile(filePath);
   if (!isPackageJsonSubset(parsedJson)) {
     throw new UserError(`Invalid package.json at ${filePath}`);
   }
