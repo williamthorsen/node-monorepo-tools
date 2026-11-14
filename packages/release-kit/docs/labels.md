@@ -38,6 +38,8 @@ The bundled file's `confidence:` family grades how advisable a recommendation is
 
 The `urgency:` family states how soon an item needs attention, apart from how valuable it is, which the `value:` family states. Its labels replace the earlier `priority:` family and name the old labels in `aliases`, so a repository that has `priority:` labels has them renamed in place by the first sync after it regenerates `.github/labels.yaml` (see [Renaming a label](#renaming-a-label)).
 
+The `effort:` family states an item's size in points, apart from its urgency and value: one label for each value of the scale 1, 2, 3, 5, 8, and 13, from `effort:1` to `effort:13`.
+
 The `status:` family marks where an item stands in its work: `status:in-progress` once work on it has started, `status:blocked` while it waits on another item, and `status:on-hold` while it is deliberately paused.
 
 Names match case-insensitively, as GitHub matches them: `Bug` in the `labels` record replaces a preset's `bug`, and `Bug: null` removes it. A label takes the spelling of the last layer to write it.
