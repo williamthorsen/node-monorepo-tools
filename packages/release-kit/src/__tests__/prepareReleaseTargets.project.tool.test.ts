@@ -4,12 +4,7 @@ import { join } from 'node:path';
 
 import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { captureStdio, createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import {
-  disposeOnTestFinished,
-  listConsoleLines,
-  silenceConsole,
-  throwOnProcessExit,
-} from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
@@ -364,11 +359,10 @@ describe('project releases (tool)', () => {
     });
   }, 60_000);
 
-  it("warns about an unparseable existing root changelog.json and replaces it with the history's entries", () => {
+  it('refuses an unparseable existing root changelog.json and leaves it unchanged', () => {
     withinFixture(tree.dir, () => {
-      const changelogJsonPath = tree.write('.meta/changelog.json', '{this is not valid JSON');
-
-      using silencedConsole = silenceConsole(['warn']);
+      const malformedContent = '{this is not valid JSON';
+      const changelogJsonPath = tree.write('.meta/changelog.json', malformedContent);
 
       const config = mergeMonorepoConfig(
         ['packages/pkg-a', 'packages/pkg-b', 'packages/pkg-c'],
@@ -376,14 +370,10 @@ describe('project releases (tool)', () => {
         { doesExist: true, version: '0.9.0' },
       );
 
-      prepareAndApply(config, {});
-
-      expect(listConsoleLines(silencedConsole.warn).join('\n')).toContain('could not parse existing');
-
-      const writtenContent = readFileSync(changelogJsonPath, 'utf8');
-      const parsedEntries: Array<{ version: string }> = JSON.parse(writtenContent);
-      expect(Array.isArray(parsedEntries)).toBe(true);
-      expect(parsedEntries.some((entry) => entry.version === '0.10.0')).toBe(true);
+      const prepare = () => prepareAndApply(config, {});
+      expect(prepare).toThrow('Cannot prepare the changelog from ');
+      expect(prepare).toThrow('.meta/changelog.json: ');
+      expect(readFileSync(changelogJsonPath, 'utf8')).toBe(malformedContent);
     });
   }, 60_000);
 
