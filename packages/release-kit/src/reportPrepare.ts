@@ -197,7 +197,7 @@ function describeBumpOrigin(target: ReleasedTargetResult): BumpOrigin {
 
 /**
  * Appends the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. The
- * line sits two columns in whatever the section's indent.
+ * line sits at column 2, whatever the section's indent is, which keeps the report's whitespace unchanged.
  */
 function formatCommitSummary(lines: string[], target: ReleasedTargetResult, origin: BumpOrigin): void {
   if (origin.isPropagatedOnly && origin.propagatedFrom !== undefined) {
@@ -211,8 +211,8 @@ function formatCommitSummary(lines: string[], target: ReleasedTargetResult, orig
 }
 
 /**
- * Appends the bump-override / set-version label, which sits two columns in whatever the section's indent, and the
- * "Bumping versions..." line.
+ * Appends the bump-override / set-version label and the "Bumping versions..." line. The label sits at column 2,
+ * whatever the section's indent is, which keeps the report's whitespace unchanged.
  */
 function formatBumpLabels(lines: string[], target: ReleasedTargetResult, origin: BumpOrigin, indent: string): void {
   if (origin.versionOverride !== undefined) {
