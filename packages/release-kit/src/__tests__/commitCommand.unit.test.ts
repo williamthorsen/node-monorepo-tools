@@ -44,7 +44,7 @@ describe(commitCommand, () => {
 
     commitCommand(makeCommitOptions(), git);
 
-    expect(git.addAll).toHaveBeenCalledOnce();
+    expect(git.addAll).toHaveBeenCalledTimes(1);
     expect(git.commit).toHaveBeenCalledExactlyOnceWith(
       'release: release-kit-v2.4.0 core-v1.0.0\n\nrelease-kit-v2.4.0\n- feat: Add commit command\n\ncore-v1.0.0\n- fix: Bug',
     );

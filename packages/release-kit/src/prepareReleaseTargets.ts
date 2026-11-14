@@ -6,7 +6,7 @@ import { createOverrideContext, type OverrideContext } from './changelogOverride
 import { decideDirectReleases, reportUnroutedEntryScopes } from './decideDirectReleases.ts';
 import { deriveDependenciesHeader, deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { findTransitiveDependents } from './findTransitiveDependents.ts';
-import { type Git, realGit } from './git.ts';
+import type { Git } from './git.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './mergeConfig.ts';
 import { describeCompositeSkip, prepareComposite } from './prepareComposite.ts';
@@ -79,7 +79,7 @@ const PREVIEWS_REQUIRE_JSON_WARNING =
 export function prepareReleaseTargets(
   config: TargetPrepareConfig,
   options: TargetPrepareOptions,
-  git: Git = realGit,
+  git: Git,
 ): ReleasePlan {
   const { settings } = config;
   const { onlyTargetIds, shouldIncludeReleaseNotes } = options;

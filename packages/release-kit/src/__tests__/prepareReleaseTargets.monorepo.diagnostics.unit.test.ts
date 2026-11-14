@@ -68,8 +68,8 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
   listArchiveFiles: () => [],
 }));
 
-import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import type { Git } from '../git.ts';
+import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import { makeFakeGit } from '../test-utils/fakeGit.ts';
 import { makeConfig, prepareMonorepo } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
 import { selectPackageResults } from '../test-utils/prepareResults.ts';

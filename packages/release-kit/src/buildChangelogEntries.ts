@@ -12,8 +12,8 @@ import { classifyChangelogCommit, isNonChangeSubject, isReleaseSubject } from '.
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { type BumpSignal, determineBumpType } from './determineBumpType.ts';
 import { enumerateReleaseWindows, type ReleaseWindow } from './enumerateReleaseWindows.ts';
-import { type Git, type RawCommit, realGit } from './git.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
+import { type Git, type RawCommit, realGit } from './git.ts';
 import { parseChangeRecordBlock } from './parseChangeRecordBlock.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseSettings, ReleaseType } from './types.ts';

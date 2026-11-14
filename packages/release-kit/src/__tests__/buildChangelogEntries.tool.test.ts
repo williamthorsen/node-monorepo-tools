@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { buildChangelogEntries, convertToChangelogEntries, readReleaseHistory } from '../buildChangelogEntries.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
-import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 import { realGit } from '../git.ts';
+import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const CONFIG = { changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG } };

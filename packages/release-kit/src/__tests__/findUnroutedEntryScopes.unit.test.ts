@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawCommit } from '../git.ts';
 import { findUnroutedEntryScopes, type WorkspaceWindow } from '../findUnroutedEntryScopes.ts';
+import type { RawCommit } from '../git.ts';
 
 const SUBJECT = '#859 release-kit|feat: Route entries (#43)';
 const CONFIGURED_SCOPES = ['arrays', 'strings', 'numbers'];

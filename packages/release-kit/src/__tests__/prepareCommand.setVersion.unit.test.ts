@@ -67,6 +67,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
+import { realGit } from '../git.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { makePrepareOptions } from '../test-utils/commandOptions.ts';
 import { makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
@@ -98,14 +99,18 @@ describe(prepareCommand, () => {
       }),
     );
 
-    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), {
-      shouldForce: true,
-      bumpOverride: 'minor',
-      versionOverridesById: new Map([
-        ['arrays', '1.0.0'],
-        ['strings', '2.0.0'],
-      ]),
-    });
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        shouldForce: true,
+        bumpOverride: 'minor',
+        versionOverridesById: new Map([
+          ['arrays', '1.0.0'],
+          ['strings', '2.0.0'],
+        ]),
+      },
+      realGit,
+    );
   });
 
   it.each([
@@ -158,6 +163,7 @@ describe(prepareCommand, () => {
     expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ versionOverridesById: new Map([['.', '1.2.3']]) }),
+      realGit,
     );
   });
 
@@ -167,6 +173,7 @@ describe(prepareCommand, () => {
     expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ shouldIncludeReleaseNotes: true }),
+      realGit,
     );
   });
 
@@ -178,6 +185,7 @@ describe(prepareCommand, () => {
     expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({ shouldIncludeReleaseNotes: true }),
+      realGit,
     );
   });
 
@@ -209,6 +217,7 @@ describe(prepareCommand, () => {
       expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
         expect.any(Object),
         expect.objectContaining({ onlyTargetIds: ['suite'] }),
+        realGit,
       );
     });
 
@@ -243,6 +252,7 @@ describe(prepareCommand, () => {
       expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
         expect.any(Object),
         expect.objectContaining({ onlyTargetIds: ['arrays'] }),
+        realGit,
       );
     });
 

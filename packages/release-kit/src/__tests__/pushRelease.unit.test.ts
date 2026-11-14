@@ -36,7 +36,7 @@ describe(pushRelease, () => {
 
     pushRelease(TAGS, { isDryRun: true }, git);
 
-    expect(git.readCurrentBranch).toHaveBeenCalledOnce();
+    expect(git.readCurrentBranch).toHaveBeenCalledTimes(1);
     expect(git.pushBranch).not.toHaveBeenCalled();
     expect(git.pushTag).not.toHaveBeenCalled();
   });

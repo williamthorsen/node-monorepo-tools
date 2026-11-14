@@ -381,6 +381,8 @@ describe('prepareReleaseTargets for a monorepo', () => {
     stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add feature', 'abc123']], bump: 'minor' });
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
-    prepareMonorepo(config, {});
+    const result = prepareMonorepo(config, {});
+
+    expect(result.formatCommand).toBeUndefined();
   });
 });

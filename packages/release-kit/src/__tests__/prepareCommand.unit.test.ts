@@ -68,6 +68,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
+import { realGit } from '../git.ts';
 import { ConfigProblemError } from '../loadValidatedConfig.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../releaseFiles.ts';
@@ -99,6 +100,7 @@ describe(prepareCommand, () => {
         targets: expect.arrayContaining([expect.objectContaining({ tagPrefix: 'arrays-v' })]),
       }),
       { shouldForce: false },
+      realGit,
     );
   });
 
@@ -112,33 +114,46 @@ describe(prepareCommand, () => {
       {
         shouldForce: false,
       },
+      realGit,
     );
   });
 
   it('passes isDryRun from --dry-run flag', async () => {
     await prepareCommand(makePrepareOptions({ isDryRun: true, styles: RICH_STYLES }));
 
-    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), {
-      shouldForce: false,
-    });
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        shouldForce: false,
+      },
+      realGit,
+    );
   });
 
   it('passes bumpOverride from --bump flag', async () => {
     await prepareCommand(makePrepareOptions({ bumpOverride: 'minor', styles: RICH_STYLES }));
 
-    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), {
-      shouldForce: false,
-      bumpOverride: 'minor',
-    });
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        shouldForce: false,
+        bumpOverride: 'minor',
+      },
+      realGit,
+    );
   });
 
   it('passes force from --force flag', async () => {
     await prepareCommand(makePrepareOptions({ shouldForce: true, bumpOverride: 'patch', styles: RICH_STYLES }));
 
-    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), {
-      shouldForce: true,
-      bumpOverride: 'patch',
-    });
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        shouldForce: true,
+        bumpOverride: 'patch',
+      },
+      realGit,
+    );
   });
 
   it('passes every workspace and the --only names to the orchestrator', async () => {
@@ -149,6 +164,7 @@ describe(prepareCommand, () => {
         targets: [expect.objectContaining({ id: 'arrays' }), expect.objectContaining({ id: 'strings' })],
       }),
       { shouldForce: false, onlyTargetIds: ['arrays'] },
+      realGit,
     );
   });
 
@@ -175,7 +191,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand(makePrepareOptions({ shouldForce: true, styles: RICH_STYLES }));
 
-    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), { shouldForce: true });
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), { shouldForce: true }, realGit);
   });
 
   it('passes --force --bump=X to a single-package release', async () => {
@@ -183,10 +199,14 @@ describe(prepareCommand, () => {
 
     await prepareCommand(makePrepareOptions({ shouldForce: true, bumpOverride: 'patch', styles: RICH_STYLES }));
 
-    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(expect.any(Object), {
-      shouldForce: true,
-      bumpOverride: 'patch',
-    });
+    expect(mockPrepareReleaseTargets).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        shouldForce: true,
+        bumpOverride: 'patch',
+      },
+      realGit,
+    );
   });
 
   it('throws a UsageError for --only with an unknown workspace name in monorepo mode', async () => {
@@ -457,6 +477,7 @@ describe(prepareCommand, () => {
         targets: [expect.objectContaining({ tagPrefix: 'arrays-v' })],
       }),
       expect.any(Object),
+      realGit,
     );
   });
 

@@ -14,10 +14,10 @@ import type {
   UndeclaredEntryType,
   WorkspaceConfig,
 } from '../types.ts';
+import { makeFakeGit } from './fakeGit.ts';
 import { stubHistory } from './prepareReleaseTargetsProjectMocks.ts';
 import { selectCompositeResult } from './prepareResults.ts';
 import type { ReleaseHistoryStub } from './releaseHistories.ts';
-import { makeFakeGit } from './fakeGit.ts';
 
 /** The unreleased window's sections in the default history. */
 export const UNRELEASED_SECTIONS: ChangelogSection[] = [

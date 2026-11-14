@@ -113,7 +113,7 @@ describe(createTags, () => {
 
     createTags({ isDryRun: false, shouldSkipGitChecks: false, style: 'rich' }, git);
 
-    expect(git.hasTrackedChanges).toHaveBeenCalledOnce();
+    expect(git.hasTrackedChanges).toHaveBeenCalledTimes(1);
   });
 
   it('throws when the working tree is dirty', () => {

@@ -59,8 +59,8 @@ import {
   readTargetHistory,
   type TargetPrepareSettings,
 } from '../prepareTarget.ts';
-import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import { makeFakeGit } from '../test-utils/fakeGit.ts';
+import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
 import type { ChangelogEntry, CompositeTarget, PackageTarget } from '../types.ts';
 
 const GIT = makeFakeGit();

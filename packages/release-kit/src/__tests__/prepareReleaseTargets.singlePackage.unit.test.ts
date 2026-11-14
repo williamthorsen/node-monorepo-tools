@@ -299,15 +299,6 @@ describe('prepareReleaseTargets for a single-package repo', () => {
     });
   });
 
-  it('does not run the format command, leaving that to the caller that applies the plan', () => {
-    const config = makeConfig({
-      formatCommand: 'npx prettier --write',
-    });
-    stubMinorRelease();
-
-    prepareSinglePackage(config, {});
-  });
-
   it("defaults to prettier when the config doesn't set formatCommand and a prettier config exists", () => {
     stubMinorRelease();
     mockHasPrettierConfig.mockReturnValue(true);
