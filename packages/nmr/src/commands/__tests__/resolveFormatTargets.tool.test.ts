@@ -203,6 +203,8 @@ describe(resolveFormatTargets, () => {
   });
 });
 
+// region | Helpers
+
 /**
  * Creates a git repository containing `files`, staged rather than committed: `--cached` reads the
  * index, so staging is enough and the fixture doesn't need a commit identity.
@@ -221,3 +223,5 @@ function unwrap(result: ReturnType<typeof resolveFormatTargets>): FormatTargets 
   if (!result.ok) throw new Error(`expected resolution to succeed: ${result.error}`);
   return result.targets;
 }
+
+// endregion | Helpers

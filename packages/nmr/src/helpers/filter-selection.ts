@@ -114,15 +114,6 @@ function isRootEntry(entry: unknown, monorepoRoot: string): boolean {
   return resolveRealPath(entry['path']) === resolveRealPath(monorepoRoot);
 }
 
-/** Resolves symbolic links out of a path, falling back to the resolved path when the target cannot be read. */
-function resolveRealPath(target: string): string {
-  try {
-    return realpathSync(target);
-  } catch {
-    return path.resolve(target);
-  }
-}
-
 /**
  * Tests the pattern against the delegate's own selection, running a marker in each scope that it reaches.
  *
@@ -137,6 +128,15 @@ function readDelegateSelection(pattern: string, monorepoRoot: string): FilterSel
   );
 
   return interpretDelegateProbe({ error: probeRun.error, status: probeRun.status, stdout: probeRun.stdout });
+}
+
+/** Resolves symbolic links out of a path, falling back to the resolved path when the target cannot be read. */
+function resolveRealPath(target: string): string {
+  try {
+    return realpathSync(target);
+  } catch {
+    return path.resolve(target);
+  }
 }
 
 // endregion | Helpers

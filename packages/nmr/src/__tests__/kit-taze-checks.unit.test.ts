@@ -138,7 +138,11 @@ describe(tazeConfigAvoidsClobberedOptions, () => {
   });
 });
 
+// region | Helpers
+
 /** Builds a shared-config taze file containing `settings`, the form required by the sibling check. */
 function buildConfig(settings: string): string {
   return `import { defineConfig } from '@williamthorsen/nmr/taze';\nexport default defineConfig({ ${settings} });\n`;
 }
+
+// endregion | Helpers

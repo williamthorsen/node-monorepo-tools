@@ -115,6 +115,22 @@ const MIN_CUT_BYTES = Buffer.byteLength(TRUNCATION_MARK);
 /** Marks the detail as a recording of an earlier run rather than as what this invocation produced. */
 const REPLAY_MARKER = 'replayed:';
 
+/** Returns the clause naming why a command ran nothing, which the `no-op` phrase ends with. */
+function describeNoOpReason(reason: NoOpReason): string {
+  switch (reason) {
+    case 'empty-override':
+      return 'the override is empty';
+    case 'empty-workspace':
+      return 'the workspace does not declare any package';
+    case 'noop-override':
+      return 'the override is a no-op';
+    default: {
+      const unhandledReason: never = reason;
+      throw new Error(`Unhandled no-op reason: ${String(unhandledReason)}`);
+    }
+  }
+}
+
 /** Returns the marker that a verdict leads with and the phrase that it reports, which only this module composes. */
 function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string; phrase: string } {
   const statuses = STATUS_GLYPHS[style];
@@ -146,64 +162,6 @@ function describeOutcome(verdict: Verdict, style: OutputStyle): { marker: string
   }
 }
 
-/** Returns the clause naming why a command ran nothing, which the `no-op` phrase ends with. */
-function describeNoOpReason(reason: NoOpReason): string {
-  switch (reason) {
-    case 'empty-override':
-      return 'the override is empty';
-    case 'empty-workspace':
-      return 'the workspace does not declare any package';
-    case 'noop-override':
-      return 'the override is a no-op';
-    default: {
-      const unhandledReason: never = reason;
-      throw new Error(`Unhandled no-op reason: ${String(unhandledReason)}`);
-    }
-  }
-}
-
-/**
- * Renders a recalled pass's replay for the detail slot, or `undefined` when there is nothing to replay.
- *
- * An excerpt that the verdict's own scope and command already name drops its attribution, which is the leaf whose
- * output the line is. Every other line keeps the attribution naming where it came from, so that a composite
- * replaying one constituent's excerpt does not present it as its own.
- */
-function renderReplay(verdict: Verdict): string | undefined {
-  if (verdict.outcome !== 'recalled' || verdict.replay === undefined || verdict.replay.length === 0) {
-    return undefined;
-  }
-
-  const [first] = verdict.replay;
-  if (verdict.replay.length === 1 && first?.command === verdict.command && first.scope === verdict.scope) {
-    return `${REPLAY_MARKER} ${first.excerpt}`;
-  }
-
-  const lines = verdict.replay.map((line) => `${line.scope}: ${line.command}: ${line.excerpt}`);
-
-  return `${REPLAY_MARKER} ${lines.join('; ')}`;
-}
-
-/** Renders the outcome that a passing command stated for the detail slot, or `undefined` when it stated none. */
-function renderStated(verdict: Verdict): string | undefined {
-  if (verdict.outcome !== 'passed' || verdict.stated === undefined) {
-    return undefined;
-  }
-
-  const saving = formatSaving(verdict.stated.savedMs ?? 0);
-
-  return saving === undefined ? 'build skipped as unchanged' : `build skipped as unchanged, ${saving}`;
-}
-
-/**
- * Collapses a detail's line breaks into single spaces, so that one verdict stays one line.
- *
- * A detail is text taken from a command's output, which can contain line breaks.
- */
-function flattenDetail(detail: string): string {
-  return detail.replaceAll(/[\r\n]+/gu, ' ').trim();
-}
-
 /**
  * Returns the size to cut the longest of a set of strings down to, so that cutting each in turn brings the set
  * level rather than spending the whole overrun on the first string reached.
@@ -224,9 +182,13 @@ function findCutTarget(sizesBytes: readonly number[], longestSizeBytes: number, 
   return Math.max(MIN_CUT_BYTES, target);
 }
 
-/** Reports whether a rendered line, once the newline is counted, is within the ceiling. */
-function isWithinBudget(renderedLine: string): boolean {
-  return Buffer.byteLength(renderedLine) <= LINE_BUDGET_BYTES;
+/**
+ * Collapses a detail's line breaks into single spaces, so that one verdict stays one line.
+ *
+ * A detail is text taken from a command's output, which can contain line breaks.
+ */
+function flattenDetail(detail: string): string {
+  return detail.replaceAll(/[\r\n]+/gu, ' ').trim();
 }
 
 /** Returns the host name led by its glyph, which a style with an empty glyph leaves bare. */
@@ -234,6 +196,11 @@ function formatHost(host: string, style: OutputStyle): string {
   const glyph = NMR_GLYPHS[style].host.text;
 
   return glyph === '' ? host : `${glyph} ${host}`;
+}
+
+/** Reports whether a rendered line, once the newline is counted, is within the ceiling. */
+function isWithinBudget(renderedLine: string): boolean {
+  return Buffer.byteLength(renderedLine) <= LINE_BUDGET_BYTES;
 }
 
 /** Returns what each constituent of a replay is, without the excerpt that it contained. */
@@ -281,6 +248,39 @@ function renderClamped(record: Record<string, unknown>): string {
   }
 
   return renderedLine;
+}
+
+/**
+ * Renders a recalled pass's replay for the detail slot, or `undefined` when there is nothing to replay.
+ *
+ * An excerpt that the verdict's own scope and command already name drops its attribution, which is the leaf whose
+ * output the line is. Every other line keeps the attribution naming where it came from, so that a composite
+ * replaying one constituent's excerpt does not present it as its own.
+ */
+function renderReplay(verdict: Verdict): string | undefined {
+  if (verdict.outcome !== 'recalled' || verdict.replay === undefined || verdict.replay.length === 0) {
+    return undefined;
+  }
+
+  const [first] = verdict.replay;
+  if (verdict.replay.length === 1 && first?.command === verdict.command && first.scope === verdict.scope) {
+    return `${REPLAY_MARKER} ${first.excerpt}`;
+  }
+
+  const lines = verdict.replay.map((line) => `${line.scope}: ${line.command}: ${line.excerpt}`);
+
+  return `${REPLAY_MARKER} ${lines.join('; ')}`;
+}
+
+/** Renders the outcome that a passing command stated for the detail slot, or `undefined` when it stated none. */
+function renderStated(verdict: Verdict): string | undefined {
+  if (verdict.outcome !== 'passed' || verdict.stated === undefined) {
+    return undefined;
+  }
+
+  const saving = formatSaving(verdict.stated.savedMs ?? 0);
+
+  return saving === undefined ? 'build skipped as unchanged' : `build skipped as unchanged, ${saving}`;
 }
 
 /**

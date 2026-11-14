@@ -159,7 +159,53 @@ export async function computeBuildHash(
   return hash.digest('hex');
 }
 
+/**
+ * Records a build skipped on unchanged inputs: states the `build-unchanged` outcome with the emit time recorded under
+ * `digest`, and returns that time, which is absent when none was recorded.
+ */
+export async function recordUnchangedBuild(
+  packageDir: string,
+  digest: string,
+  env: NodeJS.ProcessEnv,
+): Promise<number | undefined> {
+  const savedMs = await readEmitDuration(packageDir, digest);
+  await writeStatedOutcome(env, { kind: 'build-unchanged', ...(savedMs !== undefined && { savedMs }) });
+  return savedMs;
+}
+
 // region | Emit
+
+/** Throws with formatted diagnostics when the compiler skipped an emit. */
+function assertEmitSucceeded(result: TypeScript.EmitResult): void {
+  if (result.emitSkipped) {
+    throw new UserError(`emit failed.\n${formatDiagnostics(result.diagnostics)}`);
+  }
+}
+
+/**
+ * Builds a compiler host that memoizes `getSourceFile` on file name, so a file read by more than one program
+ * is parsed once. `ts.createCompilerHost` re-reads and re-parses on every call, and a program built over an
+ * `oldProgram` still asks the host for each file in order to compare it.
+ */
+function createCachingCompilerHost(compilerOptions: TypeScript.CompilerOptions): TypeScript.CompilerHost {
+  const ts = getCompiler();
+  const host = ts.createCompilerHost(compilerOptions);
+  const parsedFiles = new Map<string, TypeScript.SourceFile | undefined>();
+  const readSourceFile = host.getSourceFile.bind(host);
+
+  host.getSourceFile = (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) => {
+    // A file that the host cannot read yields `undefined`, which the cache stores so that the miss is not re-read.
+    if (parsedFiles.has(fileName)) {
+      return parsedFiles.get(fileName);
+    }
+
+    const sourceFile = readSourceFile(fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile);
+    parsedFiles.set(fileName, sourceFile);
+    return sourceFile;
+  };
+
+  return host;
+}
 
 /**
  * Runs two TypeScript program emits, `.js` and then `.d.ts`, rewrites relative `.ts` specifiers and tsconfig
@@ -218,38 +264,6 @@ async function emitPackage(packageDir: string, entryPoints: string[], outdir: st
   }
 
   return publishOutput(emitDir, stagedFiles);
-}
-
-/** Throws with formatted diagnostics when the compiler skipped an emit. */
-function assertEmitSucceeded(result: TypeScript.EmitResult): void {
-  if (result.emitSkipped) {
-    throw new UserError(`emit failed.\n${formatDiagnostics(result.diagnostics)}`);
-  }
-}
-
-/**
- * Builds a compiler host that memoizes `getSourceFile` on file name, so a file read by more than one program
- * is parsed once. `ts.createCompilerHost` re-reads and re-parses on every call, and a program built over an
- * `oldProgram` still asks the host for each file in order to compare it.
- */
-function createCachingCompilerHost(compilerOptions: TypeScript.CompilerOptions): TypeScript.CompilerHost {
-  const ts = getCompiler();
-  const host = ts.createCompilerHost(compilerOptions);
-  const parsedFiles = new Map<string, TypeScript.SourceFile | undefined>();
-  const readSourceFile = host.getSourceFile.bind(host);
-
-  host.getSourceFile = (fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile) => {
-    // A file that the host cannot read yields `undefined`, which the cache stores so that the miss is not re-read.
-    if (parsedFiles.has(fileName)) {
-      return parsedFiles.get(fileName);
-    }
-
-    const sourceFile = readSourceFile(fileName, languageVersionOrOptions, onError, shouldCreateNewSourceFile);
-    parsedFiles.set(fileName, sourceFile);
-    return sourceFile;
-  };
-
-  return host;
 }
 
 /**
@@ -345,20 +359,6 @@ async function detectBuildChanges(
   }
 
   return { reason: isOutputPresent ? 'unchanged' : 'output-missing', currentHash };
-}
-
-/**
- * Records a build skipped on unchanged inputs: states the `build-unchanged` outcome with the emit time recorded under
- * `digest`, and returns that time, which is absent when none was recorded.
- */
-export async function recordUnchangedBuild(
-  packageDir: string,
-  digest: string,
-  env: NodeJS.ProcessEnv,
-): Promise<number | undefined> {
-  const savedMs = await readEmitDuration(packageDir, digest);
-  await writeStatedOutcome(env, { kind: 'build-unchanged', ...(savedMs !== undefined && { savedMs }) });
-  return savedMs;
 }
 
 // endregion | Cache

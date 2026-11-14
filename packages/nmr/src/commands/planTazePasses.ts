@@ -60,6 +60,13 @@ function convertGlobToRegexBody(glob: string): string {
   return glob.replaceAll(/[.+?^${}()|[\]\\]/g, String.raw`\$&`).replaceAll(/\*+/g, '.*?');
 }
 
+/** Reports whether `value` is an object created as a literal or by `Object.create(null)`. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
 /** Returns the entries of a valid `packageMaturityPeriod`, in declaration order. */
 function validatePackageMaturityPeriod(value: unknown): Array<[string, number]> {
   if (value === undefined) return [];
@@ -82,13 +89,6 @@ function validatePackageMaturityPeriod(value: unknown): Array<[string, number]> 
     }
     return [key, days];
   });
-}
-
-/** Reports whether `value` is an object created as a literal or by `Object.create(null)`. */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null) return false;
-  const prototype: unknown = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
 }
 
 // endregion | Helpers

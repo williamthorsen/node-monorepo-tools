@@ -125,30 +125,7 @@ export function definePrettierConfig(options: PrettierConfigOptions = {}): Confi
   };
 }
 
-/**
- * Registers the shell plugin under a narrowed language table. Prettier's `loadPlugin` returns a non-string plugin
- * as-is, so the object passed here is the one that its inference consults, which keeps the surplus claims out of
- * inference. `parsers` and `printers` are left whole: A consumer who wants a dropped language back can restore it
- * by assigning the parser explicitly through `additionalOverrides`.
- */
-function buildShellPlugin(): Plugin {
-  return {
-    ...shPlugin,
-    languages: shPlugin.languages.filter(isInferredLanguage).map(dropExcludedFilenames),
-  };
-}
-
-/** Reports whether a language is one that the narrowed plugin keeps for inference. */
-function isInferredLanguage(language: SupportLanguage): boolean {
-  return INFERRED_LANGUAGES.has(language.name);
-}
-
-/** Drops the filenames that a formatter should not claim. Only the Shell language declares any of them. */
-function dropExcludedFilenames(language: SupportLanguage): SupportLanguage {
-  if (language.filenames === undefined) return language;
-
-  return { ...language, filenames: language.filenames.filter((name) => !EXCLUDED_FILENAMES.has(name)) };
-}
+// region | Helpers
 
 /**
  * Rejects the two keys owned by this config. They are typed `never`, so a TypeScript caller is stopped at compile
@@ -164,3 +141,30 @@ function assertNoReplacement(options: PrettierConfigOptions): void {
 function buildOwnedKeyError(key: string, seam: string): TypeError {
   return new TypeError(`definePrettierConfig: \`${key}\` is owned by this config. Use \`${seam}\` to append to it.`);
 }
+
+/**
+ * Registers the shell plugin under a narrowed language table. Prettier's `loadPlugin` returns a non-string plugin
+ * as-is, so the object passed here is the one that its inference consults, which keeps the surplus claims out of
+ * inference. `parsers` and `printers` are left whole: A consumer who wants a dropped language back can restore it
+ * by assigning the parser explicitly through `additionalOverrides`.
+ */
+function buildShellPlugin(): Plugin {
+  return {
+    ...shPlugin,
+    languages: shPlugin.languages.filter(isInferredLanguage).map(dropExcludedFilenames),
+  };
+}
+
+/** Drops the filenames that a formatter should not claim. Only the Shell language declares any of them. */
+function dropExcludedFilenames(language: SupportLanguage): SupportLanguage {
+  if (language.filenames === undefined) return language;
+
+  return { ...language, filenames: language.filenames.filter((name) => !EXCLUDED_FILENAMES.has(name)) };
+}
+
+/** Reports whether a language is one that the narrowed plugin keeps for inference. */
+function isInferredLanguage(language: SupportLanguage): boolean {
+  return INFERRED_LANGUAGES.has(language.name);
+}
+
+// endregion | Helpers

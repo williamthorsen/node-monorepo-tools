@@ -114,6 +114,15 @@ describe('check-cache', () => {
 
 // region | Helpers
 
+/** Writes the sources and emitted output of a package that a build has already covered. */
+function scaffoldBuiltPackage(tree: TempTree, packagePath: string, name: string): void {
+  tree.writeAll({
+    [`${packagePath}/src/index.ts`]: 'export const value = 1;\n',
+    [`${packagePath}/dist/esm/index.js`]: 'export const value = 1;\n',
+  });
+  writePackageJson(tree, packagePath, undefined, name);
+}
+
 /** Writes a workspace whose globs yield two packages sharing a directory name, each freshly built. */
 function scaffoldCollidingWorkspace(tree: TempTree): void {
   tree.write('pnpm-workspace.yaml', 'packages:\n  - "apps/*"\n  - "packages/*"\n');
@@ -143,23 +152,9 @@ function scaffoldWorkspace(tree: TempTree): { aDir: string; bDir: string } {
   return { aDir, bDir };
 }
 
-/** Writes the sources and emitted output of a package that a build has already covered. */
-function scaffoldBuiltPackage(tree: TempTree, packagePath: string, name: string): void {
-  tree.writeAll({
-    [`${packagePath}/src/index.ts`]: 'export const value = 1;\n',
-    [`${packagePath}/dist/esm/index.js`]: 'export const value = 1;\n',
-  });
-  writePackageJson(tree, packagePath, undefined, name);
-}
-
 /** Writes the digest that a build of the package at `packagePath` would have left behind. */
 function writeBuildDigest(tree: TempTree, packagePath: string, digest: string): void {
   tree.write(resolveBuildCachePath(tree.resolve(packagePath)), digest);
-}
-
-/** Writes a package's own nmr config. */
-function writeWorkspaceConfig(tree: TempTree, packagePath: string, config: Record<string, unknown>): void {
-  tree.write(`${packagePath}/.config/nmr.config.ts`, `export default ${JSON.stringify(config)};\n`);
 }
 
 /** Writes a package manifest, optionally declaring scripts that override the built-in build. */
@@ -170,6 +165,11 @@ function writePackageJson(
   name = path.basename(packagePath),
 ): void {
   tree.writeJson(`${packagePath}/package.json`, { name, type: 'module', ...(scripts && { scripts }) });
+}
+
+/** Writes a package's own nmr config. */
+function writeWorkspaceConfig(tree: TempTree, packagePath: string, config: Record<string, unknown>): void {
+  tree.write(`${packagePath}/.config/nmr.config.ts`, `export default ${JSON.stringify(config)};\n`);
 }
 
 // endregion | Helpers

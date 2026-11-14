@@ -4,15 +4,6 @@ import { type BoundedBufferOptions, createBoundedBuffer } from '../createBounded
 
 const SMALL_BOUND: BoundedBufferOptions = { headLimitBytes: 4, tailLimitBytes: 4 };
 
-/** Feeds each chunk to a buffer built under the small bound and decodes what it retained. */
-function retain(chunks: string[]): string {
-  const buffer = createBoundedBuffer(SMALL_BOUND);
-  for (const chunk of chunks) {
-    buffer.append(Buffer.from(chunk));
-  }
-  return buffer.readBuffer().toString('utf8');
-}
-
 describe(createBoundedBuffer, () => {
   it('when nothing is appended, does not retain any bytes', () => {
     expect(retain([])).toBe('');
@@ -59,3 +50,16 @@ describe(createBoundedBuffer, () => {
     expect(buffer.readBuffer().toString('utf8')).toBe('€');
   });
 });
+
+// region | Helpers
+
+/** Feeds each chunk to a buffer built under the small bound and decodes what it retained. */
+function retain(chunks: string[]): string {
+  const buffer = createBoundedBuffer(SMALL_BOUND);
+  for (const chunk of chunks) {
+    buffer.append(Buffer.from(chunk));
+  }
+  return buffer.readBuffer().toString('utf8');
+}
+
+// endregion | Helpers

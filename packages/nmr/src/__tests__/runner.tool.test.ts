@@ -226,9 +226,11 @@ describe(runSteps, () => {
   });
 });
 
-/** Builds an opaque step that runs a Node script through the shell, as a package script would be run. */
-function opaqueNodeStep(script: string): Step & { kind: 'opaque' } {
-  return { kind: 'opaque', command: `"${process.execPath}" -e "${script}"` };
+// region | Helpers
+
+/** Marks a step to run in the background. */
+function background(step: Step & { kind: 'structural' }): Step {
+  return { ...step, shouldRunInBackground: true };
 }
 
 /** Builds a structural step that runs a Node script directly, as a nested nmr process would be run. */
@@ -236,7 +238,9 @@ function nodeStep(script: string): Step & { kind: 'structural' } {
   return { kind: 'structural', argv: [process.execPath, '-e', script] };
 }
 
-/** Marks a step to run in the background. */
-function background(step: Step & { kind: 'structural' }): Step {
-  return { ...step, shouldRunInBackground: true };
+/** Builds an opaque step that runs a Node script through the shell, as a package script would be run. */
+function opaqueNodeStep(script: string): Step & { kind: 'opaque' } {
+  return { kind: 'opaque', command: `"${process.execPath}" -e "${script}"` };
 }
+
+// endregion | Helpers

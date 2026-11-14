@@ -566,11 +566,6 @@ const OVERSIZED_STRUCTURE: Verdict = {
   replay: [{ command: 'test', excerpt: 'Test Files 6 passed (6)', scope: 'nmr-core' }],
 };
 
-/** Reads the excerpts in a parsed record's replay, skipping an entry from which the ladder shed the excerpt. */
-function readExcerpts(parsedVerdict: unknown): string[] {
-  return readReplay(parsedVerdict).flatMap((line) => (typeof line['excerpt'] === 'string' ? line['excerpt'] : []));
-}
-
 /** Reports whether a replay entry parsed back as an object, as every one that nmr emits does. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -600,6 +595,11 @@ function parseVerdict(line: string): unknown {
   const parsedVerdict: unknown = JSON.parse(line);
 
   return parsedVerdict;
+}
+
+/** Reads the excerpts in a parsed record's replay, skipping an entry from which the ladder shed the excerpt. */
+function readExcerpts(parsedVerdict: unknown): string[] {
+  return readReplay(parsedVerdict).flatMap((line) => (typeof line['excerpt'] === 'string' ? line['excerpt'] : []));
 }
 
 /** Reads the replay entries in a parsed record, or none when the ladder shed the array. */

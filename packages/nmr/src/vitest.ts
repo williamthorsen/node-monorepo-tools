@@ -239,51 +239,6 @@ interface BuildOptions {
   projectRoot?: string;
 }
 
-/** Builds the root config and its tier projects from the non-empty layers, then merges each layer's `root` over it. */
-function buildConfig(
-  declaredLayers: readonly (VitestConfigOptions | undefined)[],
-  { coverageInclude, ignoredPathsRoot, projectExclude = [], projectRoot }: BuildOptions,
-): ViteUserConfig {
-  // Dropping the empty layers here rather than at each fold keeps every consumer of `layers` below total.
-  const layers = declaredLayers.filter((layer) => layer !== undefined);
-
-  assertKnownTiers(layers);
-
-  // `tsconfigPaths` shares the block, which a second spread would replace rather than merge into, and does not need
-  // an `ssr` twin the way the conditions do: Vite keeps it outside its per-environment resolve options and spreads
-  // the top-level block into every environment's defaults.
-  const resolve = {
-    conditions: CLIENT_CONDITIONS,
-    ...(resolveFlag(layers, 'tsconfigPaths', false) && { tsconfigPaths: true }),
-  };
-
-  const config: ViteUserConfig = {
-    ...(resolveFlag(layers, 'shouldResolveFromSource', true) && { plugins: [createSourceResolutionPlugin()] }),
-    resolve,
-    ssr: { resolve: { conditions: SERVER_CONDITIONS } },
-    test: {
-      coverage: {
-        enabled: false, // don't check coverage unless the `--coverage` flag is passed
-        exclude: COVERAGE_EXCLUDE,
-        include: coverageInclude,
-        provider: 'v8',
-      },
-      ...(resolveFlag(layers, 'shouldIsolateTempDir', true) && { globalSetup: [TEMP_ISOLATION_SETUP_FILE] }),
-      passWithNoTests: true, // `nmr test:tool` fans out over packages without any tool-tier tests
-      projects: buildProjects(layers, projectExclude, projectRoot, ignoredPathsRoot),
-      silent: 'passed-only', // see logs from failing tests only
-      watch: false, // don't enter watch mode unless the `--watch` flag is passed
-    },
-  };
-
-  let mergedConfig = config;
-  for (const { root } of layers) {
-    if (root) mergedConfig = mergeConfig(mergedConfig, root);
-  }
-
-  return mergedConfig;
-}
-
 /** One project's definition before it becomes a Vitest project config: the residual, then every named tier. */
 interface ProjectTier {
   exclude: string[];
@@ -293,59 +248,7 @@ interface ProjectTier {
   timeoutMs?: number;
 }
 
-/** Builds one project per tier, in ladder order, each inheriting the root config. */
-function buildProjects(
-  layers: readonly VitestConfigOptions[],
-  extraExclude: string[],
-  projectRoot: string | undefined,
-  ignoredPathsRoot: string,
-): TestProjectInlineConfiguration[] {
-  const projectTiers: ProjectTier[] = [
-    { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: RESIDUAL_TIER },
-    ...NAMED_TIERS.map((tier) => ({
-      exclude: [],
-      include: buildTierPatterns(tier),
-      name: tier,
-      timeoutMs: TIER_TIMEOUT_MS,
-    })),
-  ];
-
-  const collectionExclude = buildCollectionExclude(layers, ignoredPathsRoot);
-  const defaultMaxWorkers = deriveDefaultMaxWorkers({
-    coreCount: os.availableParallelism(),
-    totalMemoryBytes: os.totalmem(),
-  });
-  // Vitest does not forward `--maxWorkers` to projects, and a project's own value hides the flag's.
-  const flagMaxWorkers = readMaxWorkersFlag(process.argv.slice(2));
-  const shouldIsolateGit = resolveFlag(layers, 'shouldIsolateGit', true);
-
-  return projectTiers.map(({ exclude, include, name, timeoutMs }) => {
-    const project: TestProjectInlineConfiguration = {
-      // Vitest 5 defaults this to `true`; without it, Vitest 4 does not give the project any Vite config file at all,
-      // so root-level options such as `resolve.conditions` never apply to it.
-      extends: true,
-      // Patterns resolve against the project root, which otherwise defaults to the working directory.
-      ...(projectRoot !== undefined && { root: projectRoot }),
-      test: {
-        exclude: [...collectionExclude, ...exclude, ...extraExclude],
-        include,
-        maxWorkers: defaultMaxWorkers,
-        name,
-        ...(shouldIsolateGit && { setupFiles: [GIT_ISOLATION_SETUP_FILE] }),
-        ...(timeoutMs !== undefined && { hookTimeout: timeoutMs, testTimeout: timeoutMs }),
-      },
-    };
-
-    let mergedProject = project;
-    for (const layer of layers) {
-      mergedProject = applyLayer(mergedProject, layer, name);
-    }
-
-    return flagMaxWorkers === undefined
-      ? mergedProject
-      : mergeConfig(mergedProject, { test: { maxWorkers: flagMaxWorkers } });
-  });
-}
+// region | Helpers
 
 /**
  * Applies one layer to one project: its uniform `project` block, then whatever it targets at this tier.
@@ -442,11 +345,110 @@ function buildCollectionExclude(layers: readonly VitestConfigOptions[], ignoredP
   return [...new Set([...defaultExclude, ...globs, ...ignoredGlobs])];
 }
 
+/** Builds the root config and its tier projects from the non-empty layers, then merges each layer's `root` over it. */
+function buildConfig(
+  declaredLayers: readonly (VitestConfigOptions | undefined)[],
+  { coverageInclude, ignoredPathsRoot, projectExclude = [], projectRoot }: BuildOptions,
+): ViteUserConfig {
+  // Dropping the empty layers here rather than at each fold keeps every consumer of `layers` below total.
+  const layers = declaredLayers.filter((layer) => layer !== undefined);
+
+  assertKnownTiers(layers);
+
+  // `tsconfigPaths` shares the block, which a second spread would replace rather than merge into, and does not need
+  // an `ssr` twin the way the conditions do: Vite keeps it outside its per-environment resolve options and spreads
+  // the top-level block into every environment's defaults.
+  const resolve = {
+    conditions: CLIENT_CONDITIONS,
+    ...(resolveFlag(layers, 'tsconfigPaths', false) && { tsconfigPaths: true }),
+  };
+
+  const config: ViteUserConfig = {
+    ...(resolveFlag(layers, 'shouldResolveFromSource', true) && { plugins: [createSourceResolutionPlugin()] }),
+    resolve,
+    ssr: { resolve: { conditions: SERVER_CONDITIONS } },
+    test: {
+      coverage: {
+        enabled: false, // don't check coverage unless the `--coverage` flag is passed
+        exclude: COVERAGE_EXCLUDE,
+        include: coverageInclude,
+        provider: 'v8',
+      },
+      ...(resolveFlag(layers, 'shouldIsolateTempDir', true) && { globalSetup: [TEMP_ISOLATION_SETUP_FILE] }),
+      passWithNoTests: true, // `nmr test:tool` fans out over packages without any tool-tier tests
+      projects: buildProjects(layers, projectExclude, projectRoot, ignoredPathsRoot),
+      silent: 'passed-only', // see logs from failing tests only
+      watch: false, // don't enter watch mode unless the `--watch` flag is passed
+    },
+  };
+
+  let mergedConfig = config;
+  for (const { root } of layers) {
+    if (root) mergedConfig = mergeConfig(mergedConfig, root);
+  }
+
+  return mergedConfig;
+}
+
 /** Turns one git-ignored path into an exclude glob: everything beneath a `dir/` entry, or the file itself. */
 function buildIgnoredPathGlob(ignoredPath: string): string {
   const escapedPath = ignoredPath.replaceAll(GLOB_SYNTAX_PATTERN, String.raw`\$&`);
 
   return escapedPath.endsWith('/') ? `${escapedPath}**` : escapedPath;
+}
+
+/** Builds one project per tier, in ladder order, each inheriting the root config. */
+function buildProjects(
+  layers: readonly VitestConfigOptions[],
+  extraExclude: string[],
+  projectRoot: string | undefined,
+  ignoredPathsRoot: string,
+): TestProjectInlineConfiguration[] {
+  const projectTiers: ProjectTier[] = [
+    { exclude: TIERED_PATTERNS, include: ALL_TEST_PATTERNS, name: RESIDUAL_TIER },
+    ...NAMED_TIERS.map((tier) => ({
+      exclude: [],
+      include: buildTierPatterns(tier),
+      name: tier,
+      timeoutMs: TIER_TIMEOUT_MS,
+    })),
+  ];
+
+  const collectionExclude = buildCollectionExclude(layers, ignoredPathsRoot);
+  const defaultMaxWorkers = deriveDefaultMaxWorkers({
+    coreCount: os.availableParallelism(),
+    totalMemoryBytes: os.totalmem(),
+  });
+  // Vitest does not forward `--maxWorkers` to projects, and a project's own value hides the flag's.
+  const flagMaxWorkers = readMaxWorkersFlag(process.argv.slice(2));
+  const shouldIsolateGit = resolveFlag(layers, 'shouldIsolateGit', true);
+
+  return projectTiers.map(({ exclude, include, name, timeoutMs }) => {
+    const project: TestProjectInlineConfiguration = {
+      // Vitest 5 defaults this to `true`; without it, Vitest 4 does not give the project any Vite config file at all,
+      // so root-level options such as `resolve.conditions` never apply to it.
+      extends: true,
+      // Patterns resolve against the project root, which otherwise defaults to the working directory.
+      ...(projectRoot !== undefined && { root: projectRoot }),
+      test: {
+        exclude: [...collectionExclude, ...exclude, ...extraExclude],
+        include,
+        maxWorkers: defaultMaxWorkers,
+        name,
+        ...(shouldIsolateGit && { setupFiles: [GIT_ISOLATION_SETUP_FILE] }),
+        ...(timeoutMs !== undefined && { hookTimeout: timeoutMs, testTimeout: timeoutMs }),
+      },
+    };
+
+    let mergedProject = project;
+    for (const layer of layers) {
+      mergedProject = applyLayer(mergedProject, layer, name);
+    }
+
+    return flagMaxWorkers === undefined
+      ? mergedProject
+      : mergeConfig(mergedProject, { test: { maxWorkers: flagMaxWorkers } });
+  });
 }
 
 /** Renders option keys as a sorted, backtick-quoted list. */
@@ -485,3 +487,5 @@ function resolveSiblingModule(basename: string): string {
 
   return path.join(path.dirname(thisFile), `${basename}${path.extname(thisFile)}`);
 }
+
+// endregion | Helpers

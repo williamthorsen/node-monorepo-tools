@@ -197,6 +197,17 @@ function buildResult(packages: PackageHookStatus[]): EnsurePrepublishHooksResult
   return { packages, hasFailures: packages.some((packageStatus) => packageStatus.action === 'missing') };
 }
 
+/** Builds one package's status, with the hook present exactly when the action is `ok`. */
+function buildStatus(packageName: string, action: PackageHookStatus['action']): PackageHookStatus {
+  return {
+    packageName,
+    packageDir: `/packages/${packageName}`,
+    isPrivate: false,
+    prepublishOnly: action === 'ok' ? DEFAULT_HOOK : undefined,
+    action,
+  };
+}
+
 /**
  * Creates a minimal monorepo fixture with a pnpm-workspace.yaml and the given packages under a `packages/` directory.
  */
@@ -220,17 +231,6 @@ function createFixture(
 
     tree.writeJson(`packages/${dirName}/package.json`, packageJson);
   }
-}
-
-/** Builds one package's status, with the hook present exactly when the action is `ok`. */
-function buildStatus(packageName: string, action: PackageHookStatus['action']): PackageHookStatus {
-  return {
-    packageName,
-    packageDir: `/packages/${packageName}`,
-    isPrivate: false,
-    prepublishOnly: action === 'ok' ? DEFAULT_HOOK : undefined,
-    action,
-  };
 }
 
 // endregion | Helpers

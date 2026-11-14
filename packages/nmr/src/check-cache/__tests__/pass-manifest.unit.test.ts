@@ -167,6 +167,17 @@ describe(writePassManifestEntry, () => {
 
 // region | Helpers
 
+/** Returns a writable stream and a reader of everything written to it. */
+function captureStream(): { read: () => string; stream: PassThrough } {
+  const stream = new PassThrough();
+  const chunks: Buffer[] = [];
+  stream.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+
+  return { read: () => Buffer.concat(chunks).toString('utf8'), stream };
+}
+
 /** Returns a valid entry for `test` at the root, with any field overridden, possibly into an invalid one. */
 function makeEntry(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -196,17 +207,6 @@ function makeOptions(entries: readonly unknown[]): Parameters<typeof validatePas
 /** Validates entries against the default options. */
 function validate(entries: readonly unknown[]): PassManifestEntry[] {
   return validatePassManifest(makeOptions(entries));
-}
-
-/** Returns a writable stream and a reader of everything written to it. */
-function captureStream(): { read: () => string; stream: PassThrough } {
-  const stream = new PassThrough();
-  const chunks: Buffer[] = [];
-  stream.on('data', (chunk: Buffer) => {
-    chunks.push(chunk);
-  });
-
-  return { read: () => Buffer.concat(chunks).toString('utf8'), stream };
 }
 
 // endregion | Helpers

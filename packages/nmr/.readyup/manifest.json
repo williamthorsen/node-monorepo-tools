@@ -253,7 +253,7 @@
           "path": "../src/commands/ensure-prepublish-hooks.ts"
         },
         {
-          "hash": "8c3aa404",
+          "hash": "4ab792b6",
           "kind": "module",
           "path": "../src/config-validation.ts"
         },
@@ -323,7 +323,7 @@
           "path": "../src/resolve-scripts.ts"
         },
         {
-          "hash": "0112952e",
+          "hash": "3e3aff50",
           "kind": "module",
           "path": "../src/resolver.ts"
         },
@@ -363,7 +363,7 @@
       "readyupVersion": "0.46.2",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "693bb482"
+      "targetHash": "352c3ea8"
     }
   ]
 }

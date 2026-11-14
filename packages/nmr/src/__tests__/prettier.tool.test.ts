@@ -226,6 +226,13 @@ describe(definePrettierConfig, () => {
 
 // region | Helpers
 
+/** Drops `overrides`, which Prettier resolves from a config file rather than honouring in `format`. */
+function buildFormatOptions(config: Config, filepath: string): Config & { filepath: string } {
+  const { overrides: _overrides, ...flat } = config;
+
+  return { ...flat, filepath };
+}
+
 /** Formats `source` under the options resolved for `relativePath`. The path is matched, not read, so nothing backs it. */
 async function formatResolved(source: string, relativePath: string, configPath = fixtureConfigPath): Promise<string> {
   const options = await resolveConfig(path.join(fixturesDir, relativePath), { config: configPath });
@@ -236,13 +243,6 @@ async function formatResolved(source: string, relativePath: string, configPath =
 /** Reads a file from the fixtures directory. */
 function readFixture(name: string): string {
   return readFileSync(path.join(fixturesDir, name), 'utf8');
-}
-
-/** Drops `overrides`, which Prettier resolves from a config file rather than honouring in `format`. */
-function buildFormatOptions(config: Config, filepath: string): Config & { filepath: string } {
-  const { overrides: _overrides, ...flat } = config;
-
-  return { ...flat, filepath };
 }
 
 // endregion | Helpers

@@ -234,34 +234,16 @@ type ResolvedStepsOptions = RunStepsOptions & {
   stdout: Writable;
 };
 
-/** Spawns one child on the caller's channels and resolves once it has ended. */
-function runSpawned(spec: SpawnSpec, cwd: string | undefined, options: RunCommandOptions): Promise<RunCommandResult> {
-  return startSpawned(spec, cwd, options).result;
-}
-
 /**
- * Starts one step on the channels that its kind calls for.
- *
- * A structural step runs loud whatever mode this process is in: The nmr process underneath suppresses the
- * output of the command that it runs, and an ancestor withholding it as well would be suppressing the subtree.
+ * Returns the environment for a background step: nmr's own, with `FORCE_COLOR` added when nmr writes to a
+ * terminal, so that a tool writing to the recorder's pipe colours its output as it would at the terminal on
+ * which the output is printed. `NO_COLOR` and an inherited `FORCE_COLOR` are left to decide for themselves.
  */
-function startStep(step: Step, cwd: string | undefined, options: ResolvedStepsOptions): StartedCommand {
-  const { quiet, stderr, stdout } = options;
-
-  if (step.kind === 'opaque') {
-    return startSpawned({ args: [], file: step.command, input: 'inherit', shouldUseShell: true }, cwd, {
-      ...options,
-      channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
-    });
-  }
-
-  const [file, ...args] = step.argv;
-  const input = step.shouldWithholdInput === true ? 'ignore' : 'inherit';
-  return startSpawned({ args, file, input, shouldUseShell: false }, cwd, {
-    ...options,
-    quiet: false,
-    channels: { stderr: resolveInheritedChannel(stderr), stdout: resolveInheritedChannel(stdout) },
-  });
+function buildBackgroundEnv(options: ResolvedStepsOptions): NodeJS.ProcessEnv {
+  const { env } = options;
+  const shouldForceColor =
+    isTerminal(options.stdout) && (env['NO_COLOR'] ?? '') === '' && env['FORCE_COLOR'] === undefined;
+  return shouldForceColor ? { ...env, FORCE_COLOR: '1' } : env;
 }
 
 /**
@@ -286,21 +268,14 @@ function composeRetainedOutput(
   };
 }
 
-/**
- * Returns the environment for a background step: nmr's own, with `FORCE_COLOR` added when nmr writes to a
- * terminal, so that a tool writing to the recorder's pipe colours its output as it would at the terminal on
- * which the output is printed. `NO_COLOR` and an inherited `FORCE_COLOR` are left to decide for themselves.
- */
-function buildBackgroundEnv(options: ResolvedStepsOptions): NodeJS.ProcessEnv {
-  const { env } = options;
-  const shouldForceColor =
-    isTerminal(options.stdout) && (env['NO_COLOR'] ?? '') === '' && env['FORCE_COLOR'] === undefined;
-  return shouldForceColor ? { ...env, FORCE_COLOR: '1' } : env;
-}
-
 /** Sets a background run's result once its step has ended. */
 async function recordResult(run: BackgroundRun, result: Promise<RunCommandResult>): Promise<void> {
   run.result = await result;
+}
+
+/** Spawns one child on the caller's channels and resolves once it has ended. */
+function runSpawned(spec: SpawnSpec, cwd: string | undefined, options: RunCommandOptions): Promise<RunCommandResult> {
+  return startSpawned(spec, cwd, options).result;
 }
 
 /**
@@ -340,6 +315,31 @@ function startBackgroundRun(
   };
   run.settled = recordResult(run, started.result);
   return run;
+}
+
+/**
+ * Starts one step on the channels that its kind calls for.
+ *
+ * A structural step runs loud whatever mode this process is in: The nmr process underneath suppresses the
+ * output of the command that it runs, and an ancestor withholding it as well would be suppressing the subtree.
+ */
+function startStep(step: Step, cwd: string | undefined, options: ResolvedStepsOptions): StartedCommand {
+  const { quiet, stderr, stdout } = options;
+
+  if (step.kind === 'opaque') {
+    return startSpawned({ args: [], file: step.command, input: 'inherit', shouldUseShell: true }, cwd, {
+      ...options,
+      channels: { stderr: resolveChannel(stderr, quiet), stdout: resolveChannel(stdout, quiet) },
+    });
+  }
+
+  const [file, ...args] = step.argv;
+  const input = step.shouldWithholdInput === true ? 'ignore' : 'inherit';
+  return startSpawned({ args, file, input, shouldUseShell: false }, cwd, {
+    ...options,
+    quiet: false,
+    channels: { stderr: resolveInheritedChannel(stderr), stdout: resolveInheritedChannel(stdout) },
+  });
 }
 
 // endregion | Helpers

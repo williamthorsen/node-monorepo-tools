@@ -97,6 +97,15 @@ export function writePackageScripts(tree: TempTree, scripts: Record<string, stri
 
 // region | Helpers
 
+/** Collects everything written to a stream, read back as UTF-8. */
+function collectText(stream: PassThrough): () => string {
+  const chunks: Buffer[] = [];
+  stream.on('data', (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+  return () => Buffer.concat(chunks).toString('utf8');
+}
+
 /** Runs the CLI in-process with the lock bypass, collecting what it wrote to each stream. */
 async function runCapturing(options: {
   args: string[];
@@ -113,15 +122,6 @@ async function runCapturing(options: {
   const { exitCode } = await runCli({ args, cwd, env: withLockBypass(env), ...deps, stderr, stdout });
 
   return { exitCode, stderr: readStderr(), stdout: readStdout() };
-}
-
-/** Collects everything written to a stream, read back as UTF-8. */
-function collectText(stream: PassThrough): () => string {
-  const chunks: Buffer[] = [];
-  stream.on('data', (chunk: Buffer) => {
-    chunks.push(chunk);
-  });
-  return () => Buffer.concat(chunks).toString('utf8');
 }
 
 // endregion | Helpers

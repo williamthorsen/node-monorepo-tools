@@ -223,24 +223,6 @@ describe(checkNodePin, () => {
 
 // region | Helpers
 
-/** Returns a node-build probe that defines only `versions`. */
-function definedOnly(...versions: string[]): (version: string) => Promise<boolean> {
-  return (version) => Promise.resolve(versions.includes(version));
-}
-
-/** Runs the check against `dir` with the fixture releases and a fixed clock, returning what it wrote to stderr. */
-async function runCheck(dir: string, overrides: Partial<CheckNodePinOptions> = {}): Promise<string> {
-  return captureCheck(dir, { isNodeBuildDefined: () => Promise.resolve(true), ...overrides });
-}
-
-/** Runs the check as `runCheck` does, but through the production node-build probe. */
-async function runCheckWithDefaultProbe(
-  dir: string,
-  overrides: Partial<Omit<CheckNodePinOptions, 'isNodeBuildDefined'>> = {},
-): Promise<string> {
-  return captureCheck(dir, overrides);
-}
-
 /** Runs the check with the fixture releases, a fixed clock, and `overrides`, returning what it wrote to stderr. */
 async function captureCheck(dir: string, overrides: Partial<CheckNodePinOptions>): Promise<string> {
   const stderr = new PassThrough();
@@ -260,6 +242,24 @@ async function captureCheck(dir: string, overrides: Partial<CheckNodePinOptions>
   });
 
   return chunks.join('');
+}
+
+/** Returns a node-build probe that defines only `versions`. */
+function definedOnly(...versions: string[]): (version: string) => Promise<boolean> {
+  return (version) => Promise.resolve(versions.includes(version));
+}
+
+/** Runs the check against `dir` with the fixture releases and a fixed clock, returning what it wrote to stderr. */
+async function runCheck(dir: string, overrides: Partial<CheckNodePinOptions> = {}): Promise<string> {
+  return captureCheck(dir, { isNodeBuildDefined: () => Promise.resolve(true), ...overrides });
+}
+
+/** Runs the check as `runCheck` does, but through the production node-build probe. */
+async function runCheckWithDefaultProbe(
+  dir: string,
+  overrides: Partial<Omit<CheckNodePinOptions, 'isNodeBuildDefined'>> = {},
+): Promise<string> {
+  return captureCheck(dir, overrides);
 }
 
 /** Replaces `fetch` with one that answers every request with `status`, until the returned spy is disposed. */

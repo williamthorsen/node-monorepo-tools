@@ -101,6 +101,25 @@ const ENVIRONMENT_AND_FILES_LINES: readonly string[] = [
 ];
 
 /**
+ * Applies tier-3 overrides to a section registry in place: for each candidate
+ * override whose name matches a registry entry, replaces the registry value
+ * with the override value and records the name. Returns the set of marked
+ * names so that the renderer can attach the `*` marker.
+ */
+function applyOverrides(registry: ScriptRegistry, overrides: Record<string, string>): Set<string> {
+  const markedNames = new Set<string>();
+  for (const [name, value] of Object.entries(overrides)) {
+    if (!Object.hasOwn(registry, name)) {
+      continue;
+    }
+
+    registry[name] = value;
+    markedNames.add(name);
+  }
+  return markedNames;
+}
+
+/**
  * Selects the hook-free entries of `packageScripts` as candidate overrides; `applyOverrides` decides which entries
  * actually match a registry name in the section being rendered.
  */
@@ -125,39 +144,6 @@ function collectUnregisteredScripts(
     unregisteredScripts[name] = value;
   }
   return unregisteredScripts;
-}
-
-/**
- * Loads `packageDir`'s `package.json:scripts`, dropping self-referential entries, which resolution discards.
- */
-function readRunnableScripts(packageDir: string): Record<string, string> {
-  const scripts = readPackageJsonScripts(packageDir);
-  if (!scripts) return {};
-
-  const runnableScripts: Record<string, string> = {};
-  for (const [name, value] of Object.entries(scripts)) {
-    if (!isSelfReferential(value, name, packageDir)) runnableScripts[name] = value;
-  }
-  return runnableScripts;
-}
-
-/**
- * Applies tier-3 overrides to a section registry in place: for each candidate
- * override whose name matches a registry entry, replaces the registry value
- * with the override value and records the name. Returns the set of marked
- * names so that the renderer can attach the `*` marker.
- */
-function applyOverrides(registry: ScriptRegistry, overrides: Record<string, string>): Set<string> {
-  const markedNames = new Set<string>();
-  for (const [name, value] of Object.entries(overrides)) {
-    if (!Object.hasOwn(registry, name)) {
-      continue;
-    }
-
-    registry[name] = value;
-    markedNames.add(name);
-  }
-  return markedNames;
 }
 
 /**
@@ -190,6 +176,20 @@ function formatRegistry(registry: ScriptRegistry, markedNames: Set<string>, line
     const marker = markedNames.has(key) ? '*' : ' ';
     lines.push(`  ${(key + marker).padEnd(padWidth)} ${describeScript(value)}`);
   }
+}
+
+/**
+ * Loads `packageDir`'s `package.json:scripts`, dropping self-referential entries, which resolution discards.
+ */
+function readRunnableScripts(packageDir: string): Record<string, string> {
+  const scripts = readPackageJsonScripts(packageDir);
+  if (!scripts) return {};
+
+  const runnableScripts: Record<string, string> = {};
+  for (const [name, value] of Object.entries(scripts)) {
+    if (!isSelfReferential(value, name, packageDir)) runnableScripts[name] = value;
+  }
+  return runnableScripts;
 }
 
 // endregion | Helpers

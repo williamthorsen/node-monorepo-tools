@@ -325,15 +325,6 @@ describe('self-hosted runner checklist', () => {
 
 // region | Helpers
 
-/** Builds a `gh` double that answers each call by the first key contained in its joined arguments. */
-function fakeGh(responses: Record<string, GhResult>) {
-  return (args: string[]): Promise<GhResult> => {
-    const command = args.join(' ');
-    const key = Object.keys(responses).find((candidate) => command.includes(candidate));
-    return Promise.resolve(key === undefined ? failed('HTTP 404: Not Found') : (responses[key] ?? failed('')));
-  };
-}
-
 /** Returns a facts reader that always reports `facts`. */
 function factsReader(facts: GitHubFacts) {
   return () => Promise.resolve(facts);
@@ -342,6 +333,15 @@ function factsReader(facts: GitHubFacts) {
 /** Builds a failed `gh` result whose stderr is `stderr`. */
 function failed(stderr: string): GhResult {
   return { ok: false, isMissing: false, stderr };
+}
+
+/** Builds a `gh` double that answers each call by the first key contained in its joined arguments. */
+function fakeGh(responses: Record<string, GhResult>) {
+  return (args: string[]): Promise<GhResult> => {
+    const command = args.join(' ');
+    const key = Object.keys(responses).find((candidate) => command.includes(candidate));
+    return Promise.resolve(key === undefined ? failed('HTTP 404: Not Found') : (responses[key] ?? failed('')));
+  };
 }
 
 /** Builds a successful `gh` result whose stdout is `body` as JSON. */

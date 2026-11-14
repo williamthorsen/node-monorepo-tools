@@ -202,6 +202,19 @@ function collectWorkspaceImports(): WorkspaceImport[] {
   );
 }
 
+/** Extracts the module-specifier literal from a static import, a re-export, or a dynamic `import()`. */
+function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
+  if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier !== undefined) {
+    return ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier : undefined;
+  }
+  if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+    const [firstArgument] = node.arguments;
+    return firstArgument !== undefined && ts.isStringLiteralLike(firstArgument) ? firstArgument : undefined;
+  }
+
+  return undefined;
+}
+
 /** Reports whether `specifier` names `packageName` itself or one of its subpath exports. */
 function isPackageSpecifier(specifier: string, packageName: string): boolean {
   return specifier === packageName || specifier.startsWith(`${packageName}/`);
@@ -278,19 +291,6 @@ function readSpecifiers(file: string): string[] {
   walk(sourceFile);
 
   return specifiers;
-}
-
-/** Extracts the module-specifier literal from a static import, a re-export, or a dynamic `import()`. */
-function getModuleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
-  if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier !== undefined) {
-    return ts.isStringLiteralLike(node.moduleSpecifier) ? node.moduleSpecifier : undefined;
-  }
-  if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-    const [firstArgument] = node.arguments;
-    return firstArgument !== undefined && ts.isStringLiteralLike(firstArgument) ? firstArgument : undefined;
-  }
-
-  return undefined;
 }
 
 /** Returns the `name` of every package that the workspace manifest includes, which is what makes a specifier local. */

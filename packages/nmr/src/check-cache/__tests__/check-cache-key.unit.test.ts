@@ -161,15 +161,6 @@ describe('check-cache', () => {
 
 // region | Helpers
 
-/** Returns the key for a set of inputs, failing the test if a key could not be computed. */
-function requireKey(root: string, overrides: Partial<Parameters<typeof computeCacheKey>[0]> = {}): string {
-  const result = computeCacheKey({ ...buildKeyOptions(root), ...overrides });
-  if (!result.ok) {
-    throw new Error(`expected a key, got: ${result.reason}`);
-  }
-  return result.key;
-}
-
 /** Builds the baseline key inputs, of which each test varies one ingredient. */
 function buildKeyOptions(root: string): Parameters<typeof computeCacheKey>[0] {
   return {
@@ -192,6 +183,15 @@ function buildRetentionKey(overrides: Partial<Parameters<typeof computeRetention
     passKey: 'a-pass-key',
     ...overrides,
   });
+}
+
+/** Returns the key for a set of inputs, failing the test if a key could not be computed. */
+function requireKey(root: string, overrides: Partial<Parameters<typeof computeCacheKey>[0]> = {}): string {
+  const result = computeCacheKey({ ...buildKeyOptions(root), ...overrides });
+  if (!result.ok) {
+    throw new Error(`expected a key, got: ${result.reason}`);
+  }
+  return result.key;
 }
 
 /** Writes the pnpm files read by the install fingerprint. */

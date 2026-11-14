@@ -529,6 +529,8 @@ describe('worker counts, run for real', { timeout: 120_000 }, () => {
   });
 });
 
+// region | Helpers
+
 /** Builds a test file that passes, so that the run's only outcome is which files it collected. */
 function buildPassingTest(): string {
   return [
@@ -541,15 +543,9 @@ function buildPassingTest(): string {
   ].join('\n');
 }
 
-/** Runs Vitest in `cwd` with a JSON coverage summary and a JSON report of the collected test files. */
-function runVitestWithCoverage(cwd: string): VitestRun {
-  return runVitest(cwd, [
-    '--coverage',
-    '--coverage.reporter=json-summary',
-    '--coverage.reportsDirectory=coverage',
-    '--reporter=json',
-    '--outputFile=results.json',
-  ]);
+/** Returns the path from `from` to `to` with POSIX separators. */
+function buildRelativePosixPath(from: string, to: string): string {
+  return path.relative(from, to).split(path.sep).join('/');
 }
 
 /**
@@ -572,25 +568,6 @@ function buildWorkerCounts(projectNames: readonly string[], workerCount: number)
   return Object.fromEntries(projectNames.map((name) => [name, workerCount]));
 }
 
-/** Reads one fixture run's report, failing loudly with the child's own output when the run did not succeed. */
-function readObserved(tree: TempTree, run: VitestRun): unknown {
-  if (run.status !== 0) {
-    throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
-  }
-
-  return tree.readJson(OBSERVED_LOG);
-}
-
-/** Reads the files that the coverage report measured, relative to the project root. Its keys are absolute paths. */
-function readCoveredFiles(tree: TempTree): string[] {
-  const summary = readJsonObject(tree, 'coverage/coverage-summary.json');
-
-  return Object.keys(summary)
-    .filter((key) => key !== 'total')
-    .map((absolute) => buildRelativePosixPath(tree.dir, absolute))
-    .toSorted();
-}
-
 /** Reads the test files that the run collected, relative to the project root. */
 function readCollectedTestFiles(tree: TempTree): string[] {
   const results = readJsonObject(tree, 'results.json');
@@ -603,13 +580,14 @@ function readCollectedTestFiles(tree: TempTree): string[] {
   return testResults.map((result: unknown) => buildRelativePosixPath(tree.dir, readTestFileName(result))).toSorted();
 }
 
-/** Reads the `name` of one JSON-reporter result, which contains the absolute path of the test file that it ran. */
-function readTestFileName(result: unknown): string {
-  if (result === null || typeof result !== 'object' || !('name' in result) || typeof result.name !== 'string') {
-    throw new TypeError('a testResults entry did not name a file');
-  }
+/** Reads the files that the coverage report measured, relative to the project root. Its keys are absolute paths. */
+function readCoveredFiles(tree: TempTree): string[] {
+  const summary = readJsonObject(tree, 'coverage/coverage-summary.json');
 
-  return result.name;
+  return Object.keys(summary)
+    .filter((key) => key !== 'total')
+    .map((absolute) => buildRelativePosixPath(tree.dir, absolute))
+    .toSorted();
 }
 
 /** Reads a JSON file in the tree, rejecting any content that is not an object. */
@@ -623,7 +601,33 @@ function readJsonObject(tree: TempTree, entryPath: string): object {
   return parsedJson;
 }
 
-/** Returns the path from `from` to `to` with POSIX separators. */
-function buildRelativePosixPath(from: string, to: string): string {
-  return path.relative(from, to).split(path.sep).join('/');
+/** Reads one fixture run's report, failing loudly with the child's own output when the run did not succeed. */
+function readObserved(tree: TempTree, run: VitestRun): unknown {
+  if (run.status !== 0) {
+    throw new Error(`fixture run failed with status ${String(run.status)}:\n${run.stdout}\n${run.stderr}`);
+  }
+
+  return tree.readJson(OBSERVED_LOG);
 }
+
+/** Reads the `name` of one JSON-reporter result, which contains the absolute path of the test file that it ran. */
+function readTestFileName(result: unknown): string {
+  if (result === null || typeof result !== 'object' || !('name' in result) || typeof result.name !== 'string') {
+    throw new TypeError('a testResults entry did not name a file');
+  }
+
+  return result.name;
+}
+
+/** Runs Vitest in `cwd` with a JSON coverage summary and a JSON report of the collected test files. */
+function runVitestWithCoverage(cwd: string): VitestRun {
+  return runVitest(cwd, [
+    '--coverage',
+    '--coverage.reporter=json-summary',
+    '--coverage.reportsDirectory=coverage',
+    '--reporter=json',
+    '--outputFile=results.json',
+  ]);
+}
+
+// endregion | Helpers

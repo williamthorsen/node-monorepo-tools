@@ -119,6 +119,16 @@ function listEmitted(tree: TempTree): string[] {
   return tree.listFiles('dist/esm');
 }
 
+/** Runs the bin against `dir`, returning what it wrote to stdout. A failure's error message includes its stderr. */
+function runCompile(dir: string, env: NodeJS.ProcessEnv = {}): string {
+  return execFileSync(process.execPath, [CLI_PATH], {
+    cwd: dir,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+}
+
 /** Writes a package tree, plus a `.config/nmr.config.ts` when `config` is given. */
 function scaffoldPackage(tree: TempTree, sources: Record<string, string>, config?: string): void {
   tree.writeJson('package.json', { name: 'fixture', type: 'module' });
@@ -129,16 +139,6 @@ function scaffoldPackage(tree: TempTree, sources: Record<string, string>, config
   if (config !== undefined) {
     tree.write('.config/nmr.config.ts', config);
   }
-}
-
-/** Runs the bin against `dir`, returning what it wrote to stdout. A failure's error message includes its stderr. */
-function runCompile(dir: string, env: NodeJS.ProcessEnv = {}): string {
-  return execFileSync(process.execPath, [CLI_PATH], {
-    cwd: dir,
-    encoding: 'utf8',
-    env: { ...process.env, ...env },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
 }
 
 // endregion | Helpers

@@ -186,23 +186,6 @@ function createTee(stream: Writable, buffer: BoundedBuffer): Writable {
   });
 }
 
-/** Names what sent the invocation to a host, for a debug note. */
-function describeDelegationSource(target: RemoteTarget, parsedArgs: ParsedArgs, env: NodeJS.ProcessEnv): string {
-  switch (target.source) {
-    case 'config':
-      return `${formatDisplayPath(target.configPath, env)} (when: ${target.when})`;
-    case 'env':
-      return DELEGATE_ENV_VAR;
-    case 'flag':
-      return parsedArgs.delegateHosts === undefined ? DELEGATE_FLAG : DELEGATE_TO_FLAG;
-  }
-}
-
-/** Renders the reason that names a host to which `ssh` could not connect, with what `ssh` printed. */
-function describeUnreachableHost(host: string, sshMessage: string): string {
-  return sshMessage === '' ? `${host} did not answer` : `${host} did not answer: ${sshMessage}`;
-}
-
 /**
  * Runs the invocation on the host that `resolveHost` chooses, against a snapshot of the working tree, streaming its
  * output and retaining a copy.
@@ -290,6 +273,23 @@ async function delegate(options: {
       : { outcome: 'failed', durationMs, exitCode: result.exitCode };
 
   return { ...ran, exitCode: result.exitCode, outcome, passes: result.passes };
+}
+
+/** Names what sent the invocation to a host, for a debug note. */
+function describeDelegationSource(target: RemoteTarget, parsedArgs: ParsedArgs, env: NodeJS.ProcessEnv): string {
+  switch (target.source) {
+    case 'config':
+      return `${formatDisplayPath(target.configPath, env)} (when: ${target.when})`;
+    case 'env':
+      return DELEGATE_ENV_VAR;
+    case 'flag':
+      return parsedArgs.delegateHosts === undefined ? DELEGATE_FLAG : DELEGATE_TO_FLAG;
+  }
+}
+
+/** Renders the reason that names a host to which `ssh` could not connect, with what `ssh` printed. */
+function describeUnreachableHost(host: string, sshMessage: string): string {
+  return sshMessage === '' ? `${host} did not answer` : `${host} did not answer: ${sshMessage}`;
 }
 
 /** Renders the line that says that a command runs here rather than on the hosts that a default named, and why. */
