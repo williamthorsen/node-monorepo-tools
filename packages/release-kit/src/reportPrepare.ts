@@ -16,15 +16,7 @@ import {
 } from './formatPrepareWarnings.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
-import type {
-  CompositePrepareResult,
-  DirectoryPrepareResult,
-  PackagePrepareResult,
-  PrepareResult,
-  PropagationSource,
-  ReleasedDirectoryResult,
-  ReleasedPackageResult,
-} from './types.ts';
+import type { PrepareResult, PropagationSource, ReleasedTargetResult, TargetPrepareResult } from './types.ts';
 
 /** How the plan was carried out, which decides the report's tense. */
 export interface ReportPrepareOptions {
@@ -65,62 +57,13 @@ function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOpti
     return '';
   }
 
-  const sinceLabel = workspace.previousTag === undefined ? 'the beginning' : workspace.previousTag;
-  lines.push(dim(`Found ${workspace.commitCount} commits since ${sinceLabel}`));
-
-  if (workspace.parsedCommitCount !== undefined) {
-    lines.push(dim(`  Parsed ${workspace.parsedCommitCount} typed commits`));
-  }
-
-  formatUnparseableWarning(lines, workspace, style);
-  formatPolicyViolations(lines, workspace.policyViolations, style);
+  const sinceLabel = `since ${workspace.previousTag ?? 'the beginning'}`;
+  formatTargetSection(lines, workspace, { indent: '', sinceLabel }, isDryRun, style);
 
   if (workspace.status === 'skipped') {
-    formatChangeRecordWarnings(lines, workspace, style);
-    lines.push(formatStatusLine(style, 'skipped', workspace.skipReason));
     formatWarnings(lines, result, style);
     return lines.join('\n');
   }
-
-  if (workspace.versionOverride !== undefined) {
-    lines.push(`  Using version override: ${workspace.versionOverride}`);
-  } else if (workspace.bumpOverride !== undefined) {
-    lines.push(`  Using bump override: ${workspace.bumpOverride}`);
-  }
-
-  if (workspace.releaseType !== undefined) {
-    lines.push(dim(`Bumping versions (${workspace.releaseType})...`));
-  } else if (workspace.versionOverride !== undefined) {
-    lines.push(dim(`Bumping versions (version override)...`));
-  }
-
-  if (workspace.versionOverride !== undefined) {
-    lines.push(
-      formatGlyphLine(
-        RELEASE_GLYPHS,
-        style,
-        'bump',
-        `${workspace.currentVersion} → ${bold(workspace.newVersion)} (version override)`,
-      ),
-    );
-  } else if (workspace.releaseType !== undefined) {
-    lines.push(
-      formatGlyphLine(
-        RELEASE_GLYPHS,
-        style,
-        'bump',
-        `${workspace.currentVersion} → ${bold(workspace.newVersion)} (${workspace.releaseType})`,
-      ),
-    );
-  }
-
-  formatChangeRecordWarnings(lines, workspace, style);
-
-  formatBumpFiles(lines, workspace, isDryRun);
-
-  lines.push(dim('Generating changelogs...'));
-  formatChangelogFiles(lines, workspace, isDryRun, style);
-  formatPreviewFiles(lines, workspace, isDryRun);
 
   formatFormatCommand(lines, result, options);
 
@@ -141,10 +84,16 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
   const lines: string[] = [];
 
   for (const target of result.targets) {
-    if (target.kind === 'composite') {
-      formatProjectSection(lines, target, isDryRun, style);
-    } else {
-      formatWorkspaceSection(lines, target, isDryRun, style);
+    const title = getSectionTitle(target);
+    if (title !== undefined) {
+      lines.push(`\n${renderSectionHeader(title)}`);
+    }
+
+    const sinceLabel = target.previousTag === undefined ? '(no previous release found)' : `since ${target.previousTag}`;
+    formatTargetSection(lines, target, { indent: '  ', sinceLabel }, isDryRun, style);
+
+    if (target.status === 'released') {
+      lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(target.tag))}`);
     }
   }
 
@@ -166,156 +115,134 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
   return lines.join('\n');
 }
 
+/** Returns a section's title: `project` for a `project` block's composite, else the target's name, if it has one. */
+function getSectionTitle(target: TargetPrepareResult): string | undefined {
+  if (target.kind === 'composite') {
+    return target.targetId === PROJECT_TARGET_ID ? 'project' : target.targetId;
+  }
+  return target.name;
+}
+
+/** Where a section sits in the report and how it names the previous release. */
+interface SectionLayout {
+  /** The section-level indent, which the warning and file helpers take as their `indent`. */
+  indent: string;
+  /** The text after the commit count. */
+  sinceLabel: string;
+}
+
 /**
- * Renders a composite's release section in the shape of a workspace section, headed by its name, or by `project` for a
- * `project` block's composite. A project release is neither propagated nor
- * set by `--set-version`, so only its bump override and release type label the bump.
+ * Renders a target's section from the commit count through the release's files, in one order for every kind; the
+ * header and the tag line belong to the caller.
  */
-function formatProjectSection(
+function formatTargetSection(
   lines: string[],
-  project: CompositePrepareResult,
+  target: TargetPrepareResult,
+  layout: SectionLayout,
   isDryRun: boolean,
   style: OutputStyle,
 ): void {
-  lines.push(`\n${renderSectionHeader(project.targetId === PROJECT_TARGET_ID ? 'project' : project.targetId)}`);
+  const { indent, sinceLabel } = layout;
+  lines.push(dim(`${indent}Found ${target.commitCount} commits ${sinceLabel}`));
 
-  const sinceLabel = project.previousTag === undefined ? '(no previous release found)' : `since ${project.previousTag}`;
-  lines.push(dim(`  Found ${project.commitCount} commits ${sinceLabel}`));
-
-  formatPolicyViolations(lines, project.policyViolations, style, '  ');
-
-  if (project.status === 'skipped') {
-    formatUnparseableWarning(lines, project, style, '  ');
-    formatChangeRecordWarnings(lines, project, style, '  ');
-    lines.push(`  ${formatStatusLine(style, 'skipped', project.skipReason)}`);
+  if (target.status === 'skipped') {
+    formatTargetWarnings(lines, target, style, indent);
+    lines.push(`${indent}${formatStatusLine(style, 'skipped', target.skipReason)}`);
     return;
   }
 
-  const { releaseType, currentVersion, newVersion, tag } = project;
+  const origin = describeBumpOrigin(target);
+  formatCommitSummary(lines, target, origin);
+  formatTargetWarnings(lines, target, style, indent);
+  formatBumpLabels(lines, target, origin, indent);
+  formatVersionLine(lines, target, origin, indent, style);
 
-  // Suppress "Parsed 0 typed commits", which says nothing about a forced release without a
-  // parsed commit.
-  if (project.parsedCommitCount > 0) {
-    lines.push(dim(`  Parsed ${project.parsedCommitCount} typed commits`));
-  }
-  if (project.bumpOverride !== undefined) {
-    lines.push(`  Using bump override: ${project.bumpOverride}`);
-  }
-
-  formatUnparseableWarning(lines, project, style, '  ');
-  formatChangeRecordWarnings(lines, project, style, '  ');
-
-  lines.push(
-    dim(`  Bumping versions (${releaseType})...`),
-    `  ${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${currentVersion} → ${bold(newVersion)} (${releaseType})`)}`,
-  );
-
-  for (const file of project.bumpedFiles) {
-    if (isDryRun) {
-      lines.push(dim(`    [dry-run] Would bump ${file}`));
-    } else {
-      lines.push(dim(`    Bumped ${file}`));
-    }
-  }
-
-  lines.push(dim('  Generating changelogs...'));
-  formatChangelogFiles(lines, project, isDryRun, style, '  ');
-  formatPreviewFiles(lines, project, isDryRun, '  ');
-
-  lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(tag))}`);
+  formatBumpFiles(lines, target, isDryRun, indent);
+  lines.push(dim(`${indent}Generating changelogs...`));
+  formatChangelogFiles(lines, target, isDryRun, style, indent);
+  formatPreviewFiles(lines, target, isDryRun, indent);
 }
 
-/** A released package or directory result, which the workspace section renders. */
-type ReleasedMemberResult = ReleasedPackageResult | ReleasedDirectoryResult;
-
-/** Renders a workspace's or a directory's section within multi-workspace output. */
-function formatWorkspaceSection(
-  lines: string[],
-  workspace: PackagePrepareResult | DirectoryPrepareResult,
-  isDryRun: boolean,
-  style: OutputStyle,
-): void {
-  if (workspace.name !== undefined) {
-    lines.push(`\n${renderSectionHeader(workspace.name)}`);
-  }
-
-  const sinceLabel =
-    workspace.previousTag === undefined ? '(no previous release found)' : `since ${workspace.previousTag}`;
-  lines.push(dim(`  Found ${workspace.commitCount} commits ${sinceLabel}`));
-
-  if (workspace.status === 'skipped') {
-    formatUnparseableWarning(lines, workspace, style, '  ');
-    formatPolicyViolations(lines, workspace.policyViolations, style, '  ');
-    formatChangeRecordWarnings(lines, workspace, style, '  ');
-    lines.push(`  ${formatStatusLine(style, 'skipped', workspace.skipReason)}`);
-    return;
-  }
-
-  const propagatedFrom = workspace.kind === 'package' ? workspace.propagatedFrom : undefined;
-  const isPropagatedOnly = workspace.kind === 'package' && workspace.propagatedOnly === true;
-
-  formatCommitSummary(lines, workspace, propagatedFrom, isPropagatedOnly);
-  formatUnparseableWarning(lines, workspace, style, '  ');
-  formatPolicyViolations(lines, workspace.policyViolations, style, '  ');
-  formatChangeRecordWarnings(lines, workspace, style, '  ');
-  formatBumpLabels(lines, workspace, isPropagatedOnly);
-  formatVersionLine(lines, workspace, propagatedFrom, isPropagatedOnly, style);
-
-  formatBumpFiles(lines, workspace, isDryRun, '  ');
-  lines.push(dim('  Generating changelogs...'));
-  formatChangelogFiles(lines, workspace, isDryRun, style, '  ');
-  formatPreviewFiles(lines, workspace, isDryRun, '  ');
-
-  lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`);
+/** Appends the unparseable-commit, policy-violation, and change-record warnings. */
+function formatTargetWarnings(lines: string[], target: TargetPrepareResult, style: OutputStyle, indent: string): void {
+  formatUnparseableWarning(lines, target, style, indent);
+  formatPolicyViolations(lines, target.policyViolations, style, indent);
+  formatChangeRecordWarnings(lines, target, style, indent);
 }
 
-/** Appends the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. */
-function formatCommitSummary(
-  lines: string[],
-  workspace: ReleasedMemberResult,
-  propagatedFrom: PropagationSource[] | undefined,
-  isPropagatedOnly: boolean,
-): void {
-  if (isPropagatedOnly && propagatedFrom !== undefined) {
-    const dependencyNames = propagatedFrom.map((p) => p.packageName).join(', ');
+/** What set a released target's version besides its own commits. */
+interface BumpOrigin {
+  /** The dependencies whose bump propagated to the target. */
+  propagatedFrom: PropagationSource[] | undefined;
+  /** True when propagation alone set the bump. */
+  isPropagatedOnly: boolean;
+  /** The version that `--set-version` applied. */
+  versionOverride: string | undefined;
+}
+
+/** Reads a released target's propagation and version override; a composite takes neither. */
+function describeBumpOrigin(target: ReleasedTargetResult): BumpOrigin {
+  if (target.kind === 'composite') {
+    return { propagatedFrom: undefined, isPropagatedOnly: false, versionOverride: undefined };
+  }
+  if (target.kind === 'directory') {
+    return { propagatedFrom: undefined, isPropagatedOnly: false, versionOverride: target.versionOverride };
+  }
+  return {
+    propagatedFrom: target.propagatedFrom,
+    isPropagatedOnly: target.propagatedOnly === true,
+    versionOverride: target.versionOverride,
+  };
+}
+
+/**
+ * Appends the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. The
+ * line sits at column 2, whatever the section's indent is, which keeps the report's whitespace unchanged.
+ */
+function formatCommitSummary(lines: string[], target: ReleasedTargetResult, origin: BumpOrigin): void {
+  if (origin.isPropagatedOnly && origin.propagatedFrom !== undefined) {
+    const dependencyNames = origin.propagatedFrom.map((p) => p.packageName).join(', ');
     lines.push(dim(`  Bumped via dependency: ${dependencyNames}`));
-  } else if (workspace.parsedCommitCount !== undefined && workspace.parsedCommitCount > 0) {
+  } else if (target.parsedCommitCount !== undefined && target.parsedCommitCount > 0) {
     // Suppress "Parsed 0 typed commits", which says nothing about a forced release without a
     // parsed commit.
-    lines.push(dim(`  Parsed ${workspace.parsedCommitCount} typed commits`));
+    lines.push(dim(`  Parsed ${target.parsedCommitCount} typed commits`));
   }
 }
 
-/** Appends the bump-override / set-version label and the "Bumping versions..." line. */
-function formatBumpLabels(lines: string[], workspace: ReleasedMemberResult, isPropagatedOnly: boolean): void {
-  if (workspace.versionOverride !== undefined) {
-    lines.push(`  Using version override: ${workspace.versionOverride}`);
-  } else if (workspace.bumpOverride !== undefined && !isPropagatedOnly) {
-    lines.push(`  Using bump override: ${workspace.bumpOverride}`);
+/**
+ * Appends the bump-override / set-version label and the "Bumping versions..." line. The label sits at column 2,
+ * whatever the section's indent is, which keeps the report's whitespace unchanged.
+ */
+function formatBumpLabels(lines: string[], target: ReleasedTargetResult, origin: BumpOrigin, indent: string): void {
+  if (origin.versionOverride !== undefined) {
+    lines.push(`  Using version override: ${origin.versionOverride}`);
+  } else if (target.bumpOverride !== undefined && !origin.isPropagatedOnly) {
+    lines.push(`  Using bump override: ${target.bumpOverride}`);
   }
 
-  if (workspace.releaseType !== undefined) {
-    lines.push(dim(`  Bumping versions (${workspace.releaseType})...`));
-  } else if (workspace.versionOverride !== undefined) {
-    lines.push(dim(`  Bumping versions (version override)...`));
+  if (target.releaseType !== undefined) {
+    lines.push(dim(`${indent}Bumping versions (${target.releaseType})...`));
+  } else if (origin.versionOverride !== undefined) {
+    lines.push(dim(`${indent}Bumping versions (version override)...`));
   }
 }
 
 /** Appends the `currentVersion → newVersion` line with the appropriate suffix. */
 function formatVersionLine(
   lines: string[],
-  workspace: ReleasedMemberResult,
-  propagatedFrom: PropagationSource[] | undefined,
-  isPropagatedOnly: boolean,
+  target: ReleasedTargetResult,
+  origin: BumpOrigin,
+  indent: string,
   style: OutputStyle,
 ): void {
-  const versions = `${workspace.currentVersion} → ${bold(workspace.newVersion)}`;
-  if (workspace.versionOverride !== undefined) {
-    lines.push(`  ${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${versions} (version override)`)}`);
-  } else if (workspace.releaseType !== undefined) {
-    const suffix = isPropagatedOnly ? formatPropagationSuffix(propagatedFrom) : '';
+  const versions = `${target.currentVersion} → ${bold(target.newVersion)}`;
+  if (origin.versionOverride !== undefined) {
+    lines.push(`${indent}${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${versions} (version override)`)}`);
+  } else if (target.releaseType !== undefined) {
+    const suffix = origin.isPropagatedOnly ? formatPropagationSuffix(origin.propagatedFrom) : '';
     lines.push(
-      `  ${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${versions} (${workspace.releaseType}${suffix})`)}`,
+      `${indent}${formatGlyphLine(RELEASE_GLYPHS, style, 'bump', `${versions} (${target.releaseType}${suffix})`)}`,
     );
   }
 }

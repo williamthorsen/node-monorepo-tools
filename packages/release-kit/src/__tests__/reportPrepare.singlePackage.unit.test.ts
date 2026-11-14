@@ -367,5 +367,51 @@ describe(reportPrepare, () => {
       expect(output).not.toContain('🟠');
       expect(output).not.toContain('could not be parsed');
     });
+
+    it('omits the parsed count from a skipped release', () => {
+      const result: PrepareResult = {
+        targets: [
+          {
+            targetId: '.',
+            kind: 'package',
+            status: 'skipped',
+            previousTag: 'v1.0.0',
+            commitCount: 2,
+            parsedCommitCount: 2,
+            skipReason: 'No release-worthy changes found. Skipping.',
+          },
+        ],
+        tags: [],
+      };
+
+      const output = reportPrepare(result, { applied: true, style: 'plain' });
+
+      expect(output).toContain('Found 2 commits since v1.0.0');
+      expect(output).not.toContain('Parsed');
+    });
+
+    it('omits a parsed count of 0 from a forced release', () => {
+      const result: PrepareResult = { targets: [makeReleasedWorkspace({ parsedCommitCount: 0 })], tags: ['v1.0.1'] };
+
+      const output = reportPrepare(result, { applied: true, style: 'plain' });
+
+      expect(output).toContain('Bumping versions (patch)...');
+      expect(output).not.toContain('Parsed');
+    });
+
+    it('prints the change-record warnings before the bump labels', () => {
+      const workspace = makeReleasedWorkspace({
+        bumpOverride: 'patch',
+        malformedBlocks: [{ commitHash: 'abc1234def', commitSubject: 'fix: tidy', reason: 'unknown key' }],
+      });
+
+      const output = reportPrepare({ targets: [workspace], tags: ['v1.0.1'] }, { applied: true, style: 'plain' });
+
+      const warningIndex = output.indexOf('1 change-record block could not be read');
+      const overrideIndex = output.indexOf('Using bump override: patch');
+      expect(warningIndex).toBeGreaterThanOrEqual(0);
+      expect(warningIndex).toBeLessThan(overrideIndex);
+      expect(overrideIndex).toBeLessThan(output.indexOf('Bumping versions (patch)...'));
+    });
   });
 });
