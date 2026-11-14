@@ -28,81 +28,6 @@ vi.mock(import('../npmRegistry.ts'), () => ({
 
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
-/**
- * End-to-end project-release tests that run against a real git repo in a temp directory and assert at the
- * file-content level.
- */
-
-/**
- * Builds a temp git repo with three workspaces (`pkg-a`, `pkg-b`, `pkg-c`), a legacy `v0.9.0`
- * tag at the initial commit, and three feat/fix commits since (one per workspace).
- */
-function setUpFixture(): TempTree {
-  const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-project-' }));
-  const run = (command: string, args: string[]): void => {
-    execFileSync(command, args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
-  };
-
-  // Initialize a clean repo with deterministic config so that `git commit` does not require a
-  // global identity to be set on the host.
-  run('git', ['init', '--quiet', '--initial-branch=main']);
-  run('git', ['config', 'user.email', 'test@example.com']);
-  run('git', ['config', 'user.name', 'Test User']);
-  run('git', ['config', 'commit.gpgsign', 'false']);
-  run('git', ['config', 'tag.gpgSign', 'false']);
-
-  // Root package.json (project block prerequisite).
-  tree.writeJson('package.json', { name: 'fixture-monorepo', version: '0.9.0', private: true });
-
-  // pnpm workspace declaration so that `discoverWorkspaces` finds the three packages and the
-  // CLI takes the monorepo branch rather than single-package mode.
-  tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
-
-  for (const name of ['pkg-a', 'pkg-b', 'pkg-c']) {
-    tree.writeJson(`packages/${name}/package.json`, { name: `@fixture/${name}`, version: '1.0.0' });
-    tree.write(`packages/${name}/index.ts`, `export const ${name.replace('-', '_')} = ${JSON.stringify(name)};\n`);
-  }
-
-  // Initial commit, then anchor the legacy v0.9.0 tag at it.
-  run('git', ['add', '-A']);
-  run('git', ['commit', '--quiet', '-m', 'chore: initial commit']);
-  run('git', ['tag', 'v0.9.0']);
-  // Per-workspace baselines so that each workspace's history read finds a tag.
-  run('git', ['tag', 'pkg-a-v1.0.0']);
-  run('git', ['tag', 'pkg-b-v1.0.0']);
-  run('git', ['tag', 'pkg-c-v1.0.0']);
-
-  // A feat in pkg-a and pkg-b, and a fix in pkg-c. The `##` synthetic ticket prefix is required by
-  // `classifyChangelogCommit`, which rejects every unticketed commit.
-  for (const name of ['pkg-a', 'pkg-b']) {
-    tree.write(`packages/${name}/feature.ts`, `export const flag = true;\n`);
-    run('git', ['add', '-A']);
-    run('git', ['commit', '--quiet', '-m', `## ${name}|feat: Add feature flag`]);
-  }
-  tree.write('packages/pkg-c/patch.ts', `export const patched = true;\n`);
-  run('git', ['add', '-A']);
-  run('git', ['commit', '--quiet', '-m', '## pkg-c|fix: Patch latent bug']);
-
-  return tree;
-}
-
-/**
- * Switches CWD, which release-kit reads to resolve paths, to the fixture repo for the duration of
- * the closure, and restores the prior CWD even if the closure throws.
- */
-function withinFixture<T>(repoDir: string, fn: () => T): T {
-  using _cwd = pointCwdAt(repoDir, { chdir: true });
-
-  return fn();
-}
-
-/** Computes the release plan and applies it, mirroring what the CLI boundary does. */
-function prepareAndApply(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
-  const plan = prepareMonorepo(config, options);
-  applyReleasePlan(plan);
-  return plan;
-}
-
 describe('project releases (tool)', () => {
   let tree: TempTree;
 
@@ -561,14 +486,7 @@ describe('prepare atomicity (tool)', () => {
   }, 60_000);
 });
 
-/** Returns the porcelain status of the fixture repo, trimmed; empty when the tree is clean. */
-function readGitStatus(repoDir: string): string {
-  return execFileSync('git', ['status', '--porcelain'], {
-    cwd: repoDir,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim();
-}
+// region | Helpers
 
 /** Tags a `v0.9.1` project baseline past the fixture's workspace commits, behind a `release:` commit. */
 function anchorProjectBaseline(tree: TempTree): void {
@@ -583,7 +501,93 @@ function commitAll(tree: TempTree, message: string): void {
   execFileSync('git', ['commit', '--quiet', '-m', message], { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
+/** Computes the release plan and applies it, mirroring what the CLI boundary does. */
+function prepareAndApply(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
+  const plan = prepareMonorepo(config, options);
+  applyReleasePlan(plan);
+  return plan;
+}
+
 /** Prepares a monorepo release over the targets that the merged config projects onto. */
 function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
   return prepareReleaseTargets(projectMonorepoConfig(config), options, realGit);
 }
+
+/** Returns the porcelain status of the fixture repo, trimmed; empty when the tree is clean. */
+function readGitStatus(repoDir: string): string {
+  return execFileSync('git', ['status', '--porcelain'], {
+    cwd: repoDir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+/**
+ * End-to-end project-release tests that run against a real git repo in a temp directory and assert at the
+ * file-content level.
+ */
+
+/**
+ * Builds a temp git repo with three workspaces (`pkg-a`, `pkg-b`, `pkg-c`), a legacy `v0.9.0`
+ * tag at the initial commit, and three feat/fix commits since (one per workspace).
+ */
+function setUpFixture(): TempTree {
+  const tree = disposeOnTestFinished(createTempTree({}, { prefix: 'release-kit-project-' }));
+  const run = (command: string, args: string[]): void => {
+    execFileSync(command, args, { cwd: tree.dir, stdio: ['ignore', 'pipe', 'pipe'] });
+  };
+
+  // Initialize a clean repo with deterministic config so that `git commit` does not require a
+  // global identity to be set on the host.
+  run('git', ['init', '--quiet', '--initial-branch=main']);
+  run('git', ['config', 'user.email', 'test@example.com']);
+  run('git', ['config', 'user.name', 'Test User']);
+  run('git', ['config', 'commit.gpgsign', 'false']);
+  run('git', ['config', 'tag.gpgSign', 'false']);
+
+  // Root package.json (project block prerequisite).
+  tree.writeJson('package.json', { name: 'fixture-monorepo', version: '0.9.0', private: true });
+
+  // pnpm workspace declaration so that `discoverWorkspaces` finds the three packages and the
+  // CLI takes the monorepo branch rather than single-package mode.
+  tree.write('pnpm-workspace.yaml', "packages:\n  - 'packages/*'\n");
+
+  for (const name of ['pkg-a', 'pkg-b', 'pkg-c']) {
+    tree.writeJson(`packages/${name}/package.json`, { name: `@fixture/${name}`, version: '1.0.0' });
+    tree.write(`packages/${name}/index.ts`, `export const ${name.replace('-', '_')} = ${JSON.stringify(name)};\n`);
+  }
+
+  // Initial commit, then anchor the legacy v0.9.0 tag at it.
+  run('git', ['add', '-A']);
+  run('git', ['commit', '--quiet', '-m', 'chore: initial commit']);
+  run('git', ['tag', 'v0.9.0']);
+  // Per-workspace baselines so that each workspace's history read finds a tag.
+  run('git', ['tag', 'pkg-a-v1.0.0']);
+  run('git', ['tag', 'pkg-b-v1.0.0']);
+  run('git', ['tag', 'pkg-c-v1.0.0']);
+
+  // A feat in pkg-a and pkg-b, and a fix in pkg-c. The `##` synthetic ticket prefix is required by
+  // `classifyChangelogCommit`, which rejects every unticketed commit.
+  for (const name of ['pkg-a', 'pkg-b']) {
+    tree.write(`packages/${name}/feature.ts`, `export const flag = true;\n`);
+    run('git', ['add', '-A']);
+    run('git', ['commit', '--quiet', '-m', `## ${name}|feat: Add feature flag`]);
+  }
+  tree.write('packages/pkg-c/patch.ts', `export const patched = true;\n`);
+  run('git', ['add', '-A']);
+  run('git', ['commit', '--quiet', '-m', '## pkg-c|fix: Patch latent bug']);
+
+  return tree;
+}
+
+/**
+ * Switches CWD, which release-kit reads to resolve paths, to the fixture repo for the duration of
+ * the closure, and restores the prior CWD even if the closure throws.
+ */
+function withinFixture<T>(repoDir: string, fn: () => T): T {
+  using _cwd = pointCwdAt(repoDir, { chdir: true });
+
+  return fn();
+}
+
+// endregion | Helpers

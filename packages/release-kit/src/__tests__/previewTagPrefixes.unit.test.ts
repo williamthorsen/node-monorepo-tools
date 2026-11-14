@@ -28,14 +28,6 @@ import { previewTagPrefixes } from '../previewTagPrefixes.ts';
 import { type FakeGit, makeFakeGit } from '../test-utils/fakeGit.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 
-/** Makes the fake git list each prefix's tags when asked for the tags matching `{prefix}*`. */
-function stubTagCounts(git: FakeGit, tagsByPrefix: Record<string, string[]>): void {
-  git.listTags.mockImplementation((pattern?: string) => {
-    const prefix = pattern?.endsWith('*') === true ? pattern.slice(0, -1) : (pattern ?? '');
-    return tagsByPrefix[prefix] ?? [];
-  });
-}
-
 describe(previewTagPrefixes, () => {
   let git: FakeGit;
 
@@ -313,3 +305,15 @@ describe(previewTagPrefixes, () => {
     expect(result.retiredPackages).toStrictEqual([]);
   });
 });
+
+// region | Helpers
+
+/** Makes the fake git list each prefix's tags when asked for the tags matching `{prefix}*`. */
+function stubTagCounts(git: FakeGit, tagsByPrefix: Record<string, string[]>): void {
+  git.listTags.mockImplementation((pattern?: string) => {
+    const prefix = pattern?.endsWith('*') === true ? pattern.slice(0, -1) : (pattern ?? '');
+    return tagsByPrefix[prefix] ?? [];
+  });
+}
+
+// endregion | Helpers

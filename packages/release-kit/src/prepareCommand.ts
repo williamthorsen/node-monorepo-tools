@@ -123,6 +123,8 @@ export async function prepareCommand({
   );
 }
 
+// region | Helpers
+
 /** Returns the repo-relative paths of the package targets that a plan releases, in target order. */
 function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTarget[]): string[] {
   const releasedIds = new Set(
@@ -133,6 +135,39 @@ function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTa
   return targets.flatMap((target) =>
     target.kind === 'package' && releasedIds.has(target.id) ? target.packagePath : [],
   );
+}
+
+/** Returns the ids of the package and directory targets, which `--set-version` can name, in target order. */
+function listMemberIds(targets: readonly ReleaseTarget[]): string[] {
+  return targets.flatMap((target) => (target.kind === 'composite' ? [] : target.id));
+}
+
+/** Returns the ids of the targets that `--only` can name, in target order: all but a `project` block's composite. */
+function listSelectableIds(targets: readonly ReleaseTarget[]): string[] {
+  return targets.flatMap((target) => (target.id === PROJECT_TARGET_ID ? [] : target.id));
+}
+
+/** Reports the tags and summary files that the plan writes, in the prepare command's dim style. */
+function reportPlanFiles(plan: ReleasePlan, isDryRun: boolean): void {
+  if (plan.tags.length === 0) {
+    return;
+  }
+
+  if (isDryRun) {
+    console.info(dim(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${plan.tags.join(' ')}`));
+    if (plan.summary.length > 0) {
+      console.info(dim(`  [dry-run] Would write ${RELEASE_SUMMARY_FILE}`));
+    }
+    return;
+  }
+
+  console.info(dim(`  Wrote ${RELEASE_TAGS_FILE}: ${plan.tags.join(' ')}`));
+  console.info(dim(`\n   Release tags file: ${RELEASE_TAGS_FILE}`));
+  if (plan.summary.length > 0) {
+    console.info(dim(`  Wrote ${RELEASE_SUMMARY_FILE}`));
+  }
+
+  process.stderr.write(`\nRun 'release-kit commit' to create the release commit.\n`);
 }
 
 /**
@@ -201,16 +236,6 @@ function resolveSetVersions(setVersion: string, targets: readonly ReleaseTarget[
   return parseSetVersions(setVersion, listMemberIds(targets));
 }
 
-/** Returns the ids of the targets that `--only` can name, in target order: all but a `project` block's composite. */
-function listSelectableIds(targets: readonly ReleaseTarget[]): string[] {
-  return targets.flatMap((target) => (target.id === PROJECT_TARGET_ID ? [] : target.id));
-}
-
-/** Returns the ids of the package and directory targets, which `--set-version` can name, in target order. */
-function listMemberIds(targets: readonly ReleaseTarget[]): string[] {
-  return targets.flatMap((target) => (target.kind === 'composite' ? [] : target.id));
-}
-
 /**
  * Computes the release plan, applies it, runs the format command, and prints the report.
  *
@@ -275,25 +300,4 @@ function runFormatCommand(formatCommand: ReleasePlan['formatCommand']): string |
   }
 }
 
-/** Reports the tags and summary files that the plan writes, in the prepare command's dim style. */
-function reportPlanFiles(plan: ReleasePlan, isDryRun: boolean): void {
-  if (plan.tags.length === 0) {
-    return;
-  }
-
-  if (isDryRun) {
-    console.info(dim(`  [dry-run] Would write ${RELEASE_TAGS_FILE}: ${plan.tags.join(' ')}`));
-    if (plan.summary.length > 0) {
-      console.info(dim(`  [dry-run] Would write ${RELEASE_SUMMARY_FILE}`));
-    }
-    return;
-  }
-
-  console.info(dim(`  Wrote ${RELEASE_TAGS_FILE}: ${plan.tags.join(' ')}`));
-  console.info(dim(`\n   Release tags file: ${RELEASE_TAGS_FILE}`));
-  if (plan.summary.length > 0) {
-    console.info(dim(`  Wrote ${RELEASE_SUMMARY_FILE}`));
-  }
-
-  process.stderr.write(`\nRun 'release-kit commit' to create the release commit.\n`);
-}
+// endregion | Helpers

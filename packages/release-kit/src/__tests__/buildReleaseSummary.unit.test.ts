@@ -3,15 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { buildReleaseSummary } from '../buildReleaseSummary.ts';
 import type { PrepareResult } from '../types.ts';
 
-/** Builds a minimal PrepareResult for testing. */
-function makeResult(overrides?: Partial<PrepareResult>): PrepareResult {
-  return {
-    targets: [],
-    tags: [],
-    ...overrides,
-  };
-}
-
 describe(buildReleaseSummary, () => {
   it('produces a summary with tag heading and scope-stripped commits', () => {
     const result = makeResult({
@@ -271,3 +262,16 @@ describe(buildReleaseSummary, () => {
     });
   });
 });
+
+// region | Helpers
+
+/** Builds a minimal PrepareResult for testing. */
+function makeResult(overrides?: Partial<PrepareResult>): PrepareResult {
+  return {
+    targets: [],
+    tags: [],
+    ...overrides,
+  };
+}
+
+// endregion | Helpers

@@ -9,16 +9,6 @@ import { BIN } from '../bin.ts';
 /** Workflow file that must exist before triggering. */
 const WORKFLOW_FILE = '.github/workflows/sync-labels.yaml';
 
-/** Checks whether the `gh` CLI is available. */
-function checkGhAvailable(): boolean {
-  try {
-    execSync('gh --version', { maxBuffer: GIT_OUTPUT_LIMIT_BYTES, stdio: 'pipe' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Runs the `sync-labels sync` subcommand, which triggers the sync-labels workflow, and returns the process exit code.
  */
@@ -44,3 +34,17 @@ export function syncLabelsCommand(): number {
   console.info('Workflow triggered successfully. View runs at: gh run list --workflow=sync-labels.yaml');
   return 0;
 }
+
+// region | Helpers
+
+/** Checks whether the `gh` CLI is available. */
+function checkGhAvailable(): boolean {
+  try {
+    execSync('gh --version', { maxBuffer: GIT_OUTPUT_LIMIT_BYTES, stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// endregion | Helpers

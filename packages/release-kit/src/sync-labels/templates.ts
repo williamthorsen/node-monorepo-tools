@@ -30,11 +30,6 @@ export function buildScopeLabels(workspacePaths: string[], retiredNames: string[
   return scopes.map((scope) => ({ name: `scope:${scope}`, color: '00ff96' }));
 }
 
-/** Escapes a value for embedding in a single-quoted TypeScript string literal. */
-function escapeForSingleQuotedString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, String.raw`\'`);
-}
-
 /**
  * Renders the `repoLabels` config block, indented for pasting into the object passed to `defineConfig` in
  * `.config/release-kit.config.ts`.
@@ -67,3 +62,12 @@ ${renderRepoLabelsBlock(scopeLabels)}
 });
 `;
 }
+
+// region | Helpers
+
+/** Escapes a value for embedding in a single-quoted TypeScript string literal. */
+function escapeForSingleQuotedString(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, String.raw`\'`);
+}
+
+// endregion | Helpers

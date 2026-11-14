@@ -82,6 +82,8 @@ export function planReleaseNotesPreviews(options: PlanReleaseNotesPreviewsOption
   return { writes, warnings };
 }
 
+// region | Helpers
+
 /**
  * Describes a skipped preview as a warning naming the workspace, the reason, and the version.
  *
@@ -119,3 +121,5 @@ function readWorkspaceReadme(
     return { content: '', doesExist: false, unreadable: true };
   }
 }
+
+// endregion | Helpers

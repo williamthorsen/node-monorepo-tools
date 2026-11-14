@@ -46,6 +46,8 @@ export function readReleaseTags(): string[] {
     .filter((line) => line.length > 0);
 }
 
+// region | Helpers
+
 /**
  * Composes the failure message for an unreadable tags file.
  *
@@ -64,3 +66,5 @@ function describeTagsReadFailure(error: unknown): string {
   const detail = describeError(error);
   return `Cannot read the tags file at ${tagsPath}: ${detail}`;
 }
+
+// endregion | Helpers

@@ -158,6 +158,8 @@ export async function syncLabelsInitCommand({
   return 0;
 }
 
+// region | Helpers
+
 /**
  * Loads the existing config and returns the unscoped names of its `retiredPackages`.
  *
@@ -180,3 +182,5 @@ async function loadRetiredPackageNames(styles: StreamStyles, configPath?: string
 function stripNpmScope(name: string): string {
   return name.startsWith('@') ? name.slice(name.indexOf('/') + 1) : name;
 }
+
+// endregion | Helpers

@@ -29,6 +29,8 @@ export function publishPackage(
   }
 }
 
+// region | Helpers
+
 /**
  * Builds the argument list for the publish command.
  *
@@ -53,3 +55,5 @@ function buildPublishArgs(packageManager: PackageManager, options: PublishOption
 
   return args;
 }
+
+// endregion | Helpers

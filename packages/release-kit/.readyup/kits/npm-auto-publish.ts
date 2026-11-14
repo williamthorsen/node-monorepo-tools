@@ -124,35 +124,6 @@ export default defineRdyKit({
   checklists: [repoChecklist, packagesChecklist],
 });
 
-// region | Helpers
-
-/**
- * Reports whether a workspace gets a row in the per-package checklist.
- *
- * Workspace discovery reports the repo root alongside the members, and a private root publishes nothing. A publishable
- * root stays, because it is the only entry that a single-package repo has.
- */
-function belongsInPackagesChecklist(workspace: Workspace): boolean {
-  return !workspace.isRoot || workspace.isPackage;
-}
-
-/**
- * Builds the gate reporting whether the npm session can answer the trusted-publisher queries.
- *
- * `npm whoami` alone is too weak a probe: npm's trust endpoints need a session elevated by two-factor
- * authentication, which `whoami` does not require, so an unelevated session passes it and fails every trust query.
- */
-function buildSessionCheck(): RdyCheck {
-  return {
-    name: 'npm session can answer trust queries',
-    check: () => {
-      const capability = getCachedTrustCapability();
-      return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
-    },
-    fix: 'Restore a usable npm session: Log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly',
-  };
-}
-
 /** Builds a parent check for a workspace with nested publish-readiness children. */
 export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
   const displayName = workspace.name ?? '(unnamed)';
@@ -217,27 +188,6 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
   };
 }
 
-/** Checks whether the provenance setting in publish.yaml matches the repo's visibility. */
-function checkProvenanceMatchesVisibility(): CheckOutcome {
-  const workflowPath = '.github/workflows/publish.yaml';
-
-  const content = readFile(workflowPath);
-
-  const ownerRepo = getCachedOwnerRepo();
-  if (!ownerRepo.ok) {
-    return classifyProvenanceSetting(content, ownerRepo);
-  }
-
-  let visibility: RepoVisibility;
-  try {
-    visibility = isRepoPrivate(ownerRepo.value) ? 'private' : 'public';
-  } catch {
-    visibility = 'unknown';
-  }
-
-  return classifyProvenanceSetting(content, visibility);
-}
-
 // Cached so that the registry is queried at most once per kit invocation.
 const getCachedNpmAuthStatus: () => NpmAuthStatus = (() => {
   let cached: NpmAuthStatus | undefined;
@@ -259,6 +209,98 @@ const getCachedTrustCapability: () => TrustCapability = (() => {
 
 // Keyed by package name so that the capability probe is reused by the workspace whose name it queried.
 const trustQueryResults = new Map<string, TrustQueryResult>();
+
+/**
+ * Returns the package name with which the capability probe queries, or undefined when the repo does not have any
+ * publishable workspace.
+ *
+ * Publishable is the criterion rather than membership of the packages checklist, which also admits a private member.
+ * A private member's row is skipped, so its trusted-publisher check never reads the answer that the probe memoized,
+ * and the query would be wasted.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function selectProbeName(): string | undefined {
+  return discoverWorkspaces({ filter: (workspace) => workspace.isPackage }).find(
+    (workspace) => workspace.name !== undefined,
+  )?.name;
+}
+
+/**
+ * Skip predicate: Returns the skip reason when the repo publishes nothing, else `false` (the checks should run).
+ *
+ * For a repo that publishes nothing, the kit reports one line per checklist and does not call the npm registry or the
+ * GitHub API.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function skipIfNothingPublishable(): SkipResult {
+  const publishable = discoverWorkspaces({ filter: (workspace) => workspace.isPackage });
+  return publishable.length === 0 && 'no publishable packages';
+}
+
+/**
+ * Skip predicate: Returns the skip reason when a workspace is not for publication
+ * (i.e. `package.json#private` is `true`), else `false` (the check should run).
+ *
+ * Readyup's reporter suppresses descendants of a check whose `skip` returns a string, so a non-publishable workspace
+ * appears as a single skipped entry rather than as a tree of false-positive errors.
+ *
+ * @internal - Exported only to enable testing
+ */
+export function skipIfNotPublishable(workspace: Workspace): SkipResult {
+  return !workspace.isPackage && 'package.json#private is true';
+}
+
+// region | Helpers
+
+/**
+ * Reports whether a workspace gets a row in the per-package checklist.
+ *
+ * Workspace discovery reports the repo root alongside the members, and a private root publishes nothing. A publishable
+ * root stays, because it is the only entry that a single-package repo has.
+ */
+function belongsInPackagesChecklist(workspace: Workspace): boolean {
+  return !workspace.isRoot || workspace.isPackage;
+}
+
+/**
+ * Builds the gate reporting whether the npm session can answer the trusted-publisher queries.
+ *
+ * `npm whoami` alone is too weak a probe: npm's trust endpoints need a session elevated by two-factor
+ * authentication, which `whoami` does not require, so an unelevated session passes it and fails every trust query.
+ */
+function buildSessionCheck(): RdyCheck {
+  return {
+    name: 'npm session can answer trust queries',
+    check: () => {
+      const capability = getCachedTrustCapability();
+      return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
+    },
+    fix: 'Restore a usable npm session: Log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly',
+  };
+}
+
+/** Checks whether the provenance setting in publish.yaml matches the repo's visibility. */
+function checkProvenanceMatchesVisibility(): CheckOutcome {
+  const workflowPath = '.github/workflows/publish.yaml';
+
+  const content = readFile(workflowPath);
+
+  const ownerRepo = getCachedOwnerRepo();
+  if (!ownerRepo.ok) {
+    return classifyProvenanceSetting(content, ownerRepo);
+  }
+
+  let visibility: RepoVisibility;
+  try {
+    visibility = isRepoPrivate(ownerRepo.value) ? 'private' : 'public';
+  } catch {
+    visibility = 'unknown';
+  }
+
+  return classifyProvenanceSetting(content, visibility);
+}
 
 /** Returns a package's trust-query result, querying the registry at most once per package name. */
 function getTrustQueryResult(packageName: string): TrustQueryResult {
@@ -333,48 +375,6 @@ function resolveOwnerRepo(): OwnerRepo {
 function resolveTrustCapability(): TrustCapability {
   const auth = getCachedNpmAuthStatus();
   return classifyTrustCapability(auth, auth.status === 'authenticated' ? probeTrustQuery() : undefined);
-}
-
-/**
- * Returns the package name with which the capability probe queries, or undefined when the repo does not have any
- * publishable workspace.
- *
- * Publishable is the criterion rather than membership of the packages checklist, which also admits a private member.
- * A private member's row is skipped, so its trusted-publisher check never reads the answer that the probe memoized,
- * and the query would be wasted.
- *
- * @internal - Exported only to enable testing
- */
-export function selectProbeName(): string | undefined {
-  return discoverWorkspaces({ filter: (workspace) => workspace.isPackage }).find(
-    (workspace) => workspace.name !== undefined,
-  )?.name;
-}
-
-/**
- * Skip predicate: Returns the skip reason when the repo publishes nothing, else `false` (the checks should run).
- *
- * For a repo that publishes nothing, the kit reports one line per checklist and does not call the npm registry or the
- * GitHub API.
- *
- * @internal - Exported only to enable testing
- */
-export function skipIfNothingPublishable(): SkipResult {
-  const publishable = discoverWorkspaces({ filter: (workspace) => workspace.isPackage });
-  return publishable.length === 0 && 'no publishable packages';
-}
-
-/**
- * Skip predicate: Returns the skip reason when a workspace is not for publication
- * (i.e. `package.json#private` is `true`), else `false` (the check should run).
- *
- * Readyup's reporter suppresses descendants of a check whose `skip` returns a string, so a non-publishable workspace
- * appears as a single skipped entry rather than as a tree of false-positive errors.
- *
- * @internal - Exported only to enable testing
- */
-export function skipIfNotPublishable(workspace: Workspace): SkipResult {
-  return !workspace.isPackage && 'package.json#private is true';
 }
 
 // endregion | Helpers

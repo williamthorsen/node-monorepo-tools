@@ -15,11 +15,6 @@ vi.mock(import('node:fs'), () => ({
 
 import { syncLabelsCommand } from '../syncCommand.ts';
 
-/** Makes only the given repo files exist. */
-function stubExistingFiles(...paths: string[]): void {
-  mockExistsSync.mockImplementation((path: string) => paths.includes(path));
-}
-
 describe(syncLabelsCommand, () => {
   afterEach(() => {
     mockExecSync.mockReset();
@@ -75,3 +70,12 @@ describe(syncLabelsCommand, () => {
     expect(stdioCapture.stderr).toContain('workflow dispatch failed');
   });
 });
+
+// region | Helpers
+
+/** Makes only the given repo files exist. */
+function stubExistingFiles(...paths: string[]): void {
+  mockExistsSync.mockImplementation((path: string) => paths.includes(path));
+}
+
+// endregion | Helpers

@@ -18,11 +18,6 @@ export interface VersionBumpPlan {
   writes: PlannedWrite[];
 }
 
-/** Narrows a parsed value to a package manifest with a string `version`. */
-function isPackageJson(value: unknown): value is PackageJson {
-  return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
-}
-
 /**
  * Computes the version bump for a workspace's package files without writing them.
  *
@@ -66,6 +61,26 @@ export function readCurrentVersion(packageFiles: readonly string[]): string {
   return readPrimaryPackage(packageFiles).firstPackageJson.version;
 }
 
+// region | Helpers
+
+/** Narrows a parsed value to a package manifest with a string `version`. */
+function isPackageJson(value: unknown): value is PackageJson {
+  return typeof value === 'object' && value !== null && 'version' in value && typeof value.version === 'string';
+}
+
+/**
+ * Reads and parses a package.json file, returning a validated object with a `version` field. Throws if the file cannot
+ * be read, contains invalid JSON, or lacks a `version` field.
+ */
+function readPackageJson(filePath: string): PackageJson {
+  const parsedJson = readJsonFile(filePath);
+  if (!isPackageJson(parsedJson)) {
+    throw new UserError(`No valid 'version' field found in ${filePath}`);
+  }
+
+  return parsedJson;
+}
+
 /**
  * Reads the first package file, which supplies the pre-change version for the whole workspace. Throws if the list of
  * package files is empty.
@@ -94,15 +109,4 @@ function renderVersionWrites(
   });
 }
 
-/**
- * Reads and parses a package.json file, returning a validated object with a `version` field. Throws if the file cannot
- * be read, contains invalid JSON, or lacks a `version` field.
- */
-function readPackageJson(filePath: string): PackageJson {
-  const parsedJson = readJsonFile(filePath);
-  if (!isPackageJson(parsedJson)) {
-    throw new UserError(`No valid 'version' field found in ${filePath}`);
-  }
-
-  return parsedJson;
-}
+// endregion | Helpers

@@ -73,6 +73,16 @@ export function applyReleasePlan(plan: ReleasePlan): string[] {
   return appliedWrites.map((write) => write.path);
 }
 
+/** Inputs to {@link describeApplyFailure}. */
+interface DescribeApplyFailureArgs {
+  failedStep: PlannedStep;
+  error: string | undefined;
+  appliedWrites: readonly AppliedWrite[];
+  unwrittenPaths: readonly string[];
+}
+
+// region | Helpers
+
 /** Writes or removes one file, reporting whether it failed and, for a write, whether it created the file. */
 function applyStep(step: PlannedStep): { outcome: 'applied' | 'created' | 'failed'; error?: string } {
   if (step.kind === 'remove') {
@@ -88,31 +98,6 @@ function applyStep(step: PlannedStep): { outcome: 'applied' | 'created' | 'faile
     return { outcome: 'failed', ...(result.error !== undefined && { error: result.error }) };
   }
   return { outcome: result.outcome === 'created' ? 'created' : 'applied' };
-}
-
-/** Orders a plan's steps for application: content writes, removals, then the summary and tags files in that order. */
-function orderPlannedSteps(plan: ReleasePlan): PlannedStep[] {
-  const orderedSteps: PlannedStep[] = [
-    ...plan.writes.map((write): PlannedStep => ({ kind: 'write', ...write })),
-    ...plan.removals.map((path): PlannedStep => ({ kind: 'remove', path })),
-  ];
-
-  if (plan.summary.length > 0) {
-    orderedSteps.push({ kind: 'write', path: RELEASE_SUMMARY_FILE, content: plan.summary });
-  }
-  if (plan.tags.length > 0) {
-    orderedSteps.push({ kind: 'write', path: RELEASE_TAGS_FILE, content: plan.tags.join('\n') });
-  }
-
-  return orderedSteps;
-}
-
-/** Inputs to {@link describeApplyFailure}. */
-interface DescribeApplyFailureArgs {
-  failedStep: PlannedStep;
-  error: string | undefined;
-  appliedWrites: readonly AppliedWrite[];
-  unwrittenPaths: readonly string[];
 }
 
 /**
@@ -172,3 +157,22 @@ function describeRecovery(appliedWrites: readonly AppliedWrite[]): string[] {
 
   return lines;
 }
+
+/** Orders a plan's steps for application: content writes, removals, then the summary and tags files in that order. */
+function orderPlannedSteps(plan: ReleasePlan): PlannedStep[] {
+  const orderedSteps: PlannedStep[] = [
+    ...plan.writes.map((write): PlannedStep => ({ kind: 'write', ...write })),
+    ...plan.removals.map((path): PlannedStep => ({ kind: 'remove', path })),
+  ];
+
+  if (plan.summary.length > 0) {
+    orderedSteps.push({ kind: 'write', path: RELEASE_SUMMARY_FILE, content: plan.summary });
+  }
+  if (plan.tags.length > 0) {
+    orderedSteps.push({ kind: 'write', path: RELEASE_TAGS_FILE, content: plan.tags.join('\n') });
+  }
+
+  return orderedSteps;
+}
+
+// endregion | Helpers

@@ -137,55 +137,11 @@ export function formatValidateOverridesResult(
   return { exitCode, message };
 }
 
-/** Renders the leading summary, omitting a zero-count category (e.g., `Found 1 warning:`). */
-function formatSummaryLine(errorCount: number, warningCount: number): string {
-  const parts: string[] = [];
-  if (errorCount > 0) {
-    parts.push(pluralize(errorCount, 'error'));
-  }
-  if (warningCount > 0) {
-    parts.push(pluralize(warningCount, 'warning'));
-  }
-  return `Found ${parts.join(' and ')}:`;
-}
-
-/** Formats `count` with `noun`, adding `s` unless the count is 1. */
-function pluralize(count: number, noun: string): string {
-  return count === 1 ? `${count} ${noun}` : `${count} ${noun}s`;
-}
+// region | Helpers
 
 /** Builds changelog entries through `buildChangelogEntries` under a throwaway tag label. */
 function buildEntriesByDefault(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ChangelogEntry[] {
   return buildChangelogEntries(config, SYNTHETIC_VALIDATE_TAG, options).entries;
-}
-
-/**
- * Projects every release's items down to a flat list of hashes and entry positions. Synthetic propagation entries
- * (no `hash`) contribute nothing, because they cannot match an override key.
- */
-function flattenEntriesToItems(entries: readonly ChangelogEntry[]): OverrideTargetItem[] {
-  const items: OverrideTargetItem[] = [];
-  for (const entry of entries) {
-    for (const section of entry.sections) {
-      for (const { hash, entry: position } of section.items) {
-        if (hash === undefined) continue;
-        items.push(position === undefined ? { hash } : { hash, entry: position });
-      }
-    }
-  }
-  return items;
-}
-
-/**
- * Renders an unusable config as this command's exit-2 message.
- *
- * A load failure is a failed operation and takes the error prefix; an invalid config is a verdict and is
- * returned without it. The kind picks the message shape alone: Both abort.
- */
-function formatConfigProblem(problem: ConfigProblem): string {
-  return problem.kind === 'load'
-    ? formatErrorLine(BIN, `Failed to load config: ${problem.message}`)
-    : `Invalid config:\n  - ${problem.errors.join('\n  - ')}`;
 }
 
 /**
@@ -217,3 +173,51 @@ function buildValidationInputs(
 
   return isSinglePackageTargets(targets) ? { project: projectScope } : { project: projectScope, workspaces };
 }
+
+/**
+ * Projects every release's items down to a flat list of hashes and entry positions. Synthetic propagation entries
+ * (no `hash`) contribute nothing, because they cannot match an override key.
+ */
+function flattenEntriesToItems(entries: readonly ChangelogEntry[]): OverrideTargetItem[] {
+  const items: OverrideTargetItem[] = [];
+  for (const entry of entries) {
+    for (const section of entry.sections) {
+      for (const { hash, entry: position } of section.items) {
+        if (hash === undefined) continue;
+        items.push(position === undefined ? { hash } : { hash, entry: position });
+      }
+    }
+  }
+  return items;
+}
+
+/**
+ * Renders an unusable config as this command's exit-2 message.
+ *
+ * A load failure is a failed operation and takes the error prefix; an invalid config is a verdict and is
+ * returned without it. The kind picks the message shape alone: Both abort.
+ */
+function formatConfigProblem(problem: ConfigProblem): string {
+  return problem.kind === 'load'
+    ? formatErrorLine(BIN, `Failed to load config: ${problem.message}`)
+    : `Invalid config:\n  - ${problem.errors.join('\n  - ')}`;
+}
+
+/** Renders the leading summary, omitting a zero-count category (e.g., `Found 1 warning:`). */
+function formatSummaryLine(errorCount: number, warningCount: number): string {
+  const parts: string[] = [];
+  if (errorCount > 0) {
+    parts.push(pluralize(errorCount, 'error'));
+  }
+  if (warningCount > 0) {
+    parts.push(pluralize(warningCount, 'warning'));
+  }
+  return `Found ${parts.join(' and ')}:`;
+}
+
+/** Formats `count` with `noun`, adding `s` unless the count is 1. */
+function pluralize(count: number, noun: string): string {
+  return count === 1 ? `${count} ${noun}` : `${count} ${noun}s`;
+}
+
+// endregion | Helpers

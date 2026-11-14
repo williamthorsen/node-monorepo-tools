@@ -99,6 +99,32 @@ export function previewTagPrefixes(config?: ReleaseKitConfig, git: Git = realGit
   return { workspaces, collisions, undeclaredCandidates, retiredPackages };
 }
 
+// region | Helpers
+
+/**
+ * Builds a preview row for each `releases` path entry that doesn't name a discovered workspace, which declares a
+ * directory target.
+ */
+function buildDirectoryRows(
+  config: ReleaseKitConfig | undefined,
+  workspacePaths: readonly string[],
+  overridesByPath: Map<string, LegacyIdentity[]>,
+  git: Git,
+): TagPrefixPreviewRow[] {
+  const discoveredPaths = new Set(workspacePaths);
+  return Object.entries(config?.releases ?? {}).flatMap(([name, entry]) => {
+    if (entry === false || !('path' in entry)) return [];
+    const directoryPath = normalizeWorkspacePath(entry.path);
+    if (discoveredPaths.has(directoryPath)) return [];
+    const declaredDirectory = {
+      name,
+      path: directoryPath,
+      ...(entry.tagPrefix !== undefined && { tagPrefix: entry.tagPrefix }),
+    };
+    return [buildPreviewRow(directoryPath, name, () => deriveDirectoryConfig(declaredDirectory), overridesByPath, git)];
+  });
+}
+
 /**
  * Builds a `workspacePath -> legacyIdentities` lookup from a validated config: `workspaces` overrides match the
  * discovered workspaces by `dir`, and `releases` package entries match by path.
@@ -124,30 +150,6 @@ function buildOverrideMap(
     }
   }
   return map;
-}
-
-/**
- * Builds a preview row for each `releases` path entry that doesn't name a discovered workspace, which declares a
- * directory target.
- */
-function buildDirectoryRows(
-  config: ReleaseKitConfig | undefined,
-  workspacePaths: readonly string[],
-  overridesByPath: Map<string, LegacyIdentity[]>,
-  git: Git,
-): TagPrefixPreviewRow[] {
-  const discoveredPaths = new Set(workspacePaths);
-  return Object.entries(config?.releases ?? {}).flatMap(([name, entry]) => {
-    if (entry === false || !('path' in entry)) return [];
-    const directoryPath = normalizeWorkspacePath(entry.path);
-    if (discoveredPaths.has(directoryPath)) return [];
-    const declaredDirectory = {
-      name,
-      path: directoryPath,
-      ...(entry.tagPrefix !== undefined && { tagPrefix: entry.tagPrefix }),
-    };
-    return [buildPreviewRow(directoryPath, name, () => deriveDirectoryConfig(declaredDirectory), overridesByPath, git)];
-  });
 }
 
 /**
@@ -193,6 +195,42 @@ function buildPreviewRow(
   };
 }
 
+/** Builds preview entries for each declared retired package, attaching current tag counts. */
+function buildRetiredPreviewEntries(
+  retiredPackages: readonly RetiredPackage[],
+  git: Git,
+): RetiredPackagePreviewEntry[] {
+  return retiredPackages.map((retiredPackage) => ({
+    name: retiredPackage.name,
+    tagPrefix: retiredPackage.tagPrefix,
+    tagCount: countTagsMatching(retiredPackage.tagPrefix, git),
+    ...(retiredPackage.successor !== undefined && { successor: retiredPackage.successor }),
+  }));
+}
+
+/**
+ * Collects the union of successfully-derived prefixes, declared legacy prefixes, retired prefixes, and the composite's
+ * prefix when the config declares one.
+ */
+function collectKnownPrefixes(
+  rows: readonly TagPrefixPreviewRow[],
+  retiredPackages: readonly RetiredPackagePreviewEntry[],
+  compositeTagPrefix: string | undefined,
+): string[] {
+  const knownPrefixes = new Set<string>();
+  for (const row of rows) {
+    if (row.derivedPrefix !== null) knownPrefixes.add(row.derivedPrefix);
+    for (const entry of row.legacyEntries) {
+      knownPrefixes.add(entry.prefix);
+    }
+  }
+  for (const retiredPackage of retiredPackages) {
+    knownPrefixes.add(retiredPackage.tagPrefix);
+  }
+  if (compositeTagPrefix !== undefined) knownPrefixes.add(compositeTagPrefix);
+  return [...knownPrefixes];
+}
+
 /** Returns the number of local git tags that count as releases under the given prefix. */
 function countTagsMatching(prefix: string, git: Git): number {
   try {
@@ -225,42 +263,6 @@ function detectCollisions(rows: readonly TagPrefixPreviewRow[]): TagPrefixCollis
 }
 
 /**
- * Collects the union of successfully-derived prefixes, declared legacy prefixes, retired prefixes, and the composite's
- * prefix when the config declares one.
- */
-function collectKnownPrefixes(
-  rows: readonly TagPrefixPreviewRow[],
-  retiredPackages: readonly RetiredPackagePreviewEntry[],
-  compositeTagPrefix: string | undefined,
-): string[] {
-  const knownPrefixes = new Set<string>();
-  for (const row of rows) {
-    if (row.derivedPrefix !== null) knownPrefixes.add(row.derivedPrefix);
-    for (const entry of row.legacyEntries) {
-      knownPrefixes.add(entry.prefix);
-    }
-  }
-  for (const retiredPackage of retiredPackages) {
-    knownPrefixes.add(retiredPackage.tagPrefix);
-  }
-  if (compositeTagPrefix !== undefined) knownPrefixes.add(compositeTagPrefix);
-  return [...knownPrefixes];
-}
-
-/** Builds preview entries for each declared retired package, attaching current tag counts. */
-function buildRetiredPreviewEntries(
-  retiredPackages: readonly RetiredPackage[],
-  git: Git,
-): RetiredPackagePreviewEntry[] {
-  return retiredPackages.map((retiredPackage) => ({
-    name: retiredPackage.name,
-    tagPrefix: retiredPackage.tagPrefix,
-    tagCount: countTagsMatching(retiredPackage.tagPrefix, git),
-    ...(retiredPackage.successor !== undefined && { successor: retiredPackage.successor }),
-  }));
-}
-
-/**
  * Returns the tag prefix of the composite that a validated config declares, through a `project` block or a `releases`
  * composite entry, with the default applied; `undefined` when the config declares neither.
  */
@@ -276,3 +278,5 @@ function findCompositeTagPrefix(config: ReleaseKitConfig | undefined): string | 
   }
   return undefined;
 }
+
+// endregion | Helpers

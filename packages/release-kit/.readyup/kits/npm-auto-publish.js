@@ -316,19 +316,6 @@ var npm_auto_publish_default = defineRdyKit({
   minReadyupVersion: "0.42.0",
   checklists: [repoChecklist, packagesChecklist]
 });
-function belongsInPackagesChecklist(workspace) {
-  return !workspace.isRoot || workspace.isPackage;
-}
-function buildSessionCheck() {
-  return {
-    name: "npm session can answer trust queries",
-    check: () => {
-      const capability = getCachedTrustCapability();
-      return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
-    },
-    fix: 'Restore a usable npm session: Log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
-  };
-}
 function buildWorkspaceCheck(workspace) {
   const displayName = workspace.name ?? "(unnamed)";
   const pkgJsonPath = path.join(workspace.dir, "package.json");
@@ -387,6 +374,44 @@ function buildWorkspaceCheck(workspace) {
     checks: children
   };
 }
+var getCachedNpmAuthStatus = /* @__PURE__ */ (() => {
+  let cached;
+  return () => cached ??= classifyNpmAuth(runNpmJson(["whoami", "--json"]));
+})();
+var getCachedOwnerRepo = /* @__PURE__ */ (() => {
+  let cached;
+  return () => cached ??= resolveOwnerRepo();
+})();
+var getCachedTrustCapability = /* @__PURE__ */ (() => {
+  let cached;
+  return () => cached ??= resolveTrustCapability();
+})();
+var trustQueryResults = /* @__PURE__ */ new Map();
+function selectProbeName() {
+  return discoverWorkspaces({ filter: (workspace) => workspace.isPackage }).find(
+    (workspace) => workspace.name !== void 0
+  )?.name;
+}
+function skipIfNothingPublishable() {
+  const publishable = discoverWorkspaces({ filter: (workspace) => workspace.isPackage });
+  return publishable.length === 0 && "no publishable packages";
+}
+function skipIfNotPublishable(workspace) {
+  return !workspace.isPackage && "package.json#private is true";
+}
+function belongsInPackagesChecklist(workspace) {
+  return !workspace.isRoot || workspace.isPackage;
+}
+function buildSessionCheck() {
+  return {
+    name: "npm session can answer trust queries",
+    check: () => {
+      const capability = getCachedTrustCapability();
+      return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
+    },
+    fix: 'Restore a usable npm session: Log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
+  };
+}
 function checkProvenanceMatchesVisibility() {
   const workflowPath = ".github/workflows/publish.yaml";
   const content = readFile(workflowPath);
@@ -402,19 +427,6 @@ function checkProvenanceMatchesVisibility() {
   }
   return classifyProvenanceSetting(content, visibility);
 }
-var getCachedNpmAuthStatus = /* @__PURE__ */ (() => {
-  let cached;
-  return () => cached ??= classifyNpmAuth(runNpmJson(["whoami", "--json"]));
-})();
-var getCachedOwnerRepo = /* @__PURE__ */ (() => {
-  let cached;
-  return () => cached ??= resolveOwnerRepo();
-})();
-var getCachedTrustCapability = /* @__PURE__ */ (() => {
-  let cached;
-  return () => cached ??= resolveTrustCapability();
-})();
-var trustQueryResults = /* @__PURE__ */ new Map();
 function getTrustQueryResult(packageName) {
   const cached = trustQueryResults.get(packageName);
   if (cached !== void 0) {
@@ -468,18 +480,6 @@ function resolveOwnerRepo() {
 function resolveTrustCapability() {
   const auth = getCachedNpmAuthStatus();
   return classifyTrustCapability(auth, auth.status === "authenticated" ? probeTrustQuery() : void 0);
-}
-function selectProbeName() {
-  return discoverWorkspaces({ filter: (workspace) => workspace.isPackage }).find(
-    (workspace) => workspace.name !== void 0
-  )?.name;
-}
-function skipIfNothingPublishable() {
-  const publishable = discoverWorkspaces({ filter: (workspace) => workspace.isPackage });
-  return publishable.length === 0 && "no publishable packages";
-}
-function skipIfNotPublishable(workspace) {
-  return !workspace.isPackage && "package.json#private is true";
 }
 export {
   buildWorkspaceCheck,

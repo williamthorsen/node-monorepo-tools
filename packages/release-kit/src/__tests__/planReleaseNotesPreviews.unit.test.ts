@@ -147,6 +147,8 @@ describe(planReleaseNotesPreviews, () => {
   });
 });
 
+// region | Helpers
+
 /** Builds preview options, overriding any field of an otherwise minimal single-workspace run. */
 function buildPreviewOptions(
   overrides: Partial<Parameters<typeof planReleaseNotesPreviews>[0]> = {},
@@ -159,3 +161,5 @@ function buildPreviewOptions(
     ...overrides,
   };
 }
+
+// endregion | Helpers

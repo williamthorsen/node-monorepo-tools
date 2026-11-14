@@ -10,6 +10,38 @@ export function composeHeader(entry: { emoji: string; label: string }): string {
 /** Tier names treated as dev-only (not shown in public release notes). */
 const DEV_ONLY_TIERS = new Set(['internal', 'process']);
 
+/** Default work types, ordered by canonical priority. */
+export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = deriveDefaultWorkTypes();
+
+/** The breaking policy of each canonical work type, which decides whether a `!` on it is a policy violation. */
+export const DEFAULT_BREAKING_POLICIES: Record<string, BreakingPolicy> = Object.fromEntries(
+  CANONICAL_TAXONOMY.types.map((entry) => [entry.key, entry.breakingPolicy]),
+);
+
+/** Default version bump patterns. The `none` types do not change the code that a consumer runs. */
+export const DEFAULT_VERSION_PATTERNS: VersionPatterns & { none: string[] } = {
+  major: ['!'],
+  minor: ['feat'],
+  none: ['ai', 'ci', 'docs', 'tests', 'tooling'],
+};
+
+/** Default configuration for structured changelog JSON generation. */
+export const DEFAULT_CHANGELOG_JSON_CONFIG: ChangelogJsonConfig = {
+  enabled: true,
+  outputPath: '.meta/changelog.json',
+  devOnlySections: deriveDevOnlySections(),
+};
+
+/** Default configuration for release notes consumption. */
+export const DEFAULT_RELEASE_NOTES_CONFIG: ReleaseNotesConfig = {
+  shouldInjectIntoReadme: false,
+};
+
+/** Default tag prefix for project-level releases. */
+export const DEFAULT_PROJECT_TAG_PREFIX = 'v';
+
+// region | Helpers
+
 /** Derives `DEFAULT_WORK_TYPES` from the canonical taxonomy, in canonical order. */
 function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
   const result: Record<string, WorkTypeConfig> = {};
@@ -40,32 +72,4 @@ function deriveDevOnlySections(): string[] {
   return sections;
 }
 
-/** Default work types, ordered by canonical priority. */
-export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = deriveDefaultWorkTypes();
-
-/** The breaking policy of each canonical work type, which decides whether a `!` on it is a policy violation. */
-export const DEFAULT_BREAKING_POLICIES: Record<string, BreakingPolicy> = Object.fromEntries(
-  CANONICAL_TAXONOMY.types.map((entry) => [entry.key, entry.breakingPolicy]),
-);
-
-/** Default version bump patterns. The `none` types do not change the code that a consumer runs. */
-export const DEFAULT_VERSION_PATTERNS: VersionPatterns & { none: string[] } = {
-  major: ['!'],
-  minor: ['feat'],
-  none: ['ai', 'ci', 'docs', 'tests', 'tooling'],
-};
-
-/** Default configuration for structured changelog JSON generation. */
-export const DEFAULT_CHANGELOG_JSON_CONFIG: ChangelogJsonConfig = {
-  enabled: true,
-  outputPath: '.meta/changelog.json',
-  devOnlySections: deriveDevOnlySections(),
-};
-
-/** Default configuration for release notes consumption. */
-export const DEFAULT_RELEASE_NOTES_CONFIG: ReleaseNotesConfig = {
-  shouldInjectIntoReadme: false,
-};
-
-/** Default tag prefix for project-level releases. */
-export const DEFAULT_PROJECT_TAG_PREFIX = 'v';
+// endregion | Helpers

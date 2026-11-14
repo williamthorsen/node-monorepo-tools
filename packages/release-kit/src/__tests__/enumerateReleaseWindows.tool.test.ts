@@ -4,39 +4,6 @@ import { enumerateReleaseWindows, type ReleaseWindow } from '../enumerateRelease
 import { realGit } from '../git.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 
-/** Reduces windows to the shape that the splitting assertions compare: version plus commit subjects. */
-function summarize(windows: readonly ReleaseWindow[]): Array<{ version: string; subjects: string[] }> {
-  return windows.map((window) => ({
-    version: window.version,
-    subjects: window.commits.map((commit) => commit.subject),
-  }));
-}
-
-/** Builds a three-release history: two tagged windows plus two commits above the newest tag. */
-function seedTwoReleases(repo: GitRepoFixture): void {
-  repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
-  repo.tag('pkg-v1.0.0');
-  repo.commit('feat: second', { 'src/second.ts': 'export const second = 2;\n' });
-  repo.commit('fix: third', { 'src/third.ts': 'export const third = 3;\n' });
-  repo.tag('pkg-v1.1.0');
-  repo.commit('feat: fourth', { 'src/fourth.ts': 'export const fourth = 4;\n' });
-  repo.commit('fix: fifth', { 'src/fifth.ts': 'export const fifth = 5;\n' });
-}
-
-/**
- * Builds a history whose branch commit is older by commit date than the tag that does not
- * contain it: base, a branch commit, a tagged mainline commit, then a no-fast-forward merge.
- */
-function seedMergedBranch(repo: GitRepoFixture): void {
-  repo.commit('chore: base', { 'src/base.ts': 'export const base = 0;\n' }, { date: '2026-01-01T00:00:00Z' });
-  repo.runGit('checkout', '--quiet', '-b', 'feat');
-  repo.commit('feat: branch work', { 'src/branch.ts': 'export const branch = 1;\n' }, { date: '2026-01-02T00:00:00Z' });
-  repo.runGit('checkout', '--quiet', 'main');
-  repo.commit('chore: mainline work', { 'src/main.ts': 'export const main = 2;\n' }, { date: '2026-01-03T00:00:00Z' });
-  repo.tag('pkg-v1.0.0');
-  repo.merge('feat', 'Merge feat', { date: '2026-01-04T00:00:00Z' });
-}
-
 describe(enumerateReleaseWindows, () => {
   it('returns only the unreleased window for a repository without any commits', () => {
     scaffoldGitRepo();
@@ -256,3 +223,40 @@ describe(enumerateReleaseWindows, () => {
     );
   });
 });
+
+// region | Helpers
+
+/**
+ * Builds a history whose branch commit is older by commit date than the tag that does not
+ * contain it: base, a branch commit, a tagged mainline commit, then a no-fast-forward merge.
+ */
+function seedMergedBranch(repo: GitRepoFixture): void {
+  repo.commit('chore: base', { 'src/base.ts': 'export const base = 0;\n' }, { date: '2026-01-01T00:00:00Z' });
+  repo.runGit('checkout', '--quiet', '-b', 'feat');
+  repo.commit('feat: branch work', { 'src/branch.ts': 'export const branch = 1;\n' }, { date: '2026-01-02T00:00:00Z' });
+  repo.runGit('checkout', '--quiet', 'main');
+  repo.commit('chore: mainline work', { 'src/main.ts': 'export const main = 2;\n' }, { date: '2026-01-03T00:00:00Z' });
+  repo.tag('pkg-v1.0.0');
+  repo.merge('feat', 'Merge feat', { date: '2026-01-04T00:00:00Z' });
+}
+
+/** Builds a three-release history: two tagged windows plus two commits above the newest tag. */
+function seedTwoReleases(repo: GitRepoFixture): void {
+  repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
+  repo.tag('pkg-v1.0.0');
+  repo.commit('feat: second', { 'src/second.ts': 'export const second = 2;\n' });
+  repo.commit('fix: third', { 'src/third.ts': 'export const third = 3;\n' });
+  repo.tag('pkg-v1.1.0');
+  repo.commit('feat: fourth', { 'src/fourth.ts': 'export const fourth = 4;\n' });
+  repo.commit('fix: fifth', { 'src/fifth.ts': 'export const fifth = 5;\n' });
+}
+
+/** Reduces windows to the shape that the splitting assertions compare: version plus commit subjects. */
+function summarize(windows: readonly ReleaseWindow[]): Array<{ version: string; subjects: string[] }> {
+  return windows.map((window) => ({
+    version: window.version,
+    subjects: window.commits.map((commit) => commit.subject),
+  }));
+}
+
+// endregion | Helpers

@@ -27,11 +27,6 @@ interface PackageJsonSubset {
   peerDependencies?: Record<string, string>;
 }
 
-/** Reports whether a parsed value is an object, which the graph reads as a `package.json` subset. */
-function isPackageJsonSubset(value: unknown): value is PackageJsonSubset {
-  return typeof value === 'object' && value !== null;
-}
-
 /**
  * Builds the dependency graph from the package targets' `package.json` files.
  *
@@ -97,6 +92,13 @@ export function buildDependencyGraph(targets: readonly PackageTarget[]): Depende
   return { packageNameToDir, dirToPackageName, dirToVersion, dependentsOf, dependenciesOf };
 }
 
+// region | Helpers
+
+/** Reports whether a parsed value is an object, which the graph reads as a `package.json` subset. */
+function isPackageJsonSubset(value: unknown): value is PackageJsonSubset {
+  return typeof value === 'object' && value !== null;
+}
+
 /** Reads and parses a `package.json` file as the subset of fields that the graph reads. */
 function readPackageJsonSubset(filePath: string): PackageJsonSubset {
   const parsedJson = readJsonFile(filePath);
@@ -106,3 +108,5 @@ function readPackageJsonSubset(filePath: string): PackageJsonSubset {
 
   return parsedJson;
 }
+
+// endregion | Helpers

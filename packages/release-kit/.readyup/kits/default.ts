@@ -47,23 +47,6 @@ import {
 import { fileMatchesTemplate } from '../lib/template-checks.ts';
 import { COMMON_PRESET_HASH, SYNC_LABELS_WORKFLOW_HASH } from '../lib/workflow-hashes.ts';
 
-/** Returns the minimum release-kit version that a consuming repo must declare. */
-function getMinVersion(): string {
-  // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
-  // Defer the call into a function so that module load does not invoke the runtime stub (which throws):
-  // This keeps the module importable in tests that bypass the compile step.
-  const picked = pickJson('../../package.json', ['version']);
-  if (typeof picked['version'] !== 'string') {
-    throw new TypeError("release-kit/package.json: 'version' must be a string");
-  }
-  return picked['version'];
-}
-
-/** Checks whether the repo contains any publishable workspace. */
-function hasPublishablePackages(): boolean {
-  return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
-}
-
 export default defineRdyKit({
   checklists: [
     {
@@ -288,3 +271,24 @@ export default defineRdyKit({
     },
   ],
 });
+
+// region | Helpers
+
+/** Returns the minimum release-kit version that a consuming repo must declare. */
+function getMinVersion(): string {
+  // `pickJson` is a compile-time helper: `rdy compile` rewrites the call to inline only the listed fields.
+  // Defer the call into a function so that module load does not invoke the runtime stub (which throws):
+  // This keeps the module importable in tests that bypass the compile step.
+  const picked = pickJson('../../package.json', ['version']);
+  if (typeof picked['version'] !== 'string') {
+    throw new TypeError("release-kit/package.json: 'version' must be a string");
+  }
+  return picked['version'];
+}
+
+/** Checks whether the repo contains any publishable workspace. */
+function hasPublishablePackages(): boolean {
+  return discoverWorkspaces({ filter: (w) => w.isPackage }).length > 0;
+}
+
+// endregion | Helpers

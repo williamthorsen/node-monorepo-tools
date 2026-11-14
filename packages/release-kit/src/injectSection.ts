@@ -1,13 +1,3 @@
-/** Returns the opening marker of a delimited section in a markdown file. */
-function openMarker(key: string): string {
-  return `<!-- section:${key} -->`;
-}
-
-/** Returns the closing marker of a delimited section. */
-function closeMarker(key: string): string {
-  return `<!-- /section:${key} -->`;
-}
-
 /**
  * Replaces or inserts a delimited section in file content.
  *
@@ -33,3 +23,17 @@ export function injectSection(content: string, key: string, injection: string): 
   }
   return `${section}\n\n${content}`;
 }
+
+// region | Helpers
+
+/** Returns the closing marker of a delimited section. */
+function closeMarker(key: string): string {
+  return `<!-- /section:${key} -->`;
+}
+
+/** Returns the opening marker of a delimited section in a markdown file. */
+function openMarker(key: string): string {
+  return `<!-- section:${key} -->`;
+}
+
+// endregion | Helpers

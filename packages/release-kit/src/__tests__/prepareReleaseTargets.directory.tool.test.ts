@@ -195,6 +195,16 @@ function commit(tree: TempTree, filePath: string, content: string, messageLines:
   run(tree, 'git', ['commit', '--quiet', ...messageLines.flatMap((line) => ['-m', line])]);
 }
 
+/** Computes the release plan of a merged config over the discovered workspaces, from the working directory. */
+function prepare(userConfig: ReleaseKitConfig, options: TargetPrepareOptions, discoveredPaths: string[]): ReleasePlan {
+  const config = mergeMonorepoConfig(
+    discoveredPaths,
+    { ...userConfig, changelogJson: { enabled: false } },
+    ROOT_PACKAGE,
+  );
+  return prepareReleaseTargets(projectMonorepoConfig(config), options, realGit);
+}
+
 /** Computes the release plan in the fixture repo and applies it, as the CLI does. */
 function prepareAndApply(
   tree: TempTree,
@@ -207,16 +217,6 @@ function prepareAndApply(
     applyReleasePlan(plan);
     return plan;
   });
-}
-
-/** Computes the release plan of a merged config over the discovered workspaces, from the working directory. */
-function prepare(userConfig: ReleaseKitConfig, options: TargetPrepareOptions, discoveredPaths: string[]): ReleasePlan {
-  const config = mergeMonorepoConfig(
-    discoveredPaths,
-    { ...userConfig, changelogJson: { enabled: false } },
-    ROOT_PACKAGE,
-  );
-  return prepareReleaseTargets(projectMonorepoConfig(config), options, realGit);
 }
 
 /** Runs a command in the fixture repo. */

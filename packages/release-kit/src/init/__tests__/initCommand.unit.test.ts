@@ -49,19 +49,6 @@ import { initCommand } from '../initCommand.ts';
 // The streams differ so that a helper given the other stream's style fails its assertion.
 const SPLIT_STYLES: StreamStyles = { stderr: 'plain', stdout: 'rich' };
 
-/** Configures every eligibility check to pass and the repo type as single-package. */
-function stubPassingChecks(): void {
-  mockIsGitRepo.mockReturnValue({ ok: true });
-  mockHasPackageJson.mockReturnValue({ ok: true });
-  mockUsesPnpm.mockReturnValue({ ok: true });
-  mockDetectRepoType.mockReturnValue('single-package');
-  mockHasPublishablePackage.mockReturnValue(true);
-  mockScaffoldFiles.mockReturnValue([
-    { filePath: '.github/workflows/release.yaml', outcome: 'created' },
-    { filePath: '.github/workflows/publish.yaml', outcome: 'created' },
-  ]);
-}
-
 describe(initCommand, () => {
   afterEach(() => {
     mockIsGitRepo.mockReset();
@@ -380,3 +367,20 @@ describe(initCommand, () => {
     expect(mockReportWriteResult).toHaveBeenCalledWith(result, isDryRun, SPLIT_STYLES);
   });
 });
+
+// region | Helpers
+
+/** Configures every eligibility check to pass and the repo type as single-package. */
+function stubPassingChecks(): void {
+  mockIsGitRepo.mockReturnValue({ ok: true });
+  mockHasPackageJson.mockReturnValue({ ok: true });
+  mockUsesPnpm.mockReturnValue({ ok: true });
+  mockDetectRepoType.mockReturnValue('single-package');
+  mockHasPublishablePackage.mockReturnValue(true);
+  mockScaffoldFiles.mockReturnValue([
+    { filePath: '.github/workflows/release.yaml', outcome: 'created' },
+    { filePath: '.github/workflows/publish.yaml', outcome: 'created' },
+  ]);
+}
+
+// endregion | Helpers
