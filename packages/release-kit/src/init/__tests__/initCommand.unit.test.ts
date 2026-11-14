@@ -78,6 +78,7 @@ describe(initCommand, () => {
   });
 
   it('returns 0 on success', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
 
     const exitCode = initCommand({
@@ -92,6 +93,7 @@ describe(initCommand, () => {
   });
 
   it('passes the stdout style to every printSuccess call', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -185,6 +187,7 @@ describe(initCommand, () => {
   });
 
   it('passes shouldForce as shouldOverwrite to scaffoldFiles', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
 
     initCommand({ isDryRun: false, shouldForce: true, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -193,6 +196,7 @@ describe(initCommand, () => {
   });
 
   it('passes shouldScaffoldConfig to scaffoldFiles', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: true });
@@ -201,6 +205,7 @@ describe(initCommand, () => {
   });
 
   it('passes isDryRun to scaffoldFiles', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
 
     initCommand({ isDryRun: true, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -220,6 +225,7 @@ describe(initCommand, () => {
   });
 
   it('passes publishable to scaffoldFiles', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
     mockHasPublishablePackage.mockReturnValue(false);
 
@@ -229,6 +235,7 @@ describe(initCommand, () => {
   });
 
   it('reports each skipped publishing workflow when every package is private', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
     mockHasPublishablePackage.mockReturnValue(false);
 
@@ -241,6 +248,7 @@ describe(initCommand, () => {
   });
 
   it('does not report a skip when a package is publishable', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
 
     initCommand({ isDryRun: false, shouldForce: false, styles: SPLIT_STYLES, shouldScaffoldConfig: false });
@@ -276,6 +284,7 @@ describe(initCommand, () => {
   });
 
   it('passes detected repoType to scaffoldFiles', () => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
     mockDetectRepoType.mockReturnValue('monorepo');
 
@@ -361,6 +370,7 @@ describe(initCommand, () => {
     { outcome: 'skipped', isDryRun: false },
     { outcome: 'failed', isDryRun: false },
   ])('calls reportWriteResult for $outcome outcome (isDryRun=$isDryRun)', ({ outcome, isDryRun }) => {
+    using _silencedConsole = silenceConsole(['info']);
     stubPassingChecks();
     const result = { filePath: '.github/workflows/release.yaml', outcome };
     mockScaffoldFiles.mockReturnValue([result]);

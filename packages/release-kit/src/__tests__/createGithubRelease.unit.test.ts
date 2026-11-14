@@ -214,6 +214,7 @@ describe(createGithubRelease, () => {
   });
 
   it('forwards sectionOrder to renderReleaseNotesSingle when provided', ({ tree }) => {
+    using _silencedConsole = silenceConsole(['info']);
     const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
 
     createGithubRelease({
@@ -230,6 +231,7 @@ describe(createGithubRelease, () => {
   });
 
   it('omits sectionOrder from render options when not provided', ({ tree }) => {
+    using _silencedConsole = silenceConsole(['info']);
     const changelogJsonPath = tree.writeJson('changelog.json', sampleEntries);
 
     createGithubRelease({
