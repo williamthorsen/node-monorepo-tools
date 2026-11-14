@@ -8,8 +8,6 @@ const {
   listReadOptions,
   mockBuildEmptyReleaseEntry,
   mockBuildSyntheticChangelogEntry,
-  mockExecFileSync,
-  mockExecSync,
   mockExistsSync,
   mockHasPrettierConfig,
   mockMergeChangelogEntriesWithDisk,
@@ -23,11 +21,6 @@ const {
   stubHistory,
   stubHistoryByPrefix,
 } = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-  execSync: mockExecSync,
-}));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -301,7 +294,6 @@ describe('prepareReleaseTargets for a monorepo', () => {
         changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true },
       });
       stubHistory({ previousTag: 'arrays-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' });
-      mockExecFileSync.mockReturnValue('[]');
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
       return config;
     }
@@ -406,7 +398,6 @@ describe('prepareReleaseTargets for a monorepo', () => {
         'core-v': { previousTag: 'core-v1.0.0', commits: [['feat: add utility', 'abc123']], bump: 'minor' },
         'app-v': { previousTag: 'app-v2.0.0' },
       });
-      mockExecFileSync.mockReturnValue('[]');
 
       prepareMonorepo(config, { shouldIncludeReleaseNotes: true });
 

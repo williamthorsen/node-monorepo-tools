@@ -21,6 +21,8 @@ export interface GitRepoFixture {
   merge: (branch: string, message: string, options?: CommitDate) => string;
   /** Writes an annotated tag at HEAD, as `createTags.ts` does. */
   tag: (name: string) => void;
+  /** Writes a file without staging it. */
+  write: (path: string, contents: string) => void;
 }
 
 /**
@@ -71,6 +73,9 @@ export function scaffoldGitRepo(entries: Record<string, string> = {}): GitRepoFi
     },
     tag: (name) => {
       runGit(['tag', '--annotate', name, '--message', name]);
+    },
+    write: (path, contents) => {
+      tree.write(path, contents);
     },
   };
 }

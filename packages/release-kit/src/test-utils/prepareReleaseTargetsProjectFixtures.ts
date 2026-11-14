@@ -17,6 +17,7 @@ import type {
 import { stubHistory } from './prepareReleaseTargetsProjectMocks.ts';
 import { selectCompositeResult } from './prepareResults.ts';
 import type { ReleaseHistoryStub } from './releaseHistories.ts';
+import { makeFakeGit } from './fakeGit.ts';
 
 /** The unreleased window's sections in the default history. */
 export const UNRELEASED_SECTIONS: ChangelogSection[] = [
@@ -89,6 +90,7 @@ export function prepareProjectStage(args: ProjectStageArgs): CompositePrepareRes
       settings: { ...settings, formatCommand: 'format' },
     },
     args.options,
+    makeFakeGit(),
   );
   args.tags?.push(...plan.tags);
   args.writes?.push(...plan.writes);

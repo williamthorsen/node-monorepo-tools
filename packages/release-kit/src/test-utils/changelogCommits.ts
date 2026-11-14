@@ -1,4 +1,5 @@
-import type { RawCommit, ReleaseWindow } from '../enumerateReleaseWindows.ts';
+import type { ReleaseWindow } from '../enumerateReleaseWindows.ts';
+import type { RawCommit } from '../git.ts';
 import type { ChangelogJsonConfig, ReleaseSettings } from '../types.ts';
 
 const defaultChangelogJsonConfig: ChangelogJsonConfig = {

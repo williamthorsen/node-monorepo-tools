@@ -5,8 +5,6 @@ const {
   applyPrepareReleaseTargetsMonorepoDefaults,
   mockBuildEmptyReleaseEntry,
   mockBuildSyntheticChangelogEntry,
-  mockExecFileSync,
-  mockExecSync,
   mockExistsSync,
   mockHasPrettierConfig,
   mockMergeChangelogEntriesWithDisk,
@@ -20,11 +18,6 @@ const {
   stubHistory,
   stubHistoryByPrefix,
 } = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-  execSync: mockExecSync,
-}));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -76,6 +69,8 @@ vi.mock(import('../changelogArchive.ts'), async (importOriginal) => ({
 }));
 
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
+import type { Git } from '../git.ts';
+import { makeFakeGit } from '../test-utils/fakeGit.ts';
 import { makeConfig, prepareMonorepo } from '../test-utils/prepareReleaseTargetsMonorepoFixtures.ts';
 import { selectPackageResults } from '../test-utils/prepareResults.ts';
 import type { MalformedChangeRecordBlock, PolicyViolation, UndeclaredEntryType, WorkspaceConfig } from '../types.ts';
@@ -90,16 +85,14 @@ describe('prepareReleaseTargets for a monorepo', () => {
   });
 
   describe('opportunistic hint when baseline is missing', () => {
-    /** Configures mocks for a single workspace without a baseline tag and a commit that calls for a minor bump. */
-    function stubNoBaseline(tagListOutput: string[]): void {
+    /**
+     * Configures mocks for a single workspace without a baseline tag and a commit that calls for a minor bump, and
+     * returns a git that lists `tags`.
+     */
+    function stubNoBaseline(tags: string[]): Git {
       stubHistory({ commits: [['feat: add', 'abc']], bump: 'minor' });
-      mockExecFileSync.mockImplementation((command: string, args: string[]) => {
-        if (command === 'git' && args[0] === 'tag' && args[1] === '--list') {
-          return tagListOutput.join('\n') + (tagListOutput.length > 0 ? '\n' : '');
-        }
-        return '';
-      });
       mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
+      return makeFakeGit({ listTags: () => tags });
     }
 
     it("emits a hint when the workspace doesn't have a baseline, candidate tags exist, and legacyIdentities is empty", () => {
@@ -116,10 +109,10 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      stubNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
+      const git = stubNoBaseline(['core-v0.2.7', 'core-v0.2.8']);
       using stdioCapture = captureStdio();
 
-      prepareMonorepo(config, {});
+      prepareMonorepo(config, {}, git);
 
       expect(stdioCapture.stderrChunks).toHaveLength(1);
       const message = stdioCapture.stderrChunks[0] ?? '';
@@ -144,10 +137,10 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      stubNoBaseline(['core-v0.2.7']);
+      const git = stubNoBaseline(['core-v0.2.7']);
       using stdioCapture = captureStdio();
 
-      prepareMonorepo(config, {});
+      prepareMonorepo(config, {}, git);
 
       expect(stdioCapture.stderrChunks).toHaveLength(0);
     });
@@ -166,10 +159,10 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      stubNoBaseline([]);
+      const git = stubNoBaseline([]);
       using stdioCapture = captureStdio();
 
-      prepareMonorepo(config, {});
+      prepareMonorepo(config, {}, git);
 
       expect(stdioCapture.stderrChunks).toHaveLength(0);
     });
@@ -200,10 +193,10 @@ describe('prepareReleaseTargets for a monorepo', () => {
         ],
       });
       // Only tags in the repo belong to the sibling `arrays` workspace. `core` doesn't have a baseline.
-      stubNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
+      const git = stubNoBaseline(['node-monorepo-arrays-v1.0.0', 'node-monorepo-arrays-v1.1.0']);
       using stdioCapture = captureStdio();
 
-      prepareMonorepo(config, {});
+      prepareMonorepo(config, {}, git);
 
       expect(stdioCapture.stderrChunks).toHaveLength(0);
     });
@@ -234,10 +227,10 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      stubNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
+      const git = stubNoBaseline(['arrays-v0.5.0', 'arrays-v0.6.0']);
       using stdioCapture = captureStdio();
 
-      prepareMonorepo(config, {});
+      prepareMonorepo(config, {}, git);
 
       expect(stdioCapture.stderrChunks).toHaveLength(0);
     });
@@ -265,10 +258,10 @@ describe('prepareReleaseTargets for a monorepo', () => {
           },
         ],
       });
-      stubNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
+      const git = stubNoBaseline(['core-v0.2.7', 'arrays-v0.1.0']);
       using stdioCapture = captureStdio();
 
-      prepareMonorepo(config, {});
+      prepareMonorepo(config, {}, git);
 
       expect(stdioCapture.stderrChunks).toHaveLength(1);
     });
@@ -323,6 +316,7 @@ describe('prepareReleaseTargets for a monorepo', () => {
       expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ breakingPolicies: {} }),
         expect.any(Object),
+        expect.anything(),
       );
     });
 

@@ -1,7 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { basename } from 'node:path';
 
-import { GIT_OUTPUT_LIMIT_BYTES, UserError } from '@williamthorsen/nmr-core';
+import { UserError } from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import type { LegacyIdentity, ReleaseKitConfig, RetiredPackage } from './configSchema.ts';
@@ -10,6 +9,7 @@ import { deriveDirectoryConfig } from './deriveDirectoryConfig.ts';
 import { deriveWorkspaceConfig } from './deriveWorkspaceConfig.ts';
 import { detectUndeclaredTagPrefixes, type UndeclaredTagPrefix } from './detectUndeclaredTagPrefixes.ts';
 import { describeEmptyWorkspace, discoverWorkspaces } from './discoverWorkspaces.ts';
+import { type Git, realGit } from './git.ts';
 import { matchesTagPrefix } from './matchesTagPrefix.ts';
 import { normalizeWorkspacePath } from './resolveReleaseDeclaration.ts';
 
@@ -74,7 +74,7 @@ export interface TagPrefixPreview {
  * tags, and collisions across the successfully derived prefixes. A declared composite's tag prefix counts as known, so
  * that its tags are not reported as undeclared.
  */
-export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview {
+export function previewTagPrefixes(config?: ReleaseKitConfig, git: Git = realGit): TagPrefixPreview {
   const workspace = discoverWorkspaces();
   if (workspace.kind === 'empty') {
     throw new UserError(`No workspace package to preview. ${describeEmptyWorkspace(workspace)}`);
@@ -85,16 +85,16 @@ export function previewTagPrefixes(config?: ReleaseKitConfig): TagPrefixPreview 
 
   const workspaces: TagPrefixPreviewRow[] = [
     ...Array.from(workspacePaths, (workspacePath) =>
-      buildPreviewRow(workspacePath, null, () => deriveWorkspaceConfig(workspacePath), overridesByPath),
+      buildPreviewRow(workspacePath, null, () => deriveWorkspaceConfig(workspacePath), overridesByPath, git),
     ),
-    ...buildDirectoryRows(config, workspacePaths, overridesByPath),
+    ...buildDirectoryRows(config, workspacePaths, overridesByPath, git),
   ];
 
-  const retiredPackages = buildRetiredPreviewEntries(config?.retiredPackages ?? []);
+  const retiredPackages = buildRetiredPreviewEntries(config?.retiredPackages ?? [], git);
 
   const collisions = detectCollisions(workspaces);
   const knownPrefixes = collectKnownPrefixes(workspaces, retiredPackages, findCompositeTagPrefix(config));
-  const undeclaredCandidates = detectUndeclaredTagPrefixes(knownPrefixes);
+  const undeclaredCandidates = detectUndeclaredTagPrefixes(knownPrefixes, git);
 
   return { workspaces, collisions, undeclaredCandidates, retiredPackages };
 }
@@ -134,6 +134,7 @@ function buildDirectoryRows(
   config: ReleaseKitConfig | undefined,
   workspacePaths: readonly string[],
   overridesByPath: Map<string, LegacyIdentity[]>,
+  git: Git,
 ): TagPrefixPreviewRow[] {
   const discoveredPaths = new Set(workspacePaths);
   return Object.entries(config?.releases ?? {}).flatMap(([name, entry]) => {
@@ -145,7 +146,7 @@ function buildDirectoryRows(
       path: directoryPath,
       ...(entry.tagPrefix !== undefined && { tagPrefix: entry.tagPrefix }),
     };
-    return [buildPreviewRow(directoryPath, name, () => deriveDirectoryConfig(declaredDirectory), overridesByPath)];
+    return [buildPreviewRow(directoryPath, name, () => deriveDirectoryConfig(declaredDirectory), overridesByPath, git)];
   });
 }
 
@@ -158,6 +159,7 @@ function buildPreviewRow(
   knownName: string | null,
   deriveTarget: () => { name: string; tagPrefix: string },
   overridesByPath: Map<string, LegacyIdentity[]>,
+  git: Git,
 ): TagPrefixPreviewRow {
   const dir = basename(workspacePath);
   let name = knownName;
@@ -171,13 +173,13 @@ function buildPreviewRow(
     derivationError = describeError(error);
   }
 
-  const derivedTagCount = derivedPrefix === null ? 0 : countTagsMatching(derivedPrefix);
+  const derivedTagCount = derivedPrefix === null ? 0 : countTagsMatching(derivedPrefix, git);
 
   const declaredIdentities = overridesByPath.get(workspacePath) ?? [];
   const legacyEntries: LegacyTagPrefixEntry[] = declaredIdentities.map((identity) => ({
     name: identity.name,
     prefix: identity.tagPrefix,
-    tagCount: countTagsMatching(identity.tagPrefix),
+    tagCount: countTagsMatching(identity.tagPrefix, git),
   }));
 
   return {
@@ -192,14 +194,9 @@ function buildPreviewRow(
 }
 
 /** Returns the number of local git tags that count as releases under the given prefix. */
-function countTagsMatching(prefix: string): number {
+function countTagsMatching(prefix: string, git: Git): number {
   try {
-    const output = execFileSync('git', ['tag', '--list', `${prefix}*`], {
-      encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return output.split('\n').filter((line) => matchesTagPrefix(line.trim(), [prefix])).length;
+    return git.listTags(`${prefix}*`).filter((tag) => matchesTagPrefix(tag, [prefix])).length;
   } catch {
     return 0;
   }
@@ -251,11 +248,14 @@ function collectKnownPrefixes(
 }
 
 /** Builds preview entries for each declared retired package, attaching current tag counts. */
-function buildRetiredPreviewEntries(retiredPackages: readonly RetiredPackage[]): RetiredPackagePreviewEntry[] {
+function buildRetiredPreviewEntries(
+  retiredPackages: readonly RetiredPackage[],
+  git: Git,
+): RetiredPackagePreviewEntry[] {
   return retiredPackages.map((retiredPackage) => ({
     name: retiredPackage.name,
     tagPrefix: retiredPackage.tagPrefix,
-    tagCount: countTagsMatching(retiredPackage.tagPrefix),
+    tagCount: countTagsMatching(retiredPackage.tagPrefix, git),
     ...(retiredPackage.successor !== undefined && { successor: retiredPackage.successor }),
   }));
 }

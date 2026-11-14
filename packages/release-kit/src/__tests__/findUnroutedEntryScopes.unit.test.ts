@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RawCommit } from '../enumerateReleaseWindows.ts';
+import type { RawCommit } from '../git.ts';
 import { findUnroutedEntryScopes, type WorkspaceWindow } from '../findUnroutedEntryScopes.ts';
 
 const SUBJECT = '#859 release-kit|feat: Route entries (#43)';

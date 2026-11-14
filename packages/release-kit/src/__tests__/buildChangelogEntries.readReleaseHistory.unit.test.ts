@@ -29,6 +29,7 @@ vi.mock(import('node:fs'), () => ({
 
 import { readReleaseHistory, type ReleaseHistory } from '../buildChangelogEntries.ts';
 import { decideTargetRelease } from '../prepareTarget.ts';
+import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(readReleaseHistory, () => {
   beforeEach(() => {
@@ -74,7 +75,7 @@ describe(readReleaseHistory, () => {
         makeWindow('v1.0.0', ['#1 feat!: Old']),
       ]);
 
-      expect(readReleaseHistory(makeConfig(), OPTIONS).unreleasedReading.bump).toBe('patch');
+      expect(readReleaseHistory(makeConfig(), OPTIONS, makeFakeGit()).unreleasedReading.bump).toBe('patch');
     });
 
     it('follows the configured version patterns', () => {
@@ -83,6 +84,7 @@ describe(readReleaseHistory, () => {
       const history = readReleaseHistory(
         { ...makeConfig(), versionPatterns: { major: ['!'], minor: ['feat', 'perf'] } },
         OPTIONS,
+        makeFakeGit(),
       );
 
       expect(history.unreleasedReading.bump).toBe('minor');
@@ -107,13 +109,13 @@ describe(readReleaseHistory, () => {
         makeWindow('v1.0.0', ['#0 feat: Older']),
       ]);
 
-      expect(readReleaseHistory(makeConfig(), OPTIONS).previousTag).toBe('v1.1.0');
+      expect(readReleaseHistory(makeConfig(), OPTIONS, makeFakeGit()).previousTag).toBe('v1.1.0');
     });
 
     it('leaves the previous tag undefined when the enumerator does not find a matching tag', () => {
       mockEnumerateReleaseWindows.mockReturnValueOnce([makeWindow('unreleased', ['#1 feat: First'])]);
 
-      expect(readReleaseHistory(makeConfig(), OPTIONS).previousTag).toBeUndefined();
+      expect(readReleaseHistory(makeConfig(), OPTIONS, makeFakeGit()).previousTag).toBeUndefined();
     });
   });
 
@@ -281,7 +283,7 @@ entries:
         makeWindow('v1.0.0', [ROUTED_MESSAGE]),
       ]);
 
-      const history = readReleaseHistory(buildRoutedConfig(), { ...OPTIONS, scope: 'arrays' });
+      const history = readReleaseHistory(buildRoutedConfig(), { ...OPTIONS, scope: 'arrays' }, makeFakeGit());
 
       expect(describeItems(history.releasedEntries[0]?.sections ?? [])).toStrictEqual([
         'Covers everything.',
@@ -325,7 +327,7 @@ entries:
         makeWindow('unreleased', ['#1 internal!: Refactor the cache', '#2 fmt!: Reformat']),
       ]);
 
-      const history = readReleaseHistory({ ...makeConfig(), breakingPolicies: {} }, OPTIONS);
+      const history = readReleaseHistory({ ...makeConfig(), breakingPolicies: {} }, OPTIONS, makeFakeGit());
 
       expect(history.unreleasedReading.diagnostics.policyViolations).toStrictEqual([]);
     });
@@ -336,9 +338,9 @@ entries:
         makeWindow('v1.0.0', ['#1 internal!: Refactor the cache']),
       ]);
 
-      expect(readReleaseHistory(makeConfig(), OPTIONS).unreleasedReading.diagnostics.policyViolations).toStrictEqual(
-        [],
-      );
+      expect(
+        readReleaseHistory(makeConfig(), OPTIONS, makeFakeGit()).unreleasedReading.diagnostics.policyViolations,
+      ).toStrictEqual([]);
     });
   });
 });
@@ -363,7 +365,7 @@ function describeItems(sections: readonly ChangelogSection[]): string[] {
 /** Reads, for `scope`, a history made of `windows`, the unreleased one first. */
 function readReleaseHistoryOf(windows: readonly ReleaseWindow[], scope: string): ReleaseHistory {
   mockEnumerateReleaseWindows.mockReturnValueOnce([...windows]);
-  return readReleaseHistory(buildRoutedConfig(), { ...OPTIONS, scope });
+  return readReleaseHistory(buildRoutedConfig(), { ...OPTIONS, scope }, makeFakeGit());
 }
 
 /** Reads, for `scope`, a history whose only window is an unreleased one containing `messages`, oldest first. */
@@ -377,6 +379,7 @@ function readUnreleased(messages: readonly string[]): ReturnType<typeof readRele
   return readReleaseHistory(
     { ...makeConfig(), breakingPolicies: DEFAULT_BREAKING_POLICIES, workTypes: DEFAULT_WORK_TYPES },
     OPTIONS,
+    makeFakeGit(),
   ).unreleasedReading;
 }
 

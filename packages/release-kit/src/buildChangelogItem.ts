@@ -1,5 +1,5 @@
 import type { BumpSignal } from './determineBumpType.ts';
-import type { RawCommit } from './enumerateReleaseWindows.ts';
+import type { RawCommit } from './git.ts';
 import { extractMigration } from './extractMigration.ts';
 import { type ChangeRecordEntry, stripChangeRecordBlocks } from './parseChangeRecordBlock.ts';
 import { evaluateBreakingPolicy, parseSubject, resolveType } from './parseCommitMessage.ts';

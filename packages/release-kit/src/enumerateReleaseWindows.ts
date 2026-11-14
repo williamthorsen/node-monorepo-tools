@@ -1,32 +1,6 @@
-import { execFileSync } from 'node:child_process';
-
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
-
+import type { Git, RawCommit } from './git.ts';
 import { matchesTagPrefix } from './matchesTagPrefix.ts';
 import { chainUserError } from './user-error-chaining.ts';
-
-/**
- * Unit separator (U+001F) delimiting the fields of one git output record.
- *
- * Node.js v24+ rejects null bytes in child-process arguments, so this ASCII control
- * character stands in. Git produces neither control character in a commit message.
- */
-const FIELD_SEPARATOR = '\u{1F}';
-
-/** Record separator (U+001E) delimiting commit records, whose bodies contain newlines. */
-const RECORD_SEPARATOR = '\u{1E}';
-
-/** A commit as git records it, before any parsing or filtering. */
-export interface RawCommit {
-  /** The full 40-character hash. */
-  hash: string;
-  /** The first line, with a wrapped subject folded onto one line by git. */
-  subject: string;
-  /** The message after its first blank line, empty when the commit does not have a body. */
-  body: string;
-  /** The raw commit message, subject and body together. */
-  message: string;
-}
 
 /** The commits that one release contains, with the version and date under which they were released. */
 export interface ReleaseWindow {
@@ -40,6 +14,8 @@ export interface ReleaseWindow {
 
 /** Inputs for {@link enumerateReleaseWindows}. */
 export interface EnumerateReleaseWindowsOptions {
+  /** The git through which the history is read. */
+  git: Git;
   /** Git pathspecs restricting the enumeration to commits that touch them. */
   paths?: readonly string[];
   /** Tag prefixes to match as a union; a matching tag name continues with a complete SemVer version. */
@@ -69,7 +45,7 @@ export interface EnumerateReleaseWindowsOptions {
  * Throws if `tagPrefixes` is empty, or if any git invocation fails.
  */
 export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions): ReleaseWindow[] {
-  const { now = Date.now, paths, tagPrefixes, unreleasedTag } = options;
+  const { git, now = Date.now, paths, tagPrefixes, unreleasedTag } = options;
   if (tagPrefixes.length === 0) {
     throw new Error('enumerateReleaseWindows: tagPrefixes must contain at least one entry');
   }
@@ -80,12 +56,12 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
     commits: [],
   };
 
-  const ancestry = readAncestry();
+  const ancestry = readAncestry(git);
   if (ancestry.parentsByHash.size === 0) {
     return [unreleasedWindow];
   }
 
-  const boundaries = readTagBoundaries(tagPrefixes, ancestry.positionByHash);
+  const boundaries = readTagBoundaries(git, tagPrefixes, ancestry.positionByHash);
   const releasedWindows: ReleaseWindow[] = boundaries.map((boundary) => ({
     version: boundary.tag,
     timestampSec: boundary.timestampSec,
@@ -94,7 +70,7 @@ export function enumerateReleaseWindows(options: EnumerateReleaseWindowsOptions)
   const windowIndexByHash = claimAncestors(boundaries, ancestry.parentsByHash);
 
   // Walk oldest first so that each window's commits accumulate in the order it reports them.
-  for (const commit of readCommits(paths).toReversed()) {
+  for (const commit of readCommits(git, paths).toReversed()) {
     const windowIndex = windowIndexByHash.get(commit.hash);
     const window = windowIndex === undefined ? unreleasedWindow : (releasedWindows[windowIndex] ?? unreleasedWindow);
     window.commits.push(commit);
@@ -151,109 +127,49 @@ function claimAncestors(
   return windowIndexByHash;
 }
 
-/** Splits one `git log` record into a commit, or returns undefined when the record is blank. */
-function parseCommitRecord(record: string): RawCommit | undefined {
-  // `--pretty=format:` joins records with a newline, which precedes every record but the first.
-  const [hash, subject, message] = record.replace(/^\n+/, '').split(FIELD_SEPARATOR);
-  if (hash === undefined || subject === undefined || message === undefined || hash === '') {
-    return undefined;
-  }
-  const trimmedMessage = message.replace(/\s+$/, '');
-  const bodyStart = trimmedMessage.indexOf('\n\n');
-  const body = bodyStart === -1 ? '' : trimmedMessage.slice(bodyStart + 2);
-
-  return { hash, subject, body, message: trimmedMessage };
-}
-
-/**
- * Reads the ancestry of every commit reachable from HEAD.
- *
- * `--ignore-missing` makes an unborn HEAD yield an empty graph rather than the exit code that
- * git also uses outside a repository, so the empty-history case stays distinguishable from a
- * genuine failure.
- */
-function readAncestry(): Ancestry {
-  const args = ['rev-list', '--topo-order', '--parents', '--ignore-missing', 'HEAD'];
-  const output = runGit(args, `'git rev-list' for HEAD`);
+/** Reads the ancestry of every commit reachable from HEAD, empty for an unborn HEAD. */
+function readAncestry(git: Git): Ancestry {
+  const entries = runGitRead(() => git.readAncestry(), `'git rev-list' for HEAD`);
 
   const ancestry: Ancestry = { parentsByHash: new Map(), positionByHash: new Map() };
-  for (const [position, line] of output.split('\n').entries()) {
-    const [hash, ...parents] = line.split(' ');
-    if (hash === undefined || hash === '') {
-      continue;
-    }
+  for (const [position, { hash, parents }] of entries.entries()) {
     ancestry.parentsByHash.set(hash, parents);
     ancestry.positionByHash.set(hash, position);
   }
   return ancestry;
 }
 
-/**
- * Reads every commit reachable from HEAD that touches one of the paths, newest first.
- *
- * `git log` applies its default history simplification.
- */
-function readCommits(paths: readonly string[] | undefined): RawCommit[] {
-  const format = `%H${FIELD_SEPARATOR}%s${FIELD_SEPARATOR}%B${RECORD_SEPARATOR}`;
-  const args = ['log', 'HEAD', `--pretty=format:${format}`];
-  if (paths !== undefined && paths.length > 0) {
-    args.push('--', ...paths);
-  }
-
-  const output = runGit(args, `'git log' for HEAD`);
-
-  const commits: RawCommit[] = [];
-  for (const record of output.split(RECORD_SEPARATOR)) {
-    const commit = parseCommitRecord(record);
-    if (commit !== undefined) {
-      commits.push(commit);
-    }
-  }
-  return commits;
+/** Reads every commit reachable from HEAD that touches one of the paths, newest first. */
+function readCommits(git: Git, paths: readonly string[] | undefined): RawCommit[] {
+  return runGitRead(() => git.readCommits(paths), `'git log' for HEAD`);
 }
 
-/**
- * Reads the tags matching a prefix and reachable from HEAD, oldest release first.
- *
- * A tag's `creatordate` resolves to the tagger date for the annotated tags that `createTags.ts`
- * writes, and to the commit date for a lightweight one.
- */
-function readTagBoundaries(tagPrefixes: readonly string[], positionByHash: ReadonlyMap<string, number>): TagBoundary[] {
-  const fields = ['%(refname:strip=2)', '%(creatordate:unix)', '%(objectname)', '%(*objectname)'];
-  const args = ['for-each-ref', `--format=${fields.join('%1f')}`, 'refs/tags'];
-
-  const output = runGit(args, `'git for-each-ref' for refs/tags`);
+/** Reads the tags matching a prefix and reachable from HEAD, oldest release first. */
+function readTagBoundaries(
+  git: Git,
+  tagPrefixes: readonly string[],
+  positionByHash: ReadonlyMap<string, number>,
+): TagBoundary[] {
+  const refs = runGitRead(() => git.listTagRefs(), `'git for-each-ref' for refs/tags`);
 
   const boundaries: TagBoundary[] = [];
-  for (const line of output.split('\n')) {
-    const [tag, creatorDate, objectName, dereferencedName] = line.split(FIELD_SEPARATOR);
-    if (
-      tag === undefined ||
-      creatorDate === undefined ||
-      objectName === undefined ||
-      !matchesTagPrefix(tag, tagPrefixes)
-    ) {
+  for (const { tag, timestampSec, commitHash } of refs) {
+    if (!matchesTagPrefix(tag, tagPrefixes)) {
       continue;
     }
-    // An annotated tag names its commit in the dereferenced field; a lightweight tag is the commit.
-    const hash = dereferencedName || objectName;
-    const position = positionByHash.get(hash);
+    const position = positionByHash.get(commitHash);
     if (position !== undefined) {
-      boundaries.push({ hash, position, tag, timestampSec: Number(creatorDate) });
+      boundaries.push({ hash: commitHash, position, tag, timestampSec });
     }
   }
 
   return boundaries.toSorted((left, right) => right.position - left.position);
 }
 
-/** Runs a git command and returns its trimmed stdout, chaining any failure to `description`. */
-function runGit(args: readonly string[], description: string): string {
+/** Runs a git read, chaining any failure to `description`. */
+function runGitRead<T>(read: () => T, description: string): T {
   try {
-    return execFileSync('git', args, {
-      encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim();
+    return read();
   } catch (error: unknown) {
     throw chainUserError(`Failed to run ${description}`, error);
   }

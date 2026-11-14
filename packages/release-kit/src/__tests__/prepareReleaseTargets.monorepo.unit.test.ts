@@ -5,8 +5,6 @@ const {
   listReadOptions,
   mockBuildEmptyReleaseEntry,
   mockBuildSyntheticChangelogEntry,
-  mockExecFileSync,
-  mockExecSync,
   mockExistsSync,
   mockHasPrettierConfig,
   mockMergeChangelogEntriesWithDisk,
@@ -20,11 +18,6 @@ const {
   stubHistory,
   stubHistoryByPrefix,
 } = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-  execSync: mockExecSync,
-}));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -271,7 +264,6 @@ describe('prepareReleaseTargets for a monorepo', () => {
 
     expect(result.tags).toStrictEqual(['arrays-v1.1.0']);
     expect(mockWriteFileSync).not.toHaveBeenCalled();
-    expect(mockExecSync).not.toHaveBeenCalled();
 
     expect(result.writes.map((write) => write.path)).toStrictEqual([
       'packages/arrays/package.json',
@@ -315,7 +307,6 @@ describe('prepareReleaseTargets for a monorepo', () => {
 
     const result = prepareMonorepo(config, {});
 
-    expect(mockExecSync).not.toHaveBeenCalled();
     expect(result.formatCommand?.command).toBe(
       'npx prettier --write packages/arrays/package.json packages/arrays/CHANGELOG.md packages/strings/package.json packages/strings/CHANGELOG.md',
     );
@@ -343,7 +334,6 @@ describe('prepareReleaseTargets for a monorepo', () => {
     const result = prepareMonorepo(config, {});
 
     expect(result.tags).toStrictEqual([]);
-    expect(mockExecSync).not.toHaveBeenCalled();
   });
 
   it("defaults to prettier when the config doesn't set formatCommand and a prettier config exists", () => {
@@ -392,7 +382,5 @@ describe('prepareReleaseTargets for a monorepo', () => {
     mockReadFileSync.mockReturnValue(JSON.stringify({ version: '1.0.0' }));
 
     prepareMonorepo(config, {});
-
-    expect(mockExecSync).not.toHaveBeenCalled();
   });
 });

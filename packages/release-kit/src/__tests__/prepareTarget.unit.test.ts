@@ -60,7 +60,10 @@ import {
   type TargetPrepareSettings,
 } from '../prepareTarget.ts';
 import { makeReleaseHistory } from '../test-utils/releaseHistories.ts';
+import { makeFakeGit } from '../test-utils/fakeGit.ts';
 import type { ChangelogEntry, CompositeTarget, PackageTarget } from '../types.ts';
+
+const GIT = makeFakeGit();
 
 const SETTINGS: TargetPrepareSettings = { changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG, enabled: true } };
 
@@ -128,31 +131,39 @@ describe(readTargetHistory, () => {
   });
 
   it('reads a workspace under its current and legacy prefixes, its paths, and its routing scope', () => {
-    readTargetHistory(CORE_TARGET, SETTINGS);
+    readTargetHistory(CORE_TARGET, SETTINGS, GIT);
 
-    expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, {
-      tagPrefixes: ['core-v', 'old-core-v'],
-      paths: ['packages/core/**'],
-      scope: 'core',
-    });
+    expect(mockReadReleaseHistory).toHaveBeenCalledWith(
+      SETTINGS,
+      {
+        tagPrefixes: ['core-v', 'old-core-v'],
+        paths: ['packages/core/**'],
+        scope: 'core',
+      },
+      GIT,
+    );
   });
 
   it('routes a renamed workspace by its target name, not its directory', () => {
-    readTargetHistory({ ...CORE_TARGET, id: 'kernel' }, SETTINGS);
+    readTargetHistory({ ...CORE_TARGET, id: 'kernel' }, SETTINGS, GIT);
 
-    expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, expect.objectContaining({ scope: 'kernel' }));
+    expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, expect.objectContaining({ scope: 'kernel' }), GIT);
   });
 
   it('reads the single-package root without paths or routing', () => {
-    readTargetHistory(ROOT_TARGET, SETTINGS);
+    readTargetHistory(ROOT_TARGET, SETTINGS, GIT);
 
-    expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, { tagPrefixes: ['v'] });
+    expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, { tagPrefixes: ['v'] }, GIT);
   });
 
   it('reads a composite under its paths without routing', () => {
-    readTargetHistory(PROJECT_TARGET, SETTINGS);
+    readTargetHistory(PROJECT_TARGET, SETTINGS, GIT);
 
-    expect(mockReadReleaseHistory).toHaveBeenCalledWith(SETTINGS, { tagPrefixes: ['v'], paths: ['packages/core/**'] });
+    expect(mockReadReleaseHistory).toHaveBeenCalledWith(
+      SETTINGS,
+      { tagPrefixes: ['v'], paths: ['packages/core/**'] },
+      GIT,
+    );
   });
 
   it.each([
@@ -160,7 +171,7 @@ describe(readTargetHistory, () => {
     { target: CORE_TARGET, label: "workspace 'core'" },
     { target: PROJECT_TARGET, label: 'project' },
   ])('checks the baseline of $label from its version files and changelog dir', ({ target, label }) => {
-    readTargetHistory(target, SETTINGS);
+    readTargetHistory(target, SETTINGS, GIT);
 
     expect(mockFindUntaggedBaseline).toHaveBeenCalledWith(
       {
@@ -178,7 +189,7 @@ describe(readTargetHistory, () => {
     const untaggedBaseline = { label: 'package', version: '1.0.0', tag: 'v1.0.0' };
     mockFindUntaggedBaseline.mockReturnValue(untaggedBaseline);
 
-    expect(readTargetHistory(ROOT_TARGET, SETTINGS).untaggedBaseline).toBe(untaggedBaseline);
+    expect(readTargetHistory(ROOT_TARGET, SETTINGS, GIT).untaggedBaseline).toBe(untaggedBaseline);
   });
 });
 

@@ -3,8 +3,6 @@ import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   applyPrepareReleaseTargetsSinglePackageDefaults,
   featureSection,
-  mockExecFileSync,
-  mockExecSync,
   mockExistsSync,
   mockHasPrettierConfig,
   mockMergeChangelogEntriesWithDisk,
@@ -20,11 +18,6 @@ const {
   stubMinorRelease,
   stubPackageVersion,
 } = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsSinglePackageMocks.ts'));
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-  execSync: mockExecSync,
-}));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,

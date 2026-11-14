@@ -4,8 +4,6 @@ import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   applyPrepareReleaseTargetsSinglePackageDefaults,
   featureSection,
-  mockExecFileSync,
-  mockExecSync,
   mockExistsSync,
   mockHasPrettierConfig,
   mockMergeChangelogEntriesWithDisk,
@@ -20,11 +18,6 @@ const {
   stubMinorRelease,
   stubPackageVersion,
 } = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsSinglePackageMocks.ts'));
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-  execSync: mockExecSync,
-}));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
@@ -117,7 +110,11 @@ describe('prepareReleaseTargets for a single-package repo', () => {
 
     prepareSinglePackage(config, {});
 
-    expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(config.settings, { tagPrefixes: ['my-lib-v'] });
+    expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(
+      config.settings,
+      { tagPrefixes: ['my-lib-v'] },
+      expect.anything(),
+    );
   });
 
   it("reports the history's bump, parse count, and unparseable commits on the released result", () => {
@@ -215,7 +212,11 @@ describe('prepareReleaseTargets for a single-package repo', () => {
       expect(selectPackageResults(result)[0]?.previousTag).toBe(stub.previousTag);
       expect(result.tags).toStrictEqual([]);
       expect(result.writes).toStrictEqual([]);
-      expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(expect.anything(), { tagPrefixes: ['v'] });
+      expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(
+        expect.anything(),
+        { tagPrefixes: ['v'] },
+        expect.anything(),
+      );
     });
 
     it("skips commits that don't call for a bump, reporting the unparseable commits and the history's diagnostics", () => {
@@ -305,8 +306,6 @@ describe('prepareReleaseTargets for a single-package repo', () => {
     stubMinorRelease();
 
     prepareSinglePackage(config, {});
-
-    expect(mockExecSync).not.toHaveBeenCalled();
   });
 
   it("defaults to prettier when the config doesn't set formatCommand and a prettier config exists", () => {
@@ -324,7 +323,6 @@ describe('prepareReleaseTargets for a single-package repo', () => {
 
     const result = prepareSinglePackage(makeConfig(), {});
 
-    expect(mockExecSync).not.toHaveBeenCalled();
     expect(result.formatCommand).toBeUndefined();
   });
 
@@ -415,7 +413,11 @@ describe('prepareReleaseTargets for a single-package repo', () => {
       ]),
       expect.anything(),
     );
-    expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(expect.anything(), { tagPrefixes: ['v'] });
+    expect(mockReadReleaseHistory).toHaveBeenCalledExactlyOnceWith(
+      expect.anything(),
+      { tagPrefixes: ['v'] },
+      expect.anything(),
+    );
   });
 
   it('throws when --set-version is not greater than the current version', () => {

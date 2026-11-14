@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { enumerateReleaseWindows, type ReleaseWindow } from '../enumerateReleaseWindows.ts';
+import { realGit } from '../git.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
 
 /** Reduces windows to the shape that the splitting assertions compare: version plus commit subjects. */
@@ -40,7 +41,7 @@ describe(enumerateReleaseWindows, () => {
   it('returns only the unreleased window for a repository without any commits', () => {
     scaffoldGitRepo();
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
 
     expect(summarize(windows)).toStrictEqual([{ version: 'pkg-v1.0.0', subjects: [] }]);
   });
@@ -49,7 +50,7 @@ describe(enumerateReleaseWindows, () => {
     const repo = scaffoldGitRepo();
     seedTwoReleases(repo);
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.2.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.2.0' });
 
     expect(summarize(windows)).toStrictEqual([
       { version: 'pkg-v1.2.0', subjects: ['feat: fourth', 'fix: fifth'] },
@@ -62,7 +63,7 @@ describe(enumerateReleaseWindows, () => {
     const repo = scaffoldGitRepo();
     seedTwoReleases(repo);
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.2.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.2.0' });
 
     // `fix: third` is tagged `pkg-v1.1.0`, so it closes that window instead of opening the next.
     expect(windows[1]?.commits.at(-1)?.subject).toBe('fix: third');
@@ -73,7 +74,7 @@ describe(enumerateReleaseWindows, () => {
     repo.commit('feat: first', { 'src/first.ts': 'export const first = 1;\n' });
     repo.tag('pkg-v1.0.0');
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.1.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.1.0' });
 
     expect(summarize(windows)).toStrictEqual([
       { version: 'pkg-v1.1.0', subjects: [] },
@@ -90,7 +91,7 @@ describe(enumerateReleaseWindows, () => {
     repo.runGit('checkout', '--quiet', 'main');
     repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
 
     expect(summarize(windows)).toStrictEqual([{ version: 'pkg-v1.0.0', subjects: ['feat: first', 'fix: second'] }]);
   });
@@ -99,7 +100,7 @@ describe(enumerateReleaseWindows, () => {
     const repo = scaffoldGitRepo();
     seedMergedBranch(repo);
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.1.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.1.0' });
 
     // `feat: branch work` predates the tag by commit date but is not an ancestor of it.
     expect(summarize(windows)).toStrictEqual([
@@ -115,7 +116,7 @@ describe(enumerateReleaseWindows, () => {
     repo.commit('feat: second', { 'src/second.ts': 'export const second = 2;\n' });
     repo.tag('pkg-v1.1.0');
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.2.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.2.0' });
 
     expect(summarize(windows)).toStrictEqual([
       { version: 'pkg-v1.2.0', subjects: [] },
@@ -132,7 +133,7 @@ describe(enumerateReleaseWindows, () => {
     }
     repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
 
     expect(summarize(windows)).toStrictEqual([{ version: 'pkg-v1.0.0', subjects: ['feat: first', 'fix: second'] }]);
   });
@@ -144,7 +145,7 @@ describe(enumerateReleaseWindows, () => {
     repo.tag('v1');
     repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['v'], unreleasedTag: 'v1.0.1' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['v'], unreleasedTag: 'v1.0.1' });
 
     expect(summarize(windows)).toStrictEqual([
       { version: 'v1.0.1', subjects: ['fix: second'] },
@@ -158,7 +159,7 @@ describe(enumerateReleaseWindows, () => {
     repo.tag('pkg-v1.0.0-beta.1');
     repo.commit('fix: second', { 'src/second.ts': 'export const second = 2;\n' });
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
 
     expect(summarize(windows)).toStrictEqual([
       { version: 'pkg-v1.0.0', subjects: ['fix: second'] },
@@ -175,6 +176,7 @@ describe(enumerateReleaseWindows, () => {
     repo.commit('fix: third', { 'src/third.ts': 'export const third = 3;\n' });
 
     const windows = enumerateReleaseWindows({
+      git: realGit,
       tagPrefixes: ['pkg-v', 'legacy-v'],
       unreleasedTag: 'pkg-v2.0.1',
     });
@@ -192,6 +194,7 @@ describe(enumerateReleaseWindows, () => {
     repo.commit('feat: out of scope', { 'packages/b/index.ts': 'export const b = 1;\n' });
 
     const windows = enumerateReleaseWindows({
+      git: realGit,
       paths: ['packages/a/**'],
       tagPrefixes: ['pkg-v'],
       unreleasedTag: 'pkg-v1.0.0',
@@ -206,7 +209,7 @@ describe(enumerateReleaseWindows, () => {
       'src/thing.ts': 'export const thing = 1;\n',
     });
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
 
     expect(windows[0]?.commits).toStrictEqual([
       {
@@ -222,7 +225,7 @@ describe(enumerateReleaseWindows, () => {
     const repo = scaffoldGitRepo();
     repo.commit('feat: subject only', { 'src/thing.ts': 'export const thing = 1;\n' });
 
-    const windows = enumerateReleaseWindows({ tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
+    const windows = enumerateReleaseWindows({ git: realGit, tagPrefixes: ['pkg-v'], unreleasedTag: 'pkg-v1.0.0' });
 
     expect(windows[0]?.commits[0]?.body).toBe('');
   });
@@ -235,6 +238,7 @@ describe(enumerateReleaseWindows, () => {
     const taggerSeconds = Number(repo.runGit('for-each-ref', '--format=%(creatordate:unix)', 'refs/tags/pkg-v1.0.0'));
 
     const windows = enumerateReleaseWindows({
+      git: realGit,
       now: () => 1_700_000_000_500,
       tagPrefixes: ['pkg-v'],
       unreleasedTag: 'pkg-v1.0.1',
@@ -247,7 +251,7 @@ describe(enumerateReleaseWindows, () => {
   it('throws when tagPrefixes is empty', () => {
     scaffoldGitRepo();
 
-    expect(() => enumerateReleaseWindows({ tagPrefixes: [], unreleasedTag: 'pkg-v1.0.0' })).toThrow(
+    expect(() => enumerateReleaseWindows({ git: realGit, tagPrefixes: [], unreleasedTag: 'pkg-v1.0.0' })).toThrow(
       'enumerateReleaseWindows: tagPrefixes must contain at least one entry',
     );
   });

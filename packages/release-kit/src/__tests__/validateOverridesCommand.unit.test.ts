@@ -4,6 +4,7 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { enumerateReleaseWindows } from '../enumerateReleaseWindows.ts';
+import { realGit } from '../git.ts';
 import type { GenerateChangelogOptions } from '../generateChangelogs.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
@@ -463,6 +464,7 @@ describe(validateOverridesCommand, () => {
       expect(result.exitCode).toBe(1);
       // The single-package scope reads the configured tag prefix over all paths.
       expect(mockedEnumerateReleaseWindows).toHaveBeenCalledWith({
+        git: realGit,
         tagPrefixes: ['v'],
         unreleasedTag: 'unreleased',
       });

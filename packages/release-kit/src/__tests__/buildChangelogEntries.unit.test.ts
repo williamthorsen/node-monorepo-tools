@@ -27,6 +27,7 @@ import {
   readReleaseHistory,
 } from '../buildChangelogEntries.ts';
 import { buildEmptyReleaseEntry } from '../buildEmptyReleaseEntry.ts';
+import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(buildChangelogEntries, () => {
   beforeEach(() => {
@@ -168,6 +169,7 @@ describe(buildChangelogEntries, () => {
     });
 
     expect(mockEnumerateReleaseWindows).toHaveBeenCalledWith({
+      git: expect.anything(),
       paths: ['packages/foo'],
       tagPrefixes: ['foo-v', 'old-foo-v'],
       unreleasedTag: 'unreleased',
@@ -180,7 +182,11 @@ describe(buildChangelogEntries, () => {
 
     buildChangelogEntries(makeConfig(), 'v1.0.0', OPTIONS);
 
-    expect(mockEnumerateReleaseWindows).toHaveBeenCalledWith({ tagPrefixes: ['v'], unreleasedTag: 'unreleased' });
+    expect(mockEnumerateReleaseWindows).toHaveBeenCalledWith({
+      git: expect.anything(),
+      tagPrefixes: ['v'],
+      unreleasedTag: 'unreleased',
+    });
   });
 
   it('wraps a UserError from the helper with the tag prefixes that it read', async () => {
@@ -325,7 +331,7 @@ describe(convertToChangelogEntries, () => {
       makeWindow('unreleased', ['#2 fix: Current']),
       makeWindow('v1.0.0', ['#1 feat: Old']),
     ]);
-    const history = readReleaseHistory(makeConfig(), OPTIONS);
+    const history = readReleaseHistory(makeConfig(), OPTIONS, makeFakeGit());
 
     expect(convertToChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual([
       '1.0.1',
@@ -338,7 +344,7 @@ describe(convertToChangelogEntries, () => {
       makeWindow('unreleased', ['#2 fmt: Reformat']),
       makeWindow('v1.0.0', ['#1 feat: Old']),
     ]);
-    const history = readReleaseHistory(makeConfig(), OPTIONS);
+    const history = readReleaseHistory(makeConfig(), OPTIONS, makeFakeGit());
 
     expect(convertToChangelogEntries(history, 'v1.0.1').map((entry) => entry.version)).toStrictEqual(['1.0.0']);
   });
@@ -357,7 +363,7 @@ describe(convertToReleaseEntries, () => {
       makeWindow('unreleased', messages),
       makeWindow('v1.0.0', ['#1 feat: Old']),
     ]);
-    const history = readReleaseHistory(makeConfig(), OPTIONS);
+    const history = readReleaseHistory(makeConfig(), OPTIONS, makeFakeGit());
 
     const entries = convertToReleaseEntries(history, 'v1.0.1', '2026-09-23');
 
@@ -370,7 +376,7 @@ describe(convertToReleaseEntries, () => {
       makeWindow('unreleased', ['#2 fix: Current', '#3 fmt: Reformat']),
       makeWindow('v1.0.0', ['#1 feat: Old']),
     ]);
-    const history = readReleaseHistory(makeConfig(), OPTIONS);
+    const history = readReleaseHistory(makeConfig(), OPTIONS, makeFakeGit());
 
     expect(convertToReleaseEntries(history, 'v1.0.1', '2026-09-23')).toStrictEqual(
       convertToChangelogEntries(history, 'v1.0.1'),

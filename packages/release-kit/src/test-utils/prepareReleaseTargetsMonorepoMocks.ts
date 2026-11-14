@@ -8,8 +8,6 @@ import { makeReleaseHistory, type ReleaseHistoryStub } from './releaseHistories.
 
 export const mockBuildEmptyReleaseEntry = vi.fn();
 export const mockBuildSyntheticChangelogEntry = vi.fn();
-export const mockExecFileSync = vi.fn();
-export const mockExecSync = vi.fn();
 export const mockExistsSync = vi.fn();
 export const mockHasPrettierConfig = vi.fn();
 export const mockMergeChangelogEntriesWithDisk = vi.fn();
@@ -51,8 +49,6 @@ export function resetPrepareReleaseTargetsMonorepoMocks(): void {
   for (const mock of [
     mockBuildEmptyReleaseEntry,
     mockBuildSyntheticChangelogEntry,
-    mockExecFileSync,
-    mockExecSync,
     mockExistsSync,
     mockHasPrettierConfig,
     mockMergeChangelogEntriesWithDisk,

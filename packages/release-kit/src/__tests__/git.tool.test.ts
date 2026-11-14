@@ -1,6 +1,4 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
@@ -91,7 +89,7 @@ describe('realGit', () => {
         { tag: 'pkg-v1.1.0', commitHash: second },
       ]);
       for (const ref of refs) {
-        expect(Number.isInteger(ref.timestampSec) && ref.timestampSec > 0).toBe(true);
+        expect(Number.isSafeInteger(ref.timestampSec) && ref.timestampSec > 0).toBe(true);
       }
     });
 
@@ -128,7 +126,7 @@ describe('realGit', () => {
 
       expect(realGit.readStatus()).toBe('');
 
-      writeInRepo(repo, 'untracked.txt', 'new\n');
+      repo.write('untracked.txt', 'new\n');
 
       expect(realGit.readStatus()).toBe('?? untracked.txt');
     });
@@ -138,7 +136,7 @@ describe('realGit', () => {
     it('ignores an untracked file', () => {
       const repo = scaffoldGitRepo();
       repo.commit('chore: first', { 'tracked.txt': 'one\n' });
-      writeInRepo(repo, 'untracked.txt', 'new\n');
+      repo.write('untracked.txt', 'new\n');
 
       expect(realGit.hasTrackedChanges()).toBe(false);
     });
@@ -146,7 +144,7 @@ describe('realGit', () => {
     it('reports an unstaged change to a tracked file', () => {
       const repo = scaffoldGitRepo();
       repo.commit('chore: first', { 'tracked.txt': 'one\n' });
-      writeInRepo(repo, 'tracked.txt', 'two\n');
+      repo.write('tracked.txt', 'two\n');
 
       expect(realGit.hasTrackedChanges()).toBe(true);
     });
@@ -154,7 +152,7 @@ describe('realGit', () => {
     it('reports a staged change', () => {
       const repo = scaffoldGitRepo();
       repo.commit('chore: first', { 'tracked.txt': 'one\n' });
-      writeInRepo(repo, 'staged.txt', 'new\n');
+      repo.write('staged.txt', 'new\n');
       repo.runGit('add', 'staged.txt');
 
       expect(realGit.hasTrackedChanges()).toBe(true);
@@ -165,7 +163,7 @@ describe('realGit', () => {
     it('stages every change and commits it', () => {
       const repo = scaffoldGitRepo();
       repo.commit('chore: first');
-      writeInRepo(repo, 'new.txt', 'new\n');
+      repo.write('new.txt', 'new\n');
 
       realGit.addAll();
       realGit.commit('release: pkg-v1.0.0\n\nThe summary.');
@@ -258,11 +256,6 @@ function scaffoldGitRepoWithRemote(): GitRepoFixture {
   const repo = scaffoldGitRepo();
   repo.runGit('remote', 'add', 'origin', remote.dir);
   return repo;
-}
-
-/** Writes a file in the repository without staging it. */
-function writeInRepo(repo: GitRepoFixture, path: string, contents: string): void {
-  writeFileSync(join(repo.dir, path), contents);
 }
 
 // endregion | Helpers

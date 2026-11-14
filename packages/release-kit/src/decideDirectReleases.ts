@@ -3,6 +3,7 @@ import type { ReleaseHistory } from './buildChangelogEntries.ts';
 import { detectUndeclaredTagPrefixes } from './detectUndeclaredTagPrefixes.ts';
 import { findUnroutedEntryScopes } from './findUnroutedEntryScopes.ts';
 import { getAllTagPrefixes } from './generateChangelogs.ts';
+import type { Git } from './git.ts';
 import { describeStage, isRepoRootTarget, type MemberTarget, readHistory, runStage } from './prepareRunContext.ts';
 import {
   decideTargetRelease,
@@ -31,6 +32,7 @@ export function decideDirectReleases(
   settings: TargetPrepareSettings,
   options: { shouldForce?: boolean; bumpOverride?: ReleaseType; versionOverridesById?: ReadonlyMap<string, string> },
   startIds: ReadonlySet<string>,
+  git: Git,
 ): DirectReleases {
   const { shouldForce, bumpOverride, versionOverridesById } = options;
   const directReleases: DirectReleases = {
@@ -45,13 +47,15 @@ export function decideDirectReleases(
   const knownPrefixes = plannedTargets.flatMap(getAllTagPrefixes);
 
   for (const target of plannedTargets) {
-    const { history, untaggedBaseline } = runStage(describeStage(target), () => readTargetHistory(target, settings));
+    const { history, untaggedBaseline } = runStage(describeStage(target), () =>
+      readTargetHistory(target, settings, git),
+    );
     directReleases.readings.set(target.id, history);
     if (untaggedBaseline !== undefined) {
       directReleases.untaggedBaselines.set(target.id, untaggedBaseline);
     }
     if (history.previousTag === undefined && target.kind === 'package' && target.isWorkspace) {
-      emitBaselineHintOnce(target, knownPrefixes, hintState);
+      emitBaselineHintOnce(target, knownPrefixes, hintState, git);
     }
 
     const versionOverride = versionOverridesById?.get(target.id);
@@ -127,10 +131,15 @@ interface BaselineHintState {
  *
  * Prints at most once per prepare run. Does not affect exit code or bump behavior.
  */
-function emitBaselineHintOnce(target: PackageTarget, knownPrefixes: readonly string[], state: BaselineHintState): void {
+function emitBaselineHintOnce(
+  target: PackageTarget,
+  knownPrefixes: readonly string[],
+  state: BaselineHintState,
+  git: Git,
+): void {
   if (state.emitted || (target.legacyIdentities?.length ?? 0) > 0) return;
 
-  const candidates = detectUndeclaredTagPrefixes(knownPrefixes);
+  const candidates = detectUndeclaredTagPrefixes(knownPrefixes, git);
   if (candidates.length === 0) return;
 
   const totalTags = candidates.reduce((sum, candidate) => sum + candidate.tagCount, 0);

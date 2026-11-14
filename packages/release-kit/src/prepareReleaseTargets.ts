@@ -6,6 +6,7 @@ import { createOverrideContext, type OverrideContext } from './changelogOverride
 import { decideDirectReleases, reportUnroutedEntryScopes } from './decideDirectReleases.ts';
 import { deriveDependenciesHeader, deriveSectionOrder } from './deriveReleaseNotesConfig.ts';
 import { findTransitiveDependents } from './findTransitiveDependents.ts';
+import { type Git, realGit } from './git.ts';
 import { hasPrettierConfig } from './hasPrettierConfig.ts';
 import { resolveWorkTypes } from './mergeConfig.ts';
 import { describeCompositeSkip, prepareComposite } from './prepareComposite.ts';
@@ -75,7 +76,11 @@ const PREVIEWS_REQUIRE_JSON_WARNING =
  * 5. Prepares each composite after every package target, unless `onlyTargetIds` narrowed the run without naming it.
  * 6. Renders the format command over the modified files.
  */
-export function prepareReleaseTargets(config: TargetPrepareConfig, options: TargetPrepareOptions): ReleasePlan {
+export function prepareReleaseTargets(
+  config: TargetPrepareConfig,
+  options: TargetPrepareOptions,
+  git: Git = realGit,
+): ReleasePlan {
   const { settings } = config;
   const { onlyTargetIds, shouldIncludeReleaseNotes } = options;
   const isSinglePackage = isSinglePackageTargets(config.targets);
@@ -99,6 +104,7 @@ export function prepareReleaseTargets(config: TargetPrepareConfig, options: Targ
   const workTypes = resolveWorkTypes(settings.workTypes);
   const context: RunContext = {
     settings,
+    git,
     overrideContext: createOverrideContext(plannedTargets.flatMap(listOverrideDirectory)),
     sectionOrder: deriveSectionOrder(workTypes),
     dependenciesHeader: deriveDependenciesHeader(workTypes),
@@ -107,7 +113,7 @@ export function prepareReleaseTargets(config: TargetPrepareConfig, options: Targ
   };
 
   // -- Direct releases --
-  const directReleases = decideDirectReleases(plannedTargets, settings, options, startIds);
+  const directReleases = decideDirectReleases(plannedTargets, settings, options, startIds, git);
   if (!isSinglePackage) {
     reportUnroutedEntryScopes(plannedTargets, directReleases, settings, memberTargets);
   }

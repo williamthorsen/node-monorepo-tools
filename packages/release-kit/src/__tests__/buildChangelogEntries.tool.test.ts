@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildChangelogEntries, convertToChangelogEntries, readReleaseHistory } from '../buildChangelogEntries.ts';
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../defaults.ts';
 import { type GitRepoFixture, scaffoldGitRepo } from '../test-utils/scaffoldGitRepo.ts';
+import { realGit } from '../git.ts';
 import type { ChangelogEntry } from '../types.ts';
 
 const CONFIG = { changelogJson: { ...DEFAULT_CHANGELOG_JSON_CONFIG } };
@@ -15,7 +16,7 @@ describe(buildChangelogEntries, () => {
     const fixHash = repo.commit('#2 fix: Retry the upload', { 'aws/upload.ts': 'export const upload = 2;\n' });
     repo.commit('#3 feat: Add an unrelated tool', { 'tools/other.ts': 'export const other = 3;\n' });
 
-    const history = readReleaseHistory(CONFIG, { tagPrefixes: ['aws-v'], paths: ['aws'] });
+    const history = readReleaseHistory(CONFIG, { tagPrefixes: ['aws-v'], paths: ['aws'] }, realGit);
     const { entries } = buildChangelogEntries(CONFIG, 'aws-v1.1.0', { tagPrefixes: ['aws-v'], paths: ['aws'] });
 
     expect(history.unreleasedReading.commits.map((commit) => commit.hash)).toStrictEqual([fixHash]);
@@ -237,12 +238,12 @@ function listSubjects(history: ReturnType<typeof readReleaseHistory>): string[] 
 
 /** Reads the history of the scaffolded repo under the default configuration. */
 function readHistory(tagPrefixes: readonly string[], paths?: readonly string[]): ReturnType<typeof readReleaseHistory> {
-  return readReleaseHistory(CONFIG, { tagPrefixes, ...(paths !== undefined && { paths }) });
+  return readReleaseHistory(CONFIG, { tagPrefixes, ...(paths !== undefined && { paths }) }, realGit);
 }
 
 /** Reads the history of the scaffolded repo's `packages/{dir}` workspace, routed to `dir`. */
 function readRouted(dir: string): ReturnType<typeof readReleaseHistory> {
-  return readReleaseHistory(CONFIG, { tagPrefixes: [`${dir}-v`], paths: [`packages/${dir}`], scope: dir });
+  return readReleaseHistory(CONFIG, { tagPrefixes: [`${dir}-v`], paths: [`packages/${dir}`], scope: dir }, realGit);
 }
 
 /** Builds a tagged baseline with two commits above it. */
