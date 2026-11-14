@@ -53,6 +53,7 @@ describe(injectReleaseNotesIntoReadme, () => {
     mockExtractVersion.mockReturnValue('1.0.0');
     mockLoadChangelogEntries.mockReturnValue({
       status: 'loaded',
+      rejectedCount: 0,
       entries: [
         {
           version: '1.0.0',
@@ -88,7 +89,7 @@ describe(injectReleaseNotesIntoReadme, () => {
 
   it('returns an unreadable-file skip when changelog.json is malformed', () => {
     mockReadFileSync.mockReturnValue('# README\n');
-    mockLoadChangelogEntries.mockReturnValue({ status: 'unreadable' });
+    mockLoadChangelogEntries.mockReturnValue({ status: 'unreadable', reason: 'Unexpected token' });
 
     const result = injectReleaseNotesIntoReadme('/pkg/README.md', '/pkg/.meta/changelog.json', 'v1.0.0');
 
@@ -102,6 +103,7 @@ describe(injectReleaseNotesIntoReadme, () => {
     mockExtractVersion.mockReturnValue('99.0.0');
     mockLoadChangelogEntries.mockReturnValue({
       status: 'loaded',
+      rejectedCount: 0,
       entries: [{ version: '1.0.0', date: '2024-01-01', sections: [] }],
     });
 
@@ -159,6 +161,7 @@ describe(renderInjectedReadme, () => {
     mockExtractVersion.mockReturnValue('1.2.3');
     mockLoadChangelogEntries.mockReturnValue({
       status: 'loaded',
+      rejectedCount: 0,
       entries: [
         {
           version: '1.2.3',
@@ -210,7 +213,7 @@ describe(renderInjectedReadme, () => {
   });
 
   it('returns an unreadable-file skip when changelog.json is unparseable', () => {
-    mockLoadChangelogEntries.mockReturnValue({ status: 'unreadable' });
+    mockLoadChangelogEntries.mockReturnValue({ status: 'unreadable', reason: 'Unexpected token' });
 
     const result = renderInjectedReadme('# README\n', '/pkg/.meta/changelog.json', 'v1.2.3');
 
@@ -222,6 +225,7 @@ describe(renderInjectedReadme, () => {
     mockExtractVersion.mockReturnValue('9.9.9');
     mockLoadChangelogEntries.mockReturnValue({
       status: 'loaded',
+      rejectedCount: 0,
       entries: [{ version: '1.0.0', date: '2024-01-01', sections: [] }],
     });
 

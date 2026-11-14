@@ -1,12 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { describeError } from '@williamthorsen/toolbelt.errors';
+import { UserError } from '@williamthorsen/nmr-core';
 import stringify from 'json-stringify-pretty-compact';
 
-import { isChangelogEntry } from './changelogJsonUtils.ts';
+import { loadChangelogEntries } from './changelogJsonUtils.ts';
 import { compareVersionsDescending } from './compareVersions.ts';
-import { isUnknownArray } from './typeGuards.ts';
 import type { ChangelogEntry, ReleaseSettings } from './types.ts';
 
 /** Resolves the path of the `changelog.json` file under a workspace's changelog directory. */
@@ -26,12 +24,12 @@ export function renderChangelogJson(entries: ChangelogEntry[]): string {
  * Merges `entries` with the on-disk entries at `filePath` and returns the merged set in newest-first order, without
  * writing.
  *
- * Keeps an on-disk entry that `entries` lacks, which preserves synthetic entries across propagation runs. A missing or
- * malformed file counts as empty, so that a malformed file does not abort the release.
+ * Keeps an on-disk entry that `entries` lacks, which preserves synthetic entries across propagation runs. A missing file
+ * counts as empty. Throws a `UserError` when the file cannot be read as entries or contains an element that is not an
+ * entry, because the merged set would replace the history that the file holds.
  */
 export function mergeChangelogEntriesWithDisk(filePath: string, entries: ChangelogEntry[]): ChangelogEntry[] {
-  const existingEntries = readExistingEntries(filePath);
-  return mergeEntries(entries, existingEntries);
+  return mergeEntries(entries, readExistingEntries(filePath));
 }
 
 /** Sorts changelog entries newest-first by SemVer-aware version comparison. */
@@ -39,25 +37,21 @@ function sortNewestFirst(entries: Iterable<ChangelogEntry>): ChangelogEntry[] {
   return [...entries].toSorted((a, b) => compareVersionsDescending(a.version, b.version));
 }
 
-/**
- * Reads the changelog entries in a JSON file: none when the file is missing or doesn't contain an array, and none with
- * a warning on stderr when it cannot be read or parsed.
- */
+/** Reads the changelog entries in a JSON file: none when the file is missing. */
 function readExistingEntries(filePath: string): ChangelogEntry[] {
-  if (!existsSync(filePath)) {
+  const loaded = loadChangelogEntries(filePath);
+  if (loaded.status === 'missing') {
     return [];
   }
-  try {
-    const content = readFileSync(filePath, 'utf8');
-    const parsedJson: unknown = JSON.parse(content);
-    if (!isUnknownArray(parsedJson)) {
-      return [];
-    }
-    return parsedJson.filter(isChangelogEntry);
-  } catch (error: unknown) {
-    console.warn(`Warning: could not parse existing ${filePath}: ${describeError(error)}; treating as empty`);
-    return [];
+  if (loaded.status === 'unreadable') {
+    throw buildRefusal(filePath, loaded.reason);
   }
+  if (loaded.rejectedCount > 0) {
+    const elements =
+      loaded.rejectedCount === 1 ? 'element is not a changelog entry' : 'elements are not changelog entries';
+    throw buildRefusal(filePath, `${loaded.rejectedCount} ${elements}`);
+  }
+  return loaded.entries;
 }
 
 /** Merges new entries with existing ones; a new entry replaces an existing one of the same version. */
@@ -72,4 +66,11 @@ function mergeEntries(newEntries: ChangelogEntry[], existingEntries: ChangelogEn
   }
 
   return sortNewestFirst(versionMap.values());
+}
+
+/** Builds the error that refuses to rewrite a changelog file that cannot be read as entries. */
+function buildRefusal(filePath: string, problem: string): UserError {
+  return new UserError(
+    `Cannot prepare the changelog from ${filePath}: ${problem}. Repair or delete the file, then rerun 'release-kit prepare'.`,
+  );
 }
