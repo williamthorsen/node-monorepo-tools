@@ -1,7 +1,6 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -80,7 +79,6 @@ describe(prepareCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyPrepareCommandDefaults();
-    void silenceConsole(['info']);
   });
 
   afterEach(() => {

@@ -1,7 +1,7 @@
 import { formatStatusLine, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -61,7 +61,6 @@ describe(createGithubReleaseCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyCreateGithubReleaseCommandDefaults();
-    void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
@@ -216,6 +215,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('prints each config warning once', async () => {
+    using silent = silenceConsole(['warn']);
     mockLoadConfig.mockResolvedValue({
       changelogJson: { enabled: false },
       releaseNotes: { shouldInjectIntoReadme: true },
@@ -223,13 +223,12 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-    const warnings = vi
-      .mocked(console.warn)
-      .mock.calls.filter(([message]) => String(message).includes('shouldInjectIntoReadme'));
+    const warnings = silent.warn.mock.calls.filter(([message]) => String(message).includes('shouldInjectIntoReadme'));
     expect(warnings).toHaveLength(1);
   });
 
   it('does not create a Release for an excluded workspace, and reports the skip', async () => {
+    using silent = silenceConsole(['warn']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/legacy']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -239,7 +238,7 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(listConsoleLines(silent.warn)).toContain(
       'Skipping legacy-v0.9.0 (packages/legacy): excluded by config (shouldExclude: true).',
     );
     expect(mockCreateGithubReleases).toHaveBeenCalledWith(
@@ -251,6 +250,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('exits 0 without creating a Release when every tag on HEAD is excluded', async () => {
+    using _silencedConsole = silenceConsole(['warn']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/legacy']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'legacy-v0.9.0', kind: 'package', dir: 'legacy', workspacePath: 'packages/legacy', isPublishable: true },
@@ -298,6 +298,7 @@ describe(createGithubReleaseCommand, () => {
   });
 
   it('does not exit when --tags is explicit and every skip is no-entry', async () => {
+    using silent = silenceConsole(['info']);
     // `resolveCommandTags` exits 1 on an unknown `--tags` value, so a no-entry skip that this command receives
     // means "no releasable content", as no-audience-content and empty-body do.
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/extra']));
@@ -318,12 +319,13 @@ describe(createGithubReleaseCommand, () => {
     );
 
     expect(stdioCapture.stderr).toBe('');
-    expect(console.info).toHaveBeenCalledWith(
+    expect(listConsoleLines(silent.info)).toContain(
       'Skipped 2 tag(s) without releasable content: core-v1.3.0 (no-entry), extra-v0.1.0 (no-entry).',
     );
   });
 
   it('warns on stderr for a missing or unreadable changelog and leaves it out of the summary', async () => {
+    using silent = silenceConsole(['info', 'warn']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/extra', 'packages/more']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -341,18 +343,17 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: PLAIN_STYLES }));
 
-    expect(vi.mocked(console.warn).mock.calls).toStrictEqual([
-      [
-        `  ${formatStatusLine('plain', 'warning', 'Skipping GitHub Release for core-v1.3.0: packages/core/.meta/changelog.json not found')}`,
-      ],
-      [
-        `  ${formatStatusLine('plain', 'warning', 'Skipping GitHub Release for extra-v0.1.0: could not parse packages/extra/.meta/changelog.json')}`,
-      ],
+    expect(listConsoleLines(silent.warn)).toStrictEqual([
+      `  ${formatStatusLine('plain', 'warning', 'Skipping GitHub Release for core-v1.3.0: packages/core/.meta/changelog.json not found')}`,
+      `  ${formatStatusLine('plain', 'warning', 'Skipping GitHub Release for extra-v0.1.0: could not parse packages/extra/.meta/changelog.json')}`,
     ]);
-    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) without releasable content: more-v2.0.0 (no-entry).');
+    expect(listConsoleLines(silent.info)).toContain(
+      'Skipped 1 tag(s) without releasable content: more-v2.0.0 (no-entry).',
+    );
   });
 
   it('does not print a summary when every skip concerns the changelog file', async () => {
+    using silent = silenceConsole(['info', 'warn']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -366,11 +367,12 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: PLAIN_STYLES }));
 
-    expect(console.warn).toHaveBeenCalledTimes(1);
-    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Skipped'));
+    expect(silent.warn).toHaveBeenCalledTimes(1);
+    expect(listConsoleLines(silent.info).join('\n')).not.toContain('Skipped');
   });
 
   it('exits 0 when --tags is explicit and every skip is no-audience-content', async () => {
+    using silent = silenceConsole(['info']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -383,12 +385,13 @@ describe(createGithubReleaseCommand, () => {
     await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0'], styles: RICH_STYLES }));
 
     expect(stdioCapture.stderr).toBe('');
-    expect(console.info).toHaveBeenCalledWith(
+    expect(listConsoleLines(silent.info)).toContain(
       'Skipped 1 tag(s) without releasable content: core-v1.3.0 (no-audience-content).',
     );
   });
 
   it('exits 0 when --tags is explicit and the only skip reason is empty-body', async () => {
+    using silent = silenceConsole(['info']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -401,10 +404,13 @@ describe(createGithubReleaseCommand, () => {
     await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ tags: ['core-v1.3.0'], styles: RICH_STYLES }));
 
     expect(stdioCapture.stderr).toBe('');
-    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) without releasable content: core-v1.3.0 (empty-body).');
+    expect(listConsoleLines(silent.info)).toContain(
+      'Skipped 1 tag(s) without releasable content: core-v1.3.0 (empty-body).',
+    );
   });
 
   it('logs an info summary when --tags has mixed outcomes including a no-entry skip', async () => {
+    using silent = silenceConsole(['info']);
     // `resolveCommandTags` rejects an unknown tag, so this command reports a no-entry skip like any other skip.
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/extra']));
     mockResolveReleaseTags.mockReturnValue([
@@ -421,10 +427,13 @@ describe(createGithubReleaseCommand, () => {
     );
 
     expect(stdioCapture.stderr).toBe('');
-    expect(console.info).toHaveBeenCalledWith('Skipped 1 tag(s) without releasable content: extra-v0.1.0 (no-entry).');
+    expect(listConsoleLines(silent.info)).toContain(
+      'Skipped 1 tag(s) without releasable content: extra-v0.1.0 (no-entry).',
+    );
   });
 
   it('does not exit when --tags is omitted and every tag is skipped', async () => {
+    using silent = silenceConsole(['info']);
     // When the user did not single out tags, an all-skipped outcome is informational, not a failure.
     mockCreateGithubReleases.mockReturnValue({
       createdTags: [],
@@ -433,12 +442,13 @@ describe(createGithubReleaseCommand, () => {
 
     await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-    expect(console.info).toHaveBeenCalledWith(
+    expect(listConsoleLines(silent.info)).toContain(
       'Skipped 1 tag(s) without releasable content: v1.0.0 (no-audience-content).',
     );
   });
 
   it('logs an info summary when some tags are skipped (intentional reasons) but others succeed', async () => {
+    using silent = silenceConsole(['info']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/extra']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -454,7 +464,7 @@ describe(createGithubReleaseCommand, () => {
     );
 
     expect(stdioCapture.stderr).toBe('');
-    expect(console.info).toHaveBeenCalledWith(
+    expect(listConsoleLines(silent.info)).toContain(
       'Skipped 1 tag(s) without releasable content: extra-v0.1.0 (no-audience-content).',
     );
   });
@@ -472,6 +482,7 @@ describe(createGithubReleaseCommand, () => {
 
   describe('publishability filter', () => {
     it('skips a private workspace with a warning and does not create a Release', async () => {
+      using silent = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -479,13 +490,14 @@ describe(createGithubReleaseCommand, () => {
 
       await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silent.warn)).toContain(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
       expect(mockCreateGithubReleases).not.toHaveBeenCalled();
     });
 
     it('no-ops without deriving release-notes settings when every tag is private', async () => {
+      using _silencedConsole = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -498,6 +510,7 @@ describe(createGithubReleaseCommand, () => {
     });
 
     it('creates Releases for publishable tags and warns about and skips the private one in a mixed set', async () => {
+      using silent = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -506,7 +519,7 @@ describe(createGithubReleaseCommand, () => {
 
       await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silent.warn)).toContain(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
       expect(mockCreateGithubReleases).toHaveBeenCalledWith(
@@ -522,13 +535,14 @@ describe(createGithubReleaseCommand, () => {
     const PROJECT_TAG = { tag: 'v0.13.0', kind: 'project', dir: '', workspacePath: '.', isPublishable: false };
 
     it('creates a Release for the project tag although the root package is private', async () => {
+      using silent = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([PROJECT_TAG]);
       mockLoadConfig.mockResolvedValue({ project: {} });
 
       await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-      expect(console.warn).not.toHaveBeenCalled();
+      expect(silent.warn).not.toHaveBeenCalled();
       expect(mockCreateGithubReleases).toHaveBeenCalledWith([PROJECT_TAG], '.meta/changelog.json', false, [
         'Bug fixes',
         'Features',
@@ -536,6 +550,7 @@ describe(createGithubReleaseCommand, () => {
     });
 
     it('creates a Release for the project tag and still skips a private workspace tag', async () => {
+      using silent = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -545,9 +560,9 @@ describe(createGithubReleaseCommand, () => {
 
       await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+      expect(listConsoleLines(silent.warn)).toStrictEqual([
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
-      );
+      ]);
       expect(mockCreateGithubReleases).toHaveBeenCalledWith([PROJECT_TAG], '.meta/changelog.json', false, [
         'Bug fixes',
         'Features',

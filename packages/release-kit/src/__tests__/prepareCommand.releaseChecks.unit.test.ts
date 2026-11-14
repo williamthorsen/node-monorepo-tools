@@ -1,6 +1,6 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -83,7 +83,6 @@ describe(prepareCommand, () => {
     stdioCapture = captureStdio();
     applyPrepareCommandDefaults();
     void throwOnProcessExit();
-    void silenceConsole(['info']);
   });
 
   afterEach(() => {

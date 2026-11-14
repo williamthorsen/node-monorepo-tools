@@ -1,6 +1,6 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -25,7 +25,6 @@ describe(commitCommand, () => {
   beforeEach(() => {
     git = makeFakeGit();
     stdioCapture = captureStdio();
-    void silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -35,6 +34,7 @@ describe(commitCommand, () => {
   });
 
   it('creates a commit with tags and summary', () => {
+    using silent = silenceConsole(['info']);
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'release-kit-v2.4.0\ncore-v1.0.0\n';
       if (path === 'tmp/.release-summary')
@@ -49,7 +49,7 @@ describe(commitCommand, () => {
       'release: release-kit-v2.4.0 core-v1.0.0\n\nrelease-kit-v2.4.0\n- feat: Add commit command\n\ncore-v1.0.0\n- fix: Bug',
     );
     expect(git.addAll.mock.invocationCallOrder[0]).toBeLessThan(git.commit.mock.invocationCallOrder[0] ?? 0);
-    expect(console.info).toHaveBeenCalledWith('Created release commit: release: release-kit-v2.4.0 core-v1.0.0');
+    expect(listConsoleLines(silent.info)).toContain('Created release commit: release: release-kit-v2.4.0 core-v1.0.0');
   });
 
   it('if the tags file is missing, throws naming the resolved path', () => {
@@ -92,6 +92,7 @@ describe(commitCommand, () => {
   });
 
   it('reports without executing in dry-run mode', () => {
+    using silent = silenceConsole(['info']);
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
       if (path === 'tmp/.release-summary') return 'v1.0.0\n- feat: New feature';
@@ -101,10 +102,10 @@ describe(commitCommand, () => {
 
     commitCommand(makeCommitOptions({ isDryRun: true }), git);
 
-    expect(console.info).toHaveBeenCalledWith('[dry-run] Would create commit with message:\n');
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('release: v1.0.0'));
-    expect(console.info).toHaveBeenCalledWith('\nUncommitted changes:');
-    expect(console.info).toHaveBeenCalledWith(' M package.json');
+    expect(listConsoleLines(silent.info)).toContain('[dry-run] Would create commit with message:\n');
+    expect(listConsoleLines(silent.info).join('\n')).toContain('release: v1.0.0');
+    expect(listConsoleLines(silent.info)).toContain('\nUncommitted changes:');
+    expect(listConsoleLines(silent.info)).toContain(' M package.json');
     expect(git.addAll).not.toHaveBeenCalled();
     expect(git.commit).not.toHaveBeenCalled();
   });
@@ -135,6 +136,7 @@ describe(commitCommand, () => {
   });
 
   it('logs a diagnostic when dry-run git status fails', () => {
+    using silent = silenceConsole(['info']);
     mockReadFileSync.mockImplementation((path: string) => {
       if (path === 'tmp/.release-tags') return 'v1.0.0\n';
       throw createErrnoError('ENOENT', 'ENOENT');
@@ -145,6 +147,6 @@ describe(commitCommand, () => {
 
     commitCommand(makeCommitOptions({ isDryRun: true }), git);
 
-    expect(console.info).toHaveBeenCalledWith('(Could not determine uncommitted changes)');
+    expect(listConsoleLines(silent.info)).toContain('(Could not determine uncommitted changes)');
   });
 });
