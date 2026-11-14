@@ -16,6 +16,7 @@ import { assertTarballsComplete } from './assertTarballsComplete.ts';
 import type { ReleaseKitConfig } from './configSchema.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from './discoverWorkspaces.ts';
 import { dim } from './format.ts';
+import { realGit } from './git.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
 import { ConfigProblemError, loadValidatedConfig, reportConfigWarnings } from './loadValidatedConfig.ts';
 import { CANONICAL_SEMVER_PATTERN, parseSetVersions } from './prepareArgs.ts';
@@ -111,7 +112,7 @@ export async function prepareCommand({
   };
   runAndReport(
     () => {
-      const plan = prepareReleaseTargets(config, targetOptions);
+      const plan = prepareReleaseTargets(config, targetOptions, realGit);
       const releasedPackagePaths = findReleasedPackagePaths(plan, config.targets);
       assertReleasesOnNpm(releasedPackagePaths);
       assertTarballsComplete(releasedPackagePaths, userConfig?.devExportConditions ?? []);

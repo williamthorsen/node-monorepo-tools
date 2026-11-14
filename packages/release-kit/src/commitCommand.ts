@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
-import { GIT_OUTPUT_LIMIT_BYTES, hasErrnoCode, UserError } from '@williamthorsen/nmr-core';
+import { hasErrnoCode, UserError } from '@williamthorsen/nmr-core';
 
+import { type Git, realGit } from './git.ts';
 import { readReleaseTags, RELEASE_SUMMARY_FILE, resolveReleaseTagsPath } from './releaseFiles.ts';
 import { asUserError } from './user-error-chaining.ts';
 
@@ -14,7 +14,7 @@ export interface CommitCommandOptions {
  * Runs the CLI `commit` command: reads the tags and summary files written by `prepare`, stages all changes, and
  * creates the release commit.
  */
-export function commitCommand({ isDryRun }: CommitCommandOptions): void {
+export function commitCommand({ isDryRun }: CommitCommandOptions, git: Git = realGit): void {
   const tags = readReleaseTags();
 
   if (tags.length === 0) {
@@ -41,13 +41,10 @@ export function commitCommand({ isDryRun }: CommitCommandOptions): void {
     console.info(message);
 
     try {
-      const status = execFileSync('git', ['status', '--porcelain'], {
-        encoding: 'utf8',
-        maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-      });
-      if (status.trim().length > 0) {
+      const status = git.readStatus();
+      if (status.length > 0) {
         console.info('\nUncommitted changes:');
-        console.info(status.trimEnd());
+        console.info(status);
       }
     } catch {
       console.info('(Could not determine uncommitted changes)');
@@ -57,8 +54,8 @@ export function commitCommand({ isDryRun }: CommitCommandOptions): void {
   }
 
   try {
-    execFileSync('git', ['add', '-A'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
-    execFileSync('git', ['commit', '-m', message], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
+    git.addAll();
+    git.commit(message);
   } catch (error: unknown) {
     throw asUserError(error);
   }

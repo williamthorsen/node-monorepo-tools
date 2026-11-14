@@ -11,8 +11,9 @@ import { extractVersion } from './changelogJsonUtils.ts';
 import { classifyChangelogCommit, isNonChangeSubject, isReleaseSubject } from './classifyChangelogCommit.ts';
 import { DEFAULT_BREAKING_POLICIES, DEFAULT_VERSION_PATTERNS, DEFAULT_WORK_TYPES } from './defaults.ts';
 import { type BumpSignal, determineBumpType } from './determineBumpType.ts';
-import { enumerateReleaseWindows, type RawCommit, type ReleaseWindow } from './enumerateReleaseWindows.ts';
+import { enumerateReleaseWindows, type ReleaseWindow } from './enumerateReleaseWindows.ts';
 import type { GenerateChangelogOptions } from './generateChangelogs.ts';
+import { type Git, type RawCommit, realGit } from './git.ts';
 import { parseChangeRecordBlock } from './parseChangeRecordBlock.ts';
 import { stripEmojiPrefix } from './stripEmojiPrefix.ts';
 import type { ChangelogEntry, ChangelogItem, ChangelogSection, ReleaseSettings, ReleaseType } from './types.ts';
@@ -41,8 +42,9 @@ export function buildChangelogEntries(
   config: ReleaseHistoryConfig,
   tag: string,
   options: GenerateChangelogOptions,
+  git: Git = realGit,
 ): { entries: ChangelogEntry[]; diagnostics: ChangelogDiagnostics } {
-  const history = readReleaseHistory(config, options);
+  const history = readReleaseHistory(config, options, git);
   return { entries: convertToChangelogEntries(history, tag), diagnostics: history.unreleasedReading.diagnostics };
 }
 
@@ -94,9 +96,14 @@ export function convertToReleaseEntries(history: ReleaseHistory, tag: string, to
  * `classifyChangelogCommit`. A `release:` or merge subject yields nothing either way. The read records diagnostics
  * only for the unreleased window, since the released windows were reported when they were prepared.
  */
-export function readReleaseHistory(config: ReleaseHistoryConfig, options: GenerateChangelogOptions): ReleaseHistory {
+export function readReleaseHistory(
+  config: ReleaseHistoryConfig,
+  options: GenerateChangelogOptions,
+  git: Git,
+): ReleaseHistory {
   try {
     const windows = enumerateReleaseWindows({
+      git,
       ...(options.paths !== undefined && { paths: options.paths }),
       tagPrefixes: options.tagPrefixes,
       unreleasedTag: UNRELEASED_TAG,

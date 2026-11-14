@@ -1,6 +1,4 @@
-import { execFileSync } from 'node:child_process';
-
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
+import type { Git } from './git.ts';
 
 /** A candidate tag prefix found in the repo that is not in the known-prefix set. */
 export interface UndeclaredTagPrefix {
@@ -37,25 +35,19 @@ const CANDIDATE_TAG_PATTERN = /^(?<prefix>[a-z][a-z0-9-]*-v)\d+\.\d+\.\d+(?:-[A-
  * Reads only the local tag list, so a remote tag that has not been fetched is not reported. Returns an empty array
  * when the repo doesn't have any tags, or any candidate-shaped tags outside the known set.
  */
-export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[]): UndeclaredTagPrefix[] {
+export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[], git: Git): UndeclaredTagPrefix[] {
   const knownPrefixSet = new Set(knownPrefixes);
 
-  let rawOutput: string;
+  let tags: string[];
   try {
-    rawOutput = execFileSync('git', ['tag', '--list'], {
-      encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    tags = git.listTags();
   } catch {
     // Don't report any candidates when git or the repo is unavailable: The scan feeds advisory output only.
     return [];
   }
 
   const tagsByPrefix = new Map<string, string[]>();
-  for (const line of rawOutput.split('\n')) {
-    const tag = line.trim();
-    if (tag === '') continue;
+  for (const tag of tags) {
     const match = CANDIDATE_TAG_PATTERN.exec(tag);
     if (match === null) continue;
     const prefix = match.groups?.['prefix'] ?? '';

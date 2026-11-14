@@ -6,8 +6,6 @@ const {
   listReadOptions,
   mockBuildEmptyReleaseEntry,
   mockBuildSyntheticChangelogEntry,
-  mockExecFileSync,
-  mockExecSync,
   mockExistsSync,
   mockHasPrettierConfig,
   mockMergeChangelogEntriesWithDisk,
@@ -22,11 +20,6 @@ const {
   stubHistory,
   stubHistoryByPrefix,
 } = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsMonorepoMocks.ts'));
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-  execSync: mockExecSync,
-}));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,

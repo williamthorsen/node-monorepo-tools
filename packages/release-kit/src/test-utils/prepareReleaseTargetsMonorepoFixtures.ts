@@ -1,8 +1,10 @@
 import { DEFAULT_CHANGELOG_JSON_CONFIG, DEFAULT_RELEASE_NOTES_CONFIG } from '../defaults.ts';
+import type { Git } from '../git.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
 import { projectMonorepoConfig } from '../resolveReleaseTargets.ts';
 import type { ChangelogEntry, MonorepoReleaseConfig, WorkspaceConfig, WorkTypeConfig } from '../types.ts';
+import { makeFakeGit } from './fakeGit.ts';
 import { stubFiles } from './prepareReleaseTargetsMonorepoMocks.ts';
 
 /** An entry of a released window, which a history reports alongside its unreleased window. */
@@ -50,8 +52,12 @@ export function makeRoutedWorkspace(dir: string): WorkspaceConfig {
 }
 
 /** Prepares a monorepo release over the targets that the merged config projects onto. */
-export function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
-  return prepareReleaseTargets(projectMonorepoConfig(config), options);
+export function prepareMonorepo(
+  config: MonorepoReleaseConfig,
+  options: TargetPrepareOptions,
+  git: Git = makeFakeGit(),
+): ReleasePlan {
+  return prepareReleaseTargets(projectMonorepoConfig(config), options, git);
 }
 
 /** Stubs `core` 1.0.0 and `app` 2.0.0 depending on it, beside any other `files`, and returns their config. */

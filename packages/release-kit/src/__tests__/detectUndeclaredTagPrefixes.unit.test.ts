@@ -1,44 +1,26 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const mockExecFileSync = vi.hoisted(() => vi.fn());
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-}));
+import { describe, expect, it } from 'vitest';
 
 import { detectUndeclaredTagPrefixes } from '../detectUndeclaredTagPrefixes.ts';
-
-/** Configures the mock to return the given tags from `git tag --list`. */
-function stubTagList(tags: string[]): void {
-  mockExecFileSync.mockImplementation((command: string, args: string[]) => {
-    if (command === 'git' && args[0] === 'tag' && args[1] === '--list') {
-      return tags.join('\n') + (tags.length > 0 ? '\n' : '');
-    }
-    return '';
-  });
-}
+import type { Git } from '../git.ts';
+import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(detectUndeclaredTagPrefixes, () => {
-  afterEach(() => {
-    mockExecFileSync.mockReset();
-  });
-
   it("returns an empty array when the repo doesn't have any tags", () => {
-    stubTagList([]);
+    const git = makeGitWithTags([]);
 
-    expect(detectUndeclaredTagPrefixes(['core-v'])).toStrictEqual([]);
+    expect(detectUndeclaredTagPrefixes(['core-v'], git)).toStrictEqual([]);
   });
 
   it('returns an empty array when every candidate prefix is known', () => {
-    stubTagList(['core-v1.0.0', 'core-v1.1.0', 'arrays-v0.1.0']);
+    const git = makeGitWithTags(['core-v1.0.0', 'core-v1.1.0', 'arrays-v0.1.0']);
 
-    expect(detectUndeclaredTagPrefixes(['core-v', 'arrays-v'])).toStrictEqual([]);
+    expect(detectUndeclaredTagPrefixes(['core-v', 'arrays-v'], git)).toStrictEqual([]);
   });
 
   it('returns one entry per undeclared prefix with accurate tag count', () => {
-    stubTagList(['core-v0.2.7', 'core-v0.2.8', 'arrays-v1.0.0']);
+    const git = makeGitWithTags(['core-v0.2.7', 'core-v0.2.8', 'arrays-v1.0.0']);
 
-    const result = detectUndeclaredTagPrefixes(['arrays-v']);
+    const result = detectUndeclaredTagPrefixes(['arrays-v'], git);
 
     expect(result).toStrictEqual([
       {
@@ -51,17 +33,17 @@ describe(detectUndeclaredTagPrefixes, () => {
   });
 
   it('returns multiple entries sorted by prefix when several undeclared prefixes exist', () => {
-    stubTagList(['zeta-v1.0.0', 'alpha-v1.0.0', 'alpha-v1.1.0']);
+    const git = makeGitWithTags(['zeta-v1.0.0', 'alpha-v1.0.0', 'alpha-v1.1.0']);
 
-    const result = detectUndeclaredTagPrefixes([]);
+    const result = detectUndeclaredTagPrefixes([], git);
 
     expect(result.map((r) => r.prefix)).toStrictEqual(['alpha-v', 'zeta-v']);
   });
 
   it('caps exampleTags at the per-prefix limit', () => {
-    stubTagList(['core-v0.1.0', 'core-v0.2.0', 'core-v0.3.0', 'core-v0.4.0', 'core-v0.5.0']);
+    const git = makeGitWithTags(['core-v0.1.0', 'core-v0.2.0', 'core-v0.3.0', 'core-v0.4.0', 'core-v0.5.0']);
 
-    const result = detectUndeclaredTagPrefixes([]);
+    const result = detectUndeclaredTagPrefixes([], git);
 
     expect(result).toHaveLength(1);
     expect(result[0]?.tagCount).toBe(5);
@@ -69,32 +51,43 @@ describe(detectUndeclaredTagPrefixes, () => {
   });
 
   it('accepts tags with a pre-release suffix', () => {
-    stubTagList(['core-v1.0.0-beta.1', 'core-v1.0.0-rc.2']);
+    const git = makeGitWithTags(['core-v1.0.0-beta.1', 'core-v1.0.0-rc.2']);
 
-    const result = detectUndeclaredTagPrefixes([]);
+    const result = detectUndeclaredTagPrefixes([], git);
 
     expect(result[0]?.tagCount).toBe(2);
   });
 
   it('ignores tags that do not match the candidate pattern', () => {
-    stubTagList(['release/v1', 'something-2.0', 'UPPER-v1.0.0', 'v1.0.0']);
+    const git = makeGitWithTags(['release/v1', 'something-2.0', 'UPPER-v1.0.0', 'v1.0.0']);
 
-    expect(detectUndeclaredTagPrefixes([])).toStrictEqual([]);
+    expect(detectUndeclaredTagPrefixes([], git)).toStrictEqual([]);
   });
 
   it('returns empty array when git invocation fails', () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw new Error('git not available');
+    const git = makeFakeGit({
+      listTags: () => {
+        throw new Error('git not available');
+      },
     });
 
-    expect(detectUndeclaredTagPrefixes(['core-v'])).toStrictEqual([]);
+    expect(detectUndeclaredTagPrefixes(['core-v'], git)).toStrictEqual([]);
   });
 
   it('derives suggestedDir by stripping the trailing -v from the prefix', () => {
-    stubTagList(['my-cool-package-v1.0.0']);
+    const git = makeGitWithTags(['my-cool-package-v1.0.0']);
 
-    const result = detectUndeclaredTagPrefixes([]);
+    const result = detectUndeclaredTagPrefixes([], git);
 
     expect(result[0]?.suggestedDir).toBe('my-cool-package');
   });
 });
+
+// region | Helpers
+
+/** Builds a `Git` that lists `tags`. */
+function makeGitWithTags(tags: string[]): Git {
+  return makeFakeGit({ listTags: () => tags });
+}
+
+// endregion | Helpers

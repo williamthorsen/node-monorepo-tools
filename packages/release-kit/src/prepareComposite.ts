@@ -43,7 +43,7 @@ export function prepareComposite(
   collectedReleases: CollectedReleases,
   warnings: string[],
 ): TargetPrepareResult {
-  const { history, untaggedBaseline } = readTargetHistory(compositeTarget, context.settings);
+  const { history, untaggedBaseline } = readTargetHistory(compositeTarget, context.settings, context.git);
   assertTaggedBaseline([untaggedBaseline]);
 
   const decision = decideTargetRelease(compositeTarget, history, {

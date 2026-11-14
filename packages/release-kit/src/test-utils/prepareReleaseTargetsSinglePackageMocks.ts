@@ -6,8 +6,6 @@ import { makeReleaseHistory, type ReleaseHistoryStub } from './releaseHistories.
 // A test loads this module through `vi.hoisted`, before its `vi.mock` calls register, so the module imports nothing
 // under test: Such a module would bind the real dependencies.
 
-export const mockExecFileSync = vi.fn();
-export const mockExecSync = vi.fn();
 export const mockExistsSync = vi.fn();
 export const mockHasPrettierConfig = vi.fn();
 export const mockMergeChangelogEntriesWithDisk = vi.fn();
@@ -39,8 +37,6 @@ export function applyPrepareReleaseTargetsSinglePackageDefaults(): void {
 /** Resets every mock that this module exports. */
 export function resetPrepareReleaseTargetsSinglePackageMocks(): void {
   for (const mock of [
-    mockExecFileSync,
-    mockExecSync,
     mockExistsSync,
     mockHasPrettierConfig,
     mockMergeChangelogEntriesWithDisk,

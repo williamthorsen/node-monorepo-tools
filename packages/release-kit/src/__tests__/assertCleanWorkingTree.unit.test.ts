@@ -1,54 +1,35 @@
-import { GIT_OUTPUT_LIMIT_BYTES, UserError } from '@williamthorsen/nmr-core';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const mockExecFileSync = vi.hoisted(() => vi.fn());
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-}));
+import { UserError } from '@williamthorsen/nmr-core';
+import { describe, expect, it } from 'vitest';
 
 import { assertCleanWorkingTree } from '../assertCleanWorkingTree.ts';
+import { makeFakeGit } from '../test-utils/fakeGit.ts';
 
 describe(assertCleanWorkingTree, () => {
-  afterEach(() => {
-    mockExecFileSync.mockReset();
-  });
-
   it('throws when the working tree has uncommitted changes', () => {
-    mockExecFileSync.mockReturnValue(' M packages/release-kit/package.json\n');
+    const git = makeFakeGit({ readStatus: () => ' M packages/release-kit/package.json' });
 
-    expect(() => assertCleanWorkingTree()).toThrow(UserError);
-    expect(() => assertCleanWorkingTree()).toThrow(/working tree has uncommitted changes/i);
+    expect(() => assertCleanWorkingTree(git)).toThrow(UserError);
+    expect(() => assertCleanWorkingTree(git)).toThrow(/working tree has uncommitted changes/i);
   });
 
   it('includes --no-git-checks hint in the error message', () => {
-    mockExecFileSync.mockReturnValue(' M package.json\n');
+    const git = makeFakeGit({ readStatus: () => ' M package.json' });
 
-    expect(() => assertCleanWorkingTree()).toThrow(UserError);
-    expect(() => assertCleanWorkingTree()).toThrow(/--no-git-checks/);
+    expect(() => assertCleanWorkingTree(git)).toThrow(/--no-git-checks/);
   });
 
   it('does not throw when the working tree is clean', () => {
-    mockExecFileSync.mockReturnValue('');
-
-    expect(() => assertCleanWorkingTree()).not.toThrow();
+    expect(() => assertCleanWorkingTree(makeFakeGit())).not.toThrow();
   });
 
-  it('does not throw when git status returns only whitespace', () => {
-    mockExecFileSync.mockReturnValue('  \n');
-
-    expect(() => assertCleanWorkingTree()).not.toThrow();
-  });
-
-  it('calls git status with --porcelain', () => {
-    mockExecFileSync.mockReturnValue('');
-
-    assertCleanWorkingTree();
-
-    expect(mockExecFileSync).toHaveBeenCalledWith('git', ['status', '--porcelain'], {
-      encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-      stdio: ['pipe', 'pipe', 'pipe'],
+  it('rethrows a git failure as a user error', () => {
+    const git = makeFakeGit({
+      readStatus: () => {
+        throw new Error('fatal: not a git repository');
+      },
     });
+
+    expect(() => assertCleanWorkingTree(git)).toThrow(UserError);
+    expect(() => assertCleanWorkingTree(git)).toThrow(/not a git repository/);
   });
 });

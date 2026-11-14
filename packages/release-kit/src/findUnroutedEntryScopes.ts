@@ -1,5 +1,5 @@
 import { isNonChangeSubject } from './classifyChangelogCommit.ts';
-import type { RawCommit } from './enumerateReleaseWindows.ts';
+import type { RawCommit } from './git.ts';
 import { parseChangeRecordBlock } from './parseChangeRecordBlock.ts';
 import type { UnroutedEntryScope } from './types.ts';
 

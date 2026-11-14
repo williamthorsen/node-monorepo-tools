@@ -14,6 +14,7 @@ import type {
   UndeclaredEntryType,
   WorkspaceConfig,
 } from '../types.ts';
+import { makeFakeGit } from './fakeGit.ts';
 import { stubHistory } from './prepareReleaseTargetsProjectMocks.ts';
 import { selectCompositeResult } from './prepareResults.ts';
 import type { ReleaseHistoryStub } from './releaseHistories.ts';
@@ -89,6 +90,7 @@ export function prepareProjectStage(args: ProjectStageArgs): CompositePrepareRes
       settings: { ...settings, formatCommand: 'format' },
     },
     args.options,
+    makeFakeGit(),
   );
   args.tags?.push(...plan.tags);
   args.writes?.push(...plan.writes);

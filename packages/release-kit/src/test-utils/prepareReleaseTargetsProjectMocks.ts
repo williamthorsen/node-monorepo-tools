@@ -7,7 +7,6 @@ import { makeReleaseHistory, type ReleaseHistoryStub } from './releaseHistories.
 // under test: Such a module would bind the real dependencies.
 
 export const mockCopyFileSync = vi.fn();
-export const mockExecFileSync = vi.fn();
 export const mockExistsSync = vi.fn();
 export const mockMergeChangelogEntriesWithDisk = vi.fn();
 export const mockMkdirSync = vi.fn();
@@ -36,17 +35,17 @@ export function applyPrepareReleaseTargetsProjectDefaults(): void {
 /** Asserts that the run read the project's history exactly once, under the project tag prefix and `paths`. */
 export function expectOneHistoryRead(config: MonorepoReleaseConfig, paths: string[]): void {
   expect(mockReadReleaseHistory).toHaveBeenCalledTimes(1);
-  expect(mockReadReleaseHistory).toHaveBeenCalledWith(expect.objectContaining({ workTypes: config.workTypes }), {
-    tagPrefixes: ['v'],
-    paths,
-  });
+  expect(mockReadReleaseHistory).toHaveBeenCalledWith(
+    expect.objectContaining({ workTypes: config.workTypes }),
+    { tagPrefixes: ['v'], paths },
+    expect.anything(),
+  );
 }
 
 /** Resets every mock that this module exports. */
 export function resetPrepareReleaseTargetsProjectMocks(): void {
   for (const mock of [
     mockCopyFileSync,
-    mockExecFileSync,
     mockExistsSync,
     mockMergeChangelogEntriesWithDisk,
     mockMkdirSync,

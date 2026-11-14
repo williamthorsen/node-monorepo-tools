@@ -5,6 +5,7 @@ import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ReleaseKitConfig } from '../configSchema.ts';
+import { realGit } from '../git.ts';
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
@@ -215,7 +216,7 @@ function prepare(userConfig: ReleaseKitConfig, options: TargetPrepareOptions, di
     { ...userConfig, changelogJson: { enabled: false } },
     ROOT_PACKAGE,
   );
-  return prepareReleaseTargets(projectMonorepoConfig(config), options);
+  return prepareReleaseTargets(projectMonorepoConfig(config), options, realGit);
 }
 
 /** Runs a command in the fixture repo. */

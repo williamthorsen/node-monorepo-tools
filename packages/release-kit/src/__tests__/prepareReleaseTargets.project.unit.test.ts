@@ -4,7 +4,6 @@ const {
   applyPrepareReleaseTargetsProjectDefaults,
   expectOneHistoryRead,
   mockCopyFileSync,
-  mockExecFileSync,
   mockExistsSync,
   mockMergeChangelogEntriesWithDisk,
   mockMkdirSync,
@@ -19,10 +18,6 @@ const {
   resetPrepareReleaseTargetsProjectMocks,
   stubHistory,
 } = await vi.hoisted(() => import('../test-utils/prepareReleaseTargetsProjectMocks.ts'));
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-}));
 
 vi.mock(import('node:fs'), () => ({
   copyFileSync: mockCopyFileSync,

@@ -7,6 +7,7 @@ import {
 } from '../prepareReleaseTargets.ts';
 import type { ReleasePlan } from '../releasePlan.ts';
 import type { PackageTarget, ReleaseSettings, WorkTypeConfig } from '../types.ts';
+import { makeFakeGit } from './fakeGit.ts';
 
 export const diagnostics: ChangelogDiagnostics = {
   malformedBlocks: [{ commitHash: 'aaa1111', commitSubject: 'Squash', reason: '`entries` is not a list' }],
@@ -54,8 +55,12 @@ export function makeConfig(overrides?: Partial<SinglePackageFixture>): TargetPre
 /** Prepares a single-package release, passing an explicit version under the root target's id. */
 export function prepareSinglePackage(config: TargetPrepareConfig, options: SinglePackageOptions): ReleasePlan {
   const { versionOverride, ...rest } = options;
-  return prepareReleaseTargets(config, {
-    ...rest,
-    ...(versionOverride !== undefined && { versionOverridesById: new Map([['.', versionOverride]]) }),
-  });
+  return prepareReleaseTargets(
+    config,
+    {
+      ...rest,
+      ...(versionOverride !== undefined && { versionOverridesById: new Map([['.', versionOverride]]) }),
+    },
+    makeFakeGit(),
+  );
 }

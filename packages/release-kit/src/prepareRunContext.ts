@@ -1,5 +1,6 @@
 import type { ReleaseHistory } from './buildChangelogEntries.ts';
 import type { OverrideContext } from './changelogOverrides.ts';
+import type { Git } from './git.ts';
 import { isRepoRoot, type TargetPrepareSettings } from './prepareTarget.ts';
 import type { PlannedWrite } from './releasePlan.ts';
 import type { DirectoryTarget, PackageTarget, ReleaseTarget } from './types.ts';
@@ -56,6 +57,7 @@ export function readHistory(readings: ReadonlyMap<string, ReleaseHistory>, targe
 /** What every target's planning reads from the run. */
 export interface RunContext {
   settings: TargetPrepareSettings;
+  git: Git;
   overrideContext: OverrideContext;
   sectionOrder: string[];
   dependenciesHeader: string;

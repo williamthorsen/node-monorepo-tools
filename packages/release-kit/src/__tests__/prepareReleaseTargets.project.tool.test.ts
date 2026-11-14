@@ -7,6 +7,7 @@ import { captureStdio, createTempTree, pointCwdAt, type TempTree } from '@willia
 import { disposeOnTestFinished, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { realGit } from '../git.ts';
 import { mergeMonorepoConfig } from '../mergeConfig.ts';
 import { prepareReleaseTargets, type TargetPrepareOptions } from '../prepareReleaseTargets.ts';
 import { applyReleasePlan, type ReleasePlan } from '../releasePlan.ts';
@@ -584,5 +585,5 @@ function commitAll(tree: TempTree, message: string): void {
 
 /** Prepares a monorepo release over the targets that the merged config projects onto. */
 function prepareMonorepo(config: MonorepoReleaseConfig, options: TargetPrepareOptions): ReleasePlan {
-  return prepareReleaseTargets(projectMonorepoConfig(config), options);
+  return prepareReleaseTargets(projectMonorepoConfig(config), options, realGit);
 }

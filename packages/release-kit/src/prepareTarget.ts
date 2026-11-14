@@ -5,6 +5,7 @@ import { buildPropagationEntries, buildReleasedResult, type TargetRelease } from
 import { applyWorkspaceOverrides, type OverrideContext } from './changelogOverrides.ts';
 import { decideRelease } from './decideRelease.ts';
 import { type GenerateChangelogOptions, getAllTagPrefixes } from './generateChangelogs.ts';
+import type { Git } from './git.ts';
 import { planChangelogFiles } from './planChangelogFiles.ts';
 import { planReleaseNotesPreviews } from './planReleaseNotesPreviews.ts';
 import { planVersionBump, planVersionSet } from './planVersionBump.ts';
@@ -78,9 +79,9 @@ export interface PlannedTargetRelease {
 }
 
 /** Reads a target's release windows under its tag prefixes and commit window, and finds its untagged baseline. */
-export function readTargetHistory(target: ReleaseTarget, settings: TargetPrepareSettings): TargetReading {
+export function readTargetHistory(target: ReleaseTarget, settings: TargetPrepareSettings, git: Git): TargetReading {
   const options = describeHistoryWindow(target);
-  const history = readReleaseHistory(settings, options);
+  const history = readReleaseHistory(settings, options, git);
   const untaggedBaseline = findUntaggedBaseline(
     {
       label: describeBaselineLabel(target),

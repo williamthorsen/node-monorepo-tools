@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { enumerateReleaseWindows } from '../enumerateReleaseWindows.ts';
 import type { GenerateChangelogOptions } from '../generateChangelogs.ts';
+import { realGit } from '../git.ts';
 import { makeStubbedCommits } from '../test-utils/commitStubs.ts';
 import { makeEmptyWorkspace, makeResolvedPackages, makeSinglePackage } from '../test-utils/workspaceResolutions.ts';
 import type { ChangelogEntry } from '../types.ts';
@@ -462,10 +463,8 @@ describe(validateOverridesCommand, () => {
       expect(result.message).toContain('deadbeef');
       expect(result.exitCode).toBe(1);
       // The single-package scope reads the configured tag prefix over all paths.
-      expect(mockedEnumerateReleaseWindows).toHaveBeenCalledWith({
-        tagPrefixes: ['v'],
-        unreleasedTag: 'unreleased',
-      });
+      const [options] = mockedEnumerateReleaseWindows.mock.calls[0] ?? [];
+      expect(options).toStrictEqual({ git: realGit, tagPrefixes: ['v'], unreleasedTag: 'unreleased' });
     });
   });
 
