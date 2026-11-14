@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
@@ -98,7 +98,6 @@ describe(resolveCommandTags, () => {
       throw new Error(`Unexpected workspace path: ${workspacePath}`);
     });
     mockReadRootPackageVersion.mockReturnValue({ doesExist: true, version: '1.0.0' });
-    void silenceConsole(['warn']);
   });
 
   afterEach(() => {
@@ -276,21 +275,23 @@ describe(resolveCommandTags, () => {
     });
 
     it('drops the tag of an excluded workspace, naming the releases entry that excluded it', () => {
+      using silent = silenceConsole(['warn']);
       const result = resolveCommandTags(undefined, { releases: { cli: false } });
 
       expect(result).toStrictEqual(TAGS.filter((t) => t.dir !== 'cli'));
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+      expect(listConsoleLines(silent.warn)).toStrictEqual([
         'Skipping cli-v0.5.0 (packages/cli): excluded by config (releases.cli: false).',
-      );
+      ]);
     });
   });
 
   describe('with workspace overrides', () => {
     it('drops the tag of an excluded workspace and warns about it', () => {
+      using silent = silenceConsole(['warn']);
       const result = resolveCommandTags(undefined, EXCLUDE_CLI_CONFIG);
 
       expect(result).toStrictEqual(TAGS.filter((t) => t.dir !== 'cli'));
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP_MESSAGE);
+      expect(listConsoleLines(silent.warn)).toStrictEqual([CLI_SKIP_MESSAGE]);
     });
 
     it('matches tags against the retained workspaces followed by the excluded ones', () => {
@@ -307,26 +308,29 @@ describe(resolveCommandTags, () => {
     });
 
     it('skips an excluded tag named in --tags rather than rejecting it as unknown', () => {
+      using silent = silenceConsole(['warn']);
       const result = resolveCommandTags(['cli-v0.5.0', 'nmr-core-v1.3.0'], EXCLUDE_CLI_CONFIG);
 
       expect(result).toStrictEqual([TAGS[0]]);
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP_MESSAGE);
+      expect(listConsoleLines(silent.warn)).toStrictEqual([CLI_SKIP_MESSAGE]);
       expect(stdioCapture.stderrChunks.join('')).not.toContain('Unknown tag');
     });
 
     it('warns only about the excluded tags that --tags selects', () => {
+      using silent = silenceConsole(['warn']);
       resolveCommandTags(['nmr-core-v1.3.0'], EXCLUDE_CLI_CONFIG);
 
-      expect(console.warn).not.toHaveBeenCalled();
+      expect(silent.warn).not.toHaveBeenCalled();
     });
 
     it('returns an empty list when every tag on HEAD belongs to an excluded workspace', () => {
+      using silent = silenceConsole(['warn']);
       mockResolveReleaseTags.mockReturnValue([TAGS[1]]);
 
       const result = resolveCommandTags(undefined, EXCLUDE_CLI_CONFIG);
 
       expect(result).toStrictEqual([]);
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(CLI_SKIP_MESSAGE);
+      expect(listConsoleLines(silent.warn)).toStrictEqual([CLI_SKIP_MESSAGE]);
       expect(stdioCapture.stderrChunks.join('')).not.toContain('HEAD does not have any release tags');
     });
 
@@ -368,6 +372,7 @@ describe(resolveCommandTags, () => {
     });
 
     it('ignores the config in single-package mode', () => {
+      using silent = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
       mockDeriveWorkspaceConfig.mockReturnValue(makeWorkspace('.', 'v', '.'));
       const singleTags: ResolvedTag[] = [
@@ -378,7 +383,7 @@ describe(resolveCommandTags, () => {
       const result = resolveCommandTags(undefined, { project: {}, workspaces: [{ dir: '.', shouldExclude: true }] });
 
       expect(result).toStrictEqual(singleTags);
-      expect(console.warn).not.toHaveBeenCalled();
+      expect(silent.warn).not.toHaveBeenCalled();
     });
   });
 });

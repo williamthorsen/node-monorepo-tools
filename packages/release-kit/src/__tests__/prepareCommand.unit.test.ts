@@ -1,7 +1,7 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -83,7 +83,6 @@ describe(prepareCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyPrepareCommandDefaults();
-    void silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -265,7 +264,7 @@ describe(prepareCommand, () => {
 
     await prepareCommand(makePrepareOptions({ styles: { stderr: 'plain', stdout: 'rich' } }));
 
-    expect(silencedConsole.warn).toHaveBeenCalledWith(
+    expect(listConsoleLines(silencedConsole.warn)).toContainEqual(
       expect.stringMatching(/^ {2}WARN {2}releaseNotes\.shouldInjectIntoReadme/),
     );
   });
@@ -274,9 +273,10 @@ describe(prepareCommand, () => {
     { style: 'rich', banner: '\n🔍 DRY RUN: release-kit will not modify any files\n' },
     { style: 'plain', banner: '\nDRY RUN: release-kit will not modify any files\n' },
   ] as const)('prints the dry-run banner in the $style style of stdout', async ({ style, banner }) => {
+    using silent = silenceConsole(['info']);
     await prepareCommand(makePrepareOptions({ isDryRun: true, styles: { stderr: 'rich', stdout: style } }));
 
-    expect(console.info).toHaveBeenCalledWith(banner);
+    expect(listConsoleLines(silent.info)).toContain(banner);
   });
 
   it('writes release tags after applying the plan', async () => {
@@ -397,27 +397,30 @@ describe(prepareCommand, () => {
   });
 
   it('prints release tags file path when tags are produced', async () => {
+    using silent = silenceConsole(['info']);
     mockPrepareReleaseTargets.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
     await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
-    expect(console.info).toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
+    expect(listConsoleLines(silent.info).join('\n')).toContain('Release tags file:');
   });
 
   it('does not print release tags file path during a dry run', async () => {
+    using silent = silenceConsole(['info']);
     mockPrepareReleaseTargets.mockReturnValue(makePrepareResult({ tags: ['arrays-v1.0.0'] }));
 
     await prepareCommand(makePrepareOptions({ isDryRun: true, styles: RICH_STYLES }));
 
-    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
+    expect(listConsoleLines(silent.info).join('\n')).not.toContain('Release tags file:');
   });
 
   it('does not print release tags file path when the plan does not produce any tags', async () => {
+    using silent = silenceConsole(['info']);
     mockPrepareReleaseTargets.mockReturnValue(makePrepareResult());
 
     await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
-    expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('Release tags file:'));
+    expect(listConsoleLines(silent.info).join('\n')).not.toContain('Release tags file:');
   });
 
   it('writes the release summary file when the plan contains a summary', async () => {

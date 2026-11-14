@@ -1,7 +1,7 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -93,7 +93,6 @@ describe(publishCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyPublishCommandDefaults();
-    void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
@@ -258,6 +257,7 @@ describe(publishCommand, () => {
   });
 
   it('prints confirmation listing before publishing', async () => {
+    using silent = silenceConsole(['info']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -272,18 +272,20 @@ describe(publishCommand, () => {
 
     await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
-    expect(console.info).toHaveBeenCalledWith('Publishing:');
-    expect(console.info).toHaveBeenCalledWith('  core-v1.3.0 (packages/core)');
-    expect(console.info).toHaveBeenCalledWith('  release-kit-v2.1.0 (packages/release-kit)');
+    expect(listConsoleLines(silent.info)).toContain('Publishing:');
+    expect(listConsoleLines(silent.info)).toContain('  core-v1.3.0 (packages/core)');
+    expect(listConsoleLines(silent.info)).toContain('  release-kit-v2.1.0 (packages/release-kit)');
   });
 
   it('prints dry-run confirmation listing', async () => {
+    using silent = silenceConsole(['info']);
     await publishCommand(makePublishOptions({ isDryRun: true, styles: RICH_STYLES }));
 
-    expect(console.info).toHaveBeenCalledWith('[dry-run] Would publish:');
+    expect(listConsoleLines(silent.info)).toContain('[dry-run] Would publish:');
   });
 
   it('reports successfully published packages when a subsequent publish fails', async () => {
+    using silent = silenceConsole(['warn']);
     mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/release-kit']));
     mockResolveReleaseTags.mockReturnValue([
       { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -302,12 +304,13 @@ describe(publishCommand, () => {
     });
 
     await captureError(UserError, () => publishCommand(makePublishOptions({ styles: RICH_STYLES })));
-    expect(console.warn).toHaveBeenCalledWith('Packages published before failure:');
-    expect(console.warn).toHaveBeenCalledWith('  core-v1.3.0');
+    expect(listConsoleLines(silent.warn)).toContain('Packages published before failure:');
+    expect(listConsoleLines(silent.warn)).toContain('  core-v1.3.0');
   });
 
   describe('publishability filter', () => {
     it('publishes only the publishable subset when implicit resolution mixes publishable and unpublishable tags', async () => {
+      using silent = silenceConsole(['info', 'warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/common-utils', 'packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         {
@@ -332,13 +335,14 @@ describe(publishCommand, () => {
         'npm',
         expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: false }),
       );
-      expect(console.info).toHaveBeenCalledWith('  common-utils-v2.4.0 (packages/common-utils)');
-      expect(console.info).not.toHaveBeenCalledWith(expect.stringContaining('basic-v1.0.0'));
+      expect(listConsoleLines(silent.info)).toContain('  common-utils-v2.4.0 (packages/common-utils)');
+      expect(listConsoleLines(silent.info).join('\n')).not.toContain('basic-v1.0.0');
       // Implicit resolution drops an unpublishable tag without a warning.
-      expect(console.warn).not.toHaveBeenCalledWith(expect.stringContaining('Skipping'));
+      expect(listConsoleLines(silent.warn).join('\n')).not.toContain('Skipping');
     });
 
     it('exits 0 with "Nothing to publish." when implicit resolution yields zero publishable tags', async () => {
+      using silent = silenceConsole(['info']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -346,11 +350,12 @@ describe(publishCommand, () => {
 
       await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
-      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
+      expect(listConsoleLines(silent.info)).toContain('Nothing to publish.');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
     it('skips with a warning and publishes nothing when explicit --tags names an unpublishable tag', async () => {
+      using silent = silenceConsole(['info', 'warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -359,14 +364,15 @@ describe(publishCommand, () => {
       await publishCommand(makePublishOptions({ tags: ['basic-v1.0.0'], styles: RICH_STYLES }));
 
       // When --tags names an unpublishable tag, the command warns and skips it rather than exiting non-zero.
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silent.warn)).toContain(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
-      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
+      expect(listConsoleLines(silent.info)).toContain('Nothing to publish.');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
     it('warns for every unpublishable tag when explicit --tags names multiple unpublishable tags', async () => {
+      using silent = silenceConsole(['info', 'warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/basic', 'packages/internal']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'basic-v1.0.0', kind: 'package', dir: 'basic', workspacePath: 'packages/basic', isPublishable: false },
@@ -381,17 +387,18 @@ describe(publishCommand, () => {
 
       await publishCommand(makePublishOptions({ tags: ['basic-v1.0.0', 'internal-v2.0.0'], styles: RICH_STYLES }));
 
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silent.warn)).toContain(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silent.warn)).toContain(
         'Skipping internal-v2.0.0 (packages/internal): package.json#private is true.',
       );
-      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
+      expect(listConsoleLines(silent.info)).toContain('Nothing to publish.');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
 
     it('publishes the publishable subset and warns about and skips the private tag when explicit --tags mixes both', async () => {
+      using silent = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/common-utils', 'packages/basic']));
       mockResolveReleaseTags.mockReturnValue([
         {
@@ -406,7 +413,7 @@ describe(publishCommand, () => {
       await publishCommand(makePublishOptions({ tags: ['common-utils-v2.4.0', 'basic-v1.0.0'], styles: RICH_STYLES }));
 
       // The private tag is skipped with a warning; the publishable tag still publishes.
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silent.warn)).toContain(
         'Skipping basic-v1.0.0 (packages/basic): package.json#private is true.',
       );
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
@@ -436,6 +443,7 @@ describe(publishCommand, () => {
     });
 
     it('publishes the workspace tags and silently drops the project tag on an implicit run', async () => {
+      using silent = silenceConsole(['warn']);
       await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockPublishPackage).toHaveBeenCalledTimes(1);
@@ -444,14 +452,15 @@ describe(publishCommand, () => {
         expect.anything(),
         expect.anything(),
       );
-      expect(console.warn).not.toHaveBeenCalled();
+      expect(silent.warn).not.toHaveBeenCalled();
     });
 
     it('warns that a project tag is not an npm package when --tags names it', async () => {
+      using silent = silenceConsole(['info', 'warn']);
       await publishCommand(makePublishOptions({ tags: ['v0.13.0'], styles: RICH_STYLES }));
 
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith('Skipping v0.13.0: a project tag is not an npm package.');
-      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
+      expect(listConsoleLines(silent.warn)).toStrictEqual(['Skipping v0.13.0: a project tag is not an npm package.']);
+      expect(listConsoleLines(silent.info)).toContain('Nothing to publish.');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
   });

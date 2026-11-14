@@ -1,6 +1,6 @@
 import { formatStatusLine, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -95,7 +95,6 @@ describe(publishCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     applyPublishCommandDefaults();
-    void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
@@ -125,6 +124,7 @@ describe(publishCommand, () => {
     });
 
     it('does not publish an excluded workspace and reports the skip', async () => {
+      using silent = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core', 'packages/legacy']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'core-v1.3.0', kind: 'package', dir: 'core', workspacePath: 'packages/core', isPublishable: true },
@@ -136,7 +136,7 @@ describe(publishCommand, () => {
 
       await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silent.warn)).toContain(
         'Skipping legacy-v0.9.0 (packages/legacy): excluded by config (shouldExclude: true).',
       );
       expect(mockPublishPackage).toHaveBeenCalledExactlyOnceWith(
@@ -147,6 +147,7 @@ describe(publishCommand, () => {
     });
 
     it('exits with code 1 for a named config that fails to load before an all-private tag set returns', async () => {
+      using silent = silenceConsole(['info']);
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: false },
       ]);
@@ -160,10 +161,11 @@ describe(publishCommand, () => {
         kind: 'load',
         message: 'Config file not found: /repo/elsewhere/absent.config.ts',
       });
-      expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
+      expect(listConsoleLines(silent.info)).not.toContain('Nothing to publish.');
     });
 
     it('exits with code 1 for a default config that fails to load before an all-private tag set returns', async () => {
+      using silent = silenceConsole(['info']);
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: false },
       ]);
@@ -174,10 +176,11 @@ describe(publishCommand, () => {
       );
 
       expect(error.problem).toStrictEqual({ kind: 'load', message: 'Unexpected token in config' });
-      expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
+      expect(listConsoleLines(silent.info)).not.toContain('Nothing to publish.');
     });
 
     it('exits with code 1 for an invalid default config before an all-private tag set returns', async () => {
+      using silent = silenceConsole(['info']);
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: false },
       ]);
@@ -189,17 +192,18 @@ describe(publishCommand, () => {
       );
 
       expect(error.problem.kind).toBe('validation');
-      expect(console.info).not.toHaveBeenCalledWith('Nothing to publish.');
+      expect(listConsoleLines(silent.info)).not.toContain('Nothing to publish.');
     });
 
     it('stays a clean no-op when the default config does not exist and every tag is private', async () => {
+      using silent = silenceConsole(['info']);
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: false },
       ]);
 
       await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
-      expect(console.info).toHaveBeenCalledWith('Nothing to publish.');
+      expect(listConsoleLines(silent.info)).toContain('Nothing to publish.');
       expect(stdioCapture.stderr).toBe('');
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
@@ -230,6 +234,7 @@ describe(publishCommand, () => {
     });
 
     it('prints validation warnings from config', async () => {
+      using silent = silenceConsole(['warn']);
       mockLoadConfig.mockResolvedValue({ releaseNotes: {} });
       mockValidateConfig.mockReturnValue({
         config: { releaseNotes: { shouldInjectIntoReadme: true } },
@@ -240,7 +245,7 @@ describe(publishCommand, () => {
       await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockLoadConfig).toHaveBeenCalledTimes(1);
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('shouldInjectIntoReadme'));
+      expect(listConsoleLines(silent.warn)).toStrictEqual([expect.stringContaining('shouldInjectIntoReadme')]);
     });
 
     it('exits with code 1 when config has validation errors', async () => {
@@ -320,12 +325,13 @@ describe(publishCommand, () => {
       [{ reason: 'no-entry', version: '1.0.0' }, 'no changelog entry for version 1.0.0'],
       [{ reason: 'empty-body', version: '1.0.0' }, 'no user-facing release notes for version 1.0.0'],
     ])('warns on stderr, naming the tag, the workspace, and the reason, for a %o skip', async (skip, reasonText) => {
+      using silent = silenceConsole(['warn']);
       mockResolveReadmePath.mockReturnValue('/pkg/README.md');
       mockInjectReleaseNotesIntoReadme.mockReturnValue({ status: 'skipped', skip });
 
       await publishCommand(makePublishOptions({ styles: PLAIN_STYLES }));
 
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silent.warn)).toContain(
         `  ${formatStatusLine('plain', 'warning', `Skipping README injection for v1.0.0 (.): ${reasonText}`)}`,
       );
     });

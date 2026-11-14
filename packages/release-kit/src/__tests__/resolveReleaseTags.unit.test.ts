@@ -1,4 +1,4 @@
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveReleaseTags } from '../resolveReleaseTags.ts';
@@ -27,7 +27,6 @@ describe(resolveReleaseTags, () => {
 
   beforeEach(() => {
     git = makeFakeGit();
-    void silenceConsole(['warn']);
   });
 
   afterEach(() => {
@@ -155,6 +154,7 @@ describe(resolveReleaseTags, () => {
   });
 
   it('warns and returns only the first tag when multiple single-package version tags exist', () => {
+    using silent = silenceConsole(['warn']);
     git.listTagsAtHead.mockReturnValue(['v1.0.0', 'v1.1.0']);
 
     const result = resolveReleaseTags(undefined, git);
@@ -162,17 +162,16 @@ describe(resolveReleaseTags, () => {
     expect(result).toStrictEqual([
       { tag: 'v1.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
     ]);
-    expect(console.warn).toHaveBeenCalledWith(
-      expect.stringContaining('Multiple version tags found on HEAD: v1.0.0, v1.1.0'),
-    );
+    expect(listConsoleLines(silent.warn).join('\n')).toContain('Multiple version tags found on HEAD: v1.0.0, v1.1.0');
   });
 
   it('does not warn when only one single-package version tag exists', () => {
+    using silent = silenceConsole(['warn']);
     git.listTagsAtHead.mockReturnValue(['v1.2.3']);
 
     resolveReleaseTags(undefined, git);
 
-    expect(console.warn).not.toHaveBeenCalled();
+    expect(silent.warn).not.toHaveBeenCalled();
   });
 
   describe('project tags', () => {

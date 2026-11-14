@@ -59,7 +59,6 @@ describe(createGithubReleaseCommand, () => {
     stdioCapture = captureStdio();
     applyCreateGithubReleaseCommandDefaults();
     void throwOnProcessExit();
-    void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
@@ -70,6 +69,7 @@ describe(createGithubReleaseCommand, () => {
 
   describe('directory tag', () => {
     it('creates a Release for a directory tag, which is never publishable', async () => {
+      using silent = silenceConsole(['warn']);
       const DIRECTORY_TAG = {
         tag: 'app-v2.0.0',
         kind: 'directory',
@@ -82,7 +82,7 @@ describe(createGithubReleaseCommand, () => {
 
       await createGithubReleaseCommand(makeCreateGithubReleaseOptions({ styles: RICH_STYLES }));
 
-      expect(console.warn).not.toHaveBeenCalled();
+      expect(silent.warn).not.toHaveBeenCalled();
       expect(mockCreateGithubReleases).toHaveBeenCalledWith([DIRECTORY_TAG], '.meta/changelog.json', false, [
         'Bug fixes',
         'Features',

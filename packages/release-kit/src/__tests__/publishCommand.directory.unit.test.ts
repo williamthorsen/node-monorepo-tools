@@ -1,6 +1,6 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole, throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -92,7 +92,6 @@ describe(publishCommand, () => {
     stdioCapture = captureStdio();
     applyPublishCommandDefaults();
     void throwOnProcessExit();
-    void silenceConsole(['info', 'warn']);
   });
 
   afterEach(() => {
@@ -103,6 +102,7 @@ describe(publishCommand, () => {
 
   describe('directory tag', () => {
     it('warns that a directory release is not published when --tags names its tag', async () => {
+      using silent = silenceConsole(['warn']);
       mockDiscoverWorkspaces.mockReturnValue(makeResolvedPackages(['packages/core']));
       mockResolveReleaseTags.mockReturnValue([
         { tag: 'app-v2.0.0', kind: 'directory', dir: 'app', workspacePath: 'apps/app', isPublishable: false },
@@ -110,9 +110,9 @@ describe(publishCommand, () => {
 
       await publishCommand(makePublishOptions({ tags: ['app-v2.0.0'], styles: RICH_STYLES }));
 
-      expect(console.warn).toHaveBeenCalledExactlyOnceWith(
+      expect(listConsoleLines(silent.warn)).toStrictEqual([
         "Skipping app-v2.0.0: directory release 'app' is not published to a registry.",
-      );
+      ]);
       expect(mockPublishPackage).not.toHaveBeenCalled();
     });
   });

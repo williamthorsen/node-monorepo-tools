@@ -1,7 +1,7 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockPushRelease = vi.hoisted(() => vi.fn());
@@ -60,7 +60,6 @@ describe(pushCommand, () => {
     mockResolveCommandTags.mockReturnValue(TAGS);
     mockPushRelease.mockReturnValue([]);
     mockLoadConfig.mockResolvedValue(undefined);
-    void silenceConsole(['info']);
   });
 
   afterEach(() => {
@@ -181,7 +180,7 @@ describe(pushCommand, () => {
 
       await pushCommand(makePushOptions({ styles: RICH_STYLES }));
 
-      expect(silencedConsole.warn).toHaveBeenCalledWith(
+      expect(listConsoleLines(silencedConsole.warn)).toContain(
         'Skipping cli-v0.5.0 (packages/cli): excluded by config (shouldExclude: true).',
       );
       expect(mockPushRelease).toHaveBeenCalledWith([TAGS[0]], { isDryRun: false, tagsOnly: false });

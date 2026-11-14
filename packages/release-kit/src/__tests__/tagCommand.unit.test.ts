@@ -1,6 +1,5 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateTags = vi.hoisted(() => vi.fn());
@@ -20,7 +19,6 @@ describe(tagCommand, () => {
   beforeEach(() => {
     stdioCapture = captureStdio();
     mockCreateTags.mockReturnValue([]);
-    void silenceConsole(['info']);
   });
 
   afterEach(() => {
