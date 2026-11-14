@@ -73,29 +73,45 @@ describe(loadChangelogEntries, () => {
     expect(loadChangelogEntries(join(tree.dir, 'missing.json'))).toStrictEqual({ status: 'missing' });
   });
 
-  it('returns the valid entries of a changelog JSON file', ({ tree }) => {
+  it('returns the valid entries of a changelog JSON file and counts the rejected ones', ({ tree }) => {
     const entries: ChangelogEntry[] = [{ version: '1.0.0', date: '2024-01-01', sections: [] }];
-    const changelogPath = tree.writeJson('changelog.json', [...entries, { invalid: true }]);
+    const changelogPath = tree.writeJson('changelog.json', [...entries, { invalid: true }, 'not-an-object']);
 
-    expect(loadChangelogEntries(changelogPath)).toStrictEqual({ status: 'loaded', entries });
+    expect(loadChangelogEntries(changelogPath)).toStrictEqual({ status: 'loaded', entries, rejectedCount: 2 });
   });
 
-  it('reports malformed JSON as unreadable', ({ tree }) => {
+  it('reports a rejected count of zero when every element is an entry', ({ tree }) => {
+    const entries: ChangelogEntry[] = [{ version: '1.0.0', date: '2024-01-01', sections: [] }];
+    const changelogPath = tree.writeJson('changelog.json', entries);
+
+    expect(loadChangelogEntries(changelogPath)).toStrictEqual({ status: 'loaded', entries, rejectedCount: 0 });
+  });
+
+  it('reports malformed JSON as unreadable, with the parser message as the reason', ({ tree }) => {
     const changelogPath = tree.write('changelog.json', '{bad json');
 
-    expect(loadChangelogEntries(changelogPath)).toStrictEqual({ status: 'unreadable' });
+    expect(loadChangelogEntries(changelogPath)).toStrictEqual({
+      status: 'unreadable',
+      reason: expect.stringContaining('JSON'),
+    });
   });
 
   it('reports non-array JSON as unreadable', ({ tree }) => {
     const changelogPath = tree.write('changelog.json', '{"not": "array"}');
 
-    expect(loadChangelogEntries(changelogPath)).toStrictEqual({ status: 'unreadable' });
+    expect(loadChangelogEntries(changelogPath)).toStrictEqual({
+      status: 'unreadable',
+      reason: 'the top-level value is not an array',
+    });
   });
 
-  it('reports a path that cannot be read as a file as unreadable', ({ tree }) => {
+  it('reports a path that cannot be read as a file as unreadable, with the read error as the reason', ({ tree }) => {
     const directoryPath = tree.write('changelog.json/placeholder', '');
 
-    expect(loadChangelogEntries(join(directoryPath, '..'))).toStrictEqual({ status: 'unreadable' });
+    expect(loadChangelogEntries(join(directoryPath, '..'))).toStrictEqual({
+      status: 'unreadable',
+      reason: expect.stringContaining('EISDIR'),
+    });
   });
 });
 
