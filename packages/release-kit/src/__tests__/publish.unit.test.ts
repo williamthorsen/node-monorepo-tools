@@ -1,5 +1,5 @@
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockExecFileSync = vi.hoisted(() => vi.fn());
 
@@ -11,8 +11,6 @@ import { publishPackage } from '../publish.ts';
 import type { ResolvedTag } from '../resolveReleaseTags.ts';
 
 describe(publishPackage, () => {
-  beforeEach(() => {});
-
   afterEach(() => {
     mockExecFileSync.mockReset();
     vi.restoreAllMocks();
