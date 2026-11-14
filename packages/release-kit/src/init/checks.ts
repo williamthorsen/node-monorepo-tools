@@ -1,8 +1,6 @@
-import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
-
+import { type Git, realGit } from '../git.ts';
 import { parseJsonRecord } from './parseJsonRecord.ts';
 
 /** Result of an eligibility check. */
@@ -12,13 +10,10 @@ export interface CheckResult {
 }
 
 /** Verifies that the current directory is inside a git repository. */
-export function isGitRepo(): CheckResult {
-  try {
-    execSync('git rev-parse --is-inside-work-tree', { maxBuffer: GIT_OUTPUT_LIMIT_BYTES, stdio: 'pipe' });
-    return { ok: true };
-  } catch {
-    return { ok: false, message: 'Not inside a git repository. Run `git init` first.' };
-  }
+export function isGitRepo(git: Git = realGit): CheckResult {
+  return git.isInsideWorkTree()
+    ? { ok: true }
+    : { ok: false, message: 'Not inside a git repository. Run `git init` first.' };
 }
 
 /** Verifies that package.json exists in the current directory. */

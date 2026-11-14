@@ -1,14 +1,7 @@
-import { execFileSync } from 'node:child_process';
-
-import {
-  formatGlyphLine,
-  GIT_OUTPUT_LIMIT_BYTES,
-  hasErrnoCode,
-  type OutputStyle,
-  UserError,
-} from '@williamthorsen/nmr-core';
+import { formatGlyphLine, type OutputStyle, UserError } from '@williamthorsen/nmr-core';
 
 import { deleteFileIfExists } from './deleteFileIfExists.ts';
+import { type Git, realGit } from './git.ts';
 import { RELEASE_GLYPHS } from './glyphs.ts';
 import { readReleaseTags, RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './releaseFiles.ts';
 import { asUserError } from './user-error-chaining.ts';
@@ -23,7 +16,7 @@ export interface CreateTagsOptions {
  * Creates an annotated git tag for each name in the tags file written by `prepare`, then deletes the tags and summary
  * files, and returns the tag names. In dry-run mode, it only lists the names.
  */
-export function createTags(options: CreateTagsOptions): string[] {
+export function createTags(options: CreateTagsOptions, git: Git = realGit): string[] {
   const { isDryRun, shouldSkipGitChecks, style } = options;
 
   const tags = readReleaseTags();
@@ -33,7 +26,7 @@ export function createTags(options: CreateTagsOptions): string[] {
   }
 
   if (!isDryRun && !shouldSkipGitChecks) {
-    assertCleanWorkingTree();
+    assertCleanWorkingTree(git);
   }
 
   if (isDryRun) {
@@ -47,7 +40,7 @@ export function createTags(options: CreateTagsOptions): string[] {
   const createdTags: string[] = [];
   for (const tag of tags) {
     try {
-      execFileSync('git', ['tag', '-a', tag, '-m', tag], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
+      git.createAnnotatedTag(tag);
       createdTags.push(tag);
     } catch (error: unknown) {
       const failure = asUserError(error);
@@ -73,17 +66,16 @@ export function createTags(options: CreateTagsOptions): string[] {
 }
 
 /** Throws if a tracked file has staged or unstaged changes. */
-function assertCleanWorkingTree(): void {
+function assertCleanWorkingTree(git: Git): void {
+  let isDirty: boolean;
   try {
-    execFileSync('git', ['diff', '--quiet'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
-    execFileSync('git', ['diff', '--quiet', '--cached'], { maxBuffer: GIT_OUTPUT_LIMIT_BYTES });
+    isDirty = git.hasTrackedChanges();
   } catch (error: unknown) {
-    if (hasErrnoCode(error, 'ENOENT')) {
-      throw asUserError(error);
-    }
+    throw asUserError(error);
+  }
+  if (isDirty) {
     throw new UserError(
       'Working tree is dirty. Commit or stash changes before tagging, or use `--no-git-checks` to skip this check.',
-      { cause: error },
     );
   }
 }

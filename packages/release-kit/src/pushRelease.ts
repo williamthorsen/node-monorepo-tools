@@ -1,7 +1,4 @@
-import { execFileSync } from 'node:child_process';
-
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
-
+import { type Git, realGit } from './git.ts';
 import type { ResolvedTag } from './resolveReleaseTags.ts';
 import { asUserError } from './user-error-chaining.ts';
 
@@ -22,7 +19,11 @@ export interface PushStep {
  *
  * Returns the push steps, which it runs only outside dry-run mode.
  */
-export function pushRelease(resolvedTags: ResolvedTag[], options: PushReleaseOptions = {}): PushStep[] {
+export function pushRelease(
+  resolvedTags: ResolvedTag[],
+  options: PushReleaseOptions = {},
+  git: Git = realGit,
+): PushStep[] {
   const { isDryRun = false, tagsOnly = false } = options;
 
   const steps: PushStep[] = [];
@@ -30,11 +31,7 @@ export function pushRelease(resolvedTags: ResolvedTag[], options: PushReleaseOpt
   if (!tagsOnly) {
     let branch: string;
     try {
-      branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-        encoding: 'utf8',
-        maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim();
+      branch = git.readCurrentBranch();
     } catch (error: unknown) {
       throw asUserError(error);
     }
@@ -51,7 +48,11 @@ export function pushRelease(resolvedTags: ResolvedTag[], options: PushReleaseOpt
   if (!isDryRun) {
     for (const step of steps) {
       try {
-        execFileSync(step.command[0], step.command.slice(1), { stdio: 'inherit' });
+        if (step.type === 'branch') {
+          git.pushBranch(step.ref);
+        } else {
+          git.pushTag(step.ref);
+        }
       } catch (error: unknown) {
         throw asUserError(error);
       }

@@ -1,40 +1,29 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mockExecSync = vi.hoisted(() => vi.fn());
 const mockExistsSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
-
-vi.mock(import('node:child_process'), () => ({
-  execSync: mockExecSync,
-}));
 
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
+import { makeFakeGit } from '../../test-utils/fakeGit.ts';
 import { hasPackageJson, isGitRepo, usesPnpm } from '../checks.ts';
 
 describe('checks', () => {
   afterEach(() => {
-    mockExecSync.mockReset();
     mockExistsSync.mockReset();
     mockReadFileSync.mockReset();
   });
 
   describe(isGitRepo, () => {
     it('returns ok when inside a git repo', () => {
-      mockExecSync.mockReturnValue(Buffer.from('true'));
-
-      expect(isGitRepo()).toStrictEqual({ ok: true });
+      expect(isGitRepo(makeFakeGit({ isInsideWorkTree: () => true }))).toStrictEqual({ ok: true });
     });
 
     it('returns not ok when not inside a git repo', () => {
-      mockExecSync.mockImplementation(() => {
-        throw new Error('not a git repo');
-      });
-
-      const result = isGitRepo();
+      const result = isGitRepo(makeFakeGit({ isInsideWorkTree: () => false }));
       expect(result.ok).toBe(false);
       expect(result.message).toContain('git');
     });

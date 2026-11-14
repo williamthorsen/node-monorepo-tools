@@ -36,7 +36,7 @@ export interface Git {
   readCommits(paths?: readonly string[]): RawCommit[];
   /** Returns the name of the checked-out branch. */
   readCurrentBranch(): string;
-  /** Returns the trimmed `git status --porcelain` output, empty when the tree is clean. */
+  /** Returns the `git status --porcelain` output without its trailing newline, empty when the tree is clean. */
   readStatus(): string;
 }
 
@@ -78,7 +78,7 @@ export const realGit: Git = {
   readAncestry,
   readCommits,
   readCurrentBranch: () => readGitOutput(['rev-parse', '--abbrev-ref', 'HEAD']).trim(),
-  readStatus: () => readGitOutput(['status', '--porcelain']).trim(),
+  readStatus: () => readGitOutput(['status', '--porcelain']).trimEnd(),
 };
 
 /** A tag, the date on which it was created, and the commit at which it points. */

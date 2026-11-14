@@ -1,7 +1,4 @@
-import { execFileSync } from 'node:child_process';
-
-import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
-
+import { type Git, realGit } from './git.ts';
 import { getTargetName } from './resolveReleaseDeclaration.ts';
 import { PROJECT_TARGET_ID } from './resolveReleaseTargets.ts';
 import type { DirectoryConfig, ResolvedProjectConfig, WorkspaceConfig } from './types.ts';
@@ -57,21 +54,13 @@ type ResolveReleaseTagsArgs =
  * matching without needing `isPublishable` propagation; resolved tags default to
  * `isPublishable: true`. Production callers should pass one of the named forms.
  */
-export function resolveReleaseTags(args?: ResolveReleaseTagsArgs): ResolvedTag[] {
-  let output: string;
+export function resolveReleaseTags(args?: ResolveReleaseTagsArgs, git: Git = realGit): ResolvedTag[] {
+  let tags: string[];
   try {
-    output = execFileSync('git', ['tag', '--points-at', 'HEAD'], {
-      encoding: 'utf8',
-      maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
-    });
+    tags = git.listTagsAtHead();
   } catch (error: unknown) {
     throw asUserError(error);
   }
-
-  const tags = output
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
 
   if (args === undefined) {
     return resolveSinglePackageTags(tags);
