@@ -15,8 +15,8 @@ import { PNPM_WORKSPACE, scaffoldRepo } from '../test-utils/scaffoldRepo.ts';
 const CONFIG_PATH = '.config/release-kit.config.ts';
 
 describe('DEFAULT_CHANGELOG_JSON_PATH', () => {
-  // The kit inlines the default rather than importing `src/defaults.ts`, whose dependencies would be included in the
-  // published bundle. This test catches the two drifting apart.
+  // The kit inlines the default rather than importing `src/config/defaults.ts`, whose dependencies would be included in
+  // the published bundle. This test catches the two drifting apart.
   it('equals the outputPath to which release-kit actually defaults', () => {
     expect(DEFAULT_CHANGELOG_JSON_PATH).toBe(DEFAULT_CHANGELOG_JSON_CONFIG.outputPath);
   });
