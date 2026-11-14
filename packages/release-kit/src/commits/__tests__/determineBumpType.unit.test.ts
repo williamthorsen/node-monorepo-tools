@@ -1,0 +1,146 @@
+import { describe, expect, it } from 'vitest';
+
+import { DEFAULT_VERSION_PATTERNS } from '../../config/defaults.ts';
+import type { VersionPatterns, WorkTypeConfig } from '../../types.ts';
+import { type BumpSignal, determineBumpType } from '../determineBumpType.ts';
+
+const workTypes: Record<string, WorkTypeConfig> = {
+  fix: { header: 'Bug fixes', aliases: ['bugfix'] },
+  feat: { header: 'Features', aliases: ['feature'] },
+  refactor: { header: 'Refactoring' },
+  docs: { header: 'Documentation', aliases: ['doc'] },
+};
+
+const versionPatterns = DEFAULT_VERSION_PATTERNS;
+
+describe(determineBumpType, () => {
+  it('returns undefined for an empty commit list', () => {
+    const result = determineBumpType([], workTypes, versionPatterns);
+    expect(result).toBeUndefined();
+  });
+
+  it('returns patch for a fix commit', () => {
+    const commits = [makeCommit({ type: 'fix' })];
+    const result = determineBumpType(commits, workTypes, versionPatterns);
+    expect(result).toBe('patch');
+  });
+
+  it('returns minor for a feat commit', () => {
+    const commits = [makeCommit({ type: 'feat' })];
+    const result = determineBumpType(commits, workTypes, versionPatterns);
+    expect(result).toBe('minor');
+  });
+
+  it('returns the highest priority bump when multiple types are present', () => {
+    const commits = [makeCommit({ type: 'fix' }), makeCommit({ type: 'feat' }), makeCommit({ type: 'docs' })];
+    const result = determineBumpType(commits, workTypes, versionPatterns);
+    expect(result).toBe('minor');
+  });
+
+  it('returns major for a breaking change', () => {
+    const commits = [makeCommit({ type: 'fix' }), makeCommit({ type: 'feat', breaking: true })];
+    const result = determineBumpType(commits, workTypes, versionPatterns);
+    expect(result).toBe('major');
+  });
+
+  it('returns major even when breaking change is a patch type', () => {
+    const commits = [makeCommit({ type: 'fix', breaking: true })];
+    const result = determineBumpType(commits, workTypes, versionPatterns);
+    expect(result).toBe('major');
+  });
+
+  it('ignores commits with unrecognized types', () => {
+    const commits = [makeCommit({ type: 'unknown' })];
+    const result = determineBumpType(commits, workTypes, versionPatterns);
+    expect(result).toBeUndefined();
+  });
+
+  it('returns the correct bump when some commits are unrecognized', () => {
+    const commits = [makeCommit({ type: 'unknown' }), makeCommit({ type: 'fix' })];
+    const result = determineBumpType(commits, workTypes, versionPatterns);
+    expect(result).toBe('patch');
+  });
+
+  it('returns major immediately when the first commit is a breaking change', () => {
+    const commits = [makeCommit({ type: 'feat', breaking: true }), makeCommit({ type: 'fix' })];
+    const result = determineBumpType(commits, workTypes, versionPatterns);
+    expect(result).toBe('major');
+  });
+
+  it('returns undefined when workTypes is empty', () => {
+    const commits = [makeCommit({ type: 'feat' })];
+    const result = determineBumpType(commits, {}, versionPatterns);
+    expect(result).toBeUndefined();
+  });
+
+  it('treats custom minor patterns as minor bumps', () => {
+    const customPatterns: VersionPatterns = { major: ['!'], minor: ['feat', 'perf'] };
+    const customTypes: Record<string, WorkTypeConfig> = {
+      ...workTypes,
+      perf: { header: 'Performance' },
+    };
+    const commits = [makeCommit({ type: 'perf' })];
+    const result = determineBumpType(commits, customTypes, customPatterns);
+    expect(result).toBe('minor');
+  });
+
+  it('does not treat a breaking commit as major when "!" is absent from versionPatterns.major', () => {
+    const customPatterns: VersionPatterns = { major: ['breaking-change'], minor: ['feat'] };
+    const commits = [makeCommit({ type: 'fix', breaking: true })];
+    const result = determineBumpType(commits, workTypes, customPatterns);
+    expect(result).toBe('patch');
+  });
+
+  describe('non-bumping types', () => {
+    it('returns undefined when every commit has a type that the default `none` lists', () => {
+      const commits = [makeCommit({ type: 'docs' }), makeCommit({ type: 'docs' })];
+      const result = determineBumpType(commits, workTypes, versionPatterns);
+      expect(result).toBeUndefined();
+    });
+
+    it('returns patch for a non-bumping type alongside a fix', () => {
+      const commits = [makeCommit({ type: 'docs' }), makeCommit({ type: 'fix' })];
+      const result = determineBumpType(commits, workTypes, versionPatterns);
+      expect(result).toBe('patch');
+    });
+
+    it('returns patch for a type that the default `none` does not list', () => {
+      const commits = [makeCommit({ type: 'refactor' })];
+      const result = determineBumpType(commits, workTypes, versionPatterns);
+      expect(result).toBe('patch');
+    });
+
+    it('returns major for a breaking commit of a non-bumping type', () => {
+      const commits = [makeCommit({ type: 'docs', breaking: true })];
+      const result = determineBumpType(commits, workTypes, versionPatterns);
+      expect(result).toBe('major');
+    });
+
+    it('applies the default `none` when the patterns omit it', () => {
+      const commits = [makeCommit({ type: 'docs' })];
+      const result = determineBumpType(commits, workTypes, { major: ['!'], minor: ['feat'] });
+      expect(result).toBeUndefined();
+    });
+
+    it('returns patch for every unlisted type when `none` is empty', () => {
+      const commits = [makeCommit({ type: 'docs' })];
+      const result = determineBumpType(commits, workTypes, { major: ['!'], minor: ['feat'], none: [] });
+      expect(result).toBe('patch');
+    });
+
+    it('gives a type listed in both `minor` and `none` the minor bump', () => {
+      const commits = [makeCommit({ type: 'docs' })];
+      const result = determineBumpType(commits, workTypes, { major: ['!'], minor: ['docs'], none: ['docs'] });
+      expect(result).toBe('minor');
+    });
+  });
+});
+
+// region | Helpers
+
+/** Builds a non-breaking bump signal, overriding any field. */
+function makeCommit(overrides: Partial<BumpSignal> & Pick<BumpSignal, 'type'>): BumpSignal {
+  return { breaking: false, ...overrides };
+}
+
+// endregion | Helpers

@@ -1,0 +1,181 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { formatStatusLine, type StreamStyles } from '@williamthorsen/nmr-core';
+
+import { describeChangelogFileProblem } from '../changelog/changelog-entries.ts';
+import { deriveReleaseNotesConfig } from '../config/deriveReleaseNotesConfig.ts';
+import { loadUsableConfig } from '../config/loadValidatedConfig.ts';
+import { assertCleanWorkingTree } from '../prepare/assertCleanWorkingTree.ts';
+import {
+  injectReleaseNotesIntoReadme,
+  type ReadmeInjectionSkip,
+  resolveReadmePath,
+} from '../release-notes/injectReleaseNotesIntoReadme.ts';
+import { formatPrivateSkip } from '../tags/formatPrivateSkip.ts';
+import { resolveCommandTags } from '../tags/resolveCommandTags.ts';
+import type { ResolvedTag } from '../tags/resolveReleaseTags.ts';
+import { assertTarballsComplete } from './assertTarballsComplete.ts';
+import { detectPackageManager } from './detectPackageManager.ts';
+import { formatDirectoryPublishSkip } from './formatDirectoryPublishSkip.ts';
+import { formatProjectPublishSkip } from './formatProjectPublishSkip.ts';
+import { publishPackage } from './publishPackage.ts';
+
+export interface PublishCommandOptions {
+  configPath: string | undefined;
+  isDryRun: boolean;
+  shouldGenerateProvenance: boolean;
+  shouldSkipGitChecks: boolean;
+  /** The tag names that `--tags` selects, or `undefined` to publish every publishable release tag on HEAD. */
+  tags: string[] | undefined;
+  styles: StreamStyles;
+}
+
+/**
+ * Orchestrates the CLI `publish` command: checks for a clean working tree, resolves the tags on HEAD, checks the
+ * tarballs of the publishable ones from a clean checkout, and publishes each one, injecting release notes into its
+ * README for the duration of the publish.
+ */
+export async function publishCommand({
+  configPath,
+  isDryRun,
+  shouldGenerateProvenance,
+  shouldSkipGitChecks,
+  tags: requestedTags,
+  styles,
+}: PublishCommandOptions): Promise<void> {
+  const userConfig = await loadUsableConfig(styles.stderr, configPath);
+
+  // Run release-kit's own clean-tree check: `publishPackage` bypasses pnpm's, which would fail on the injected README.
+  if (!isDryRun && !shouldSkipGitChecks) {
+    assertCleanWorkingTree();
+  }
+
+  const resolvedTags = resolveCommandTags(requestedTags, userConfig);
+
+  if (resolvedTags.length === 0) {
+    return;
+  }
+
+  const publishableTags = filterPublishableTags(resolvedTags, requestedTags !== undefined);
+
+  if (publishableTags.length === 0) {
+    console.info('Nothing to publish.');
+    return;
+  }
+
+  assertTarballsComplete(
+    publishableTags.map(({ workspacePath }) => workspacePath),
+    userConfig?.devExportConditions ?? [],
+  );
+
+  const packageManager = detectPackageManager();
+  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = deriveReleaseNotesConfig(userConfig);
+
+  const shouldInject = releaseNotes.shouldInjectIntoReadme;
+
+  console.info(isDryRun ? '[dry-run] Would publish:' : 'Publishing:');
+  for (const { tag, workspacePath } of publishableTags) {
+    console.info(`  ${tag} (${workspacePath})`);
+  }
+
+  const publishedTags: string[] = [];
+
+  try {
+    for (const resolvedTag of publishableTags) {
+      let readmePath: string | undefined;
+      let originalReadme: string | undefined;
+
+      if (shouldInject) {
+        readmePath = resolveReadmePath(resolvedTag.workspacePath);
+        if (readmePath !== undefined) {
+          const changelogJsonPath = join(resolvedTag.workspacePath, changelogJsonOutputPath);
+          const injection = injectReleaseNotesIntoReadme(readmePath, changelogJsonPath, resolvedTag.tag, sectionOrder);
+          if (injection.status === 'injected') {
+            originalReadme = injection.originalReadme;
+          } else {
+            const message = formatInjectionSkip(resolvedTag, changelogJsonPath, injection.skip);
+            console.warn(`  ${formatStatusLine(styles.stderr, 'warning', message)}`);
+          }
+        }
+      }
+
+      try {
+        publishPackage(resolvedTag, packageManager, { isDryRun, shouldGenerateProvenance });
+        publishedTags.push(resolvedTag.tag);
+      } finally {
+        if (readmePath !== undefined && originalReadme !== undefined) {
+          writeFileSync(readmePath, originalReadme, 'utf8');
+        }
+      }
+    }
+  } catch (error: unknown) {
+    if (publishedTags.length > 0) {
+      console.warn('Packages published before failure:');
+      for (const tag of publishedTags) {
+        console.warn(`  ${tag}`);
+      }
+    }
+    throw error;
+  }
+}
+
+// region | Helpers
+
+/** Describes why README injection was skipped, as a phrase naming the file or the version to which it applies. */
+function describeInjectionSkip(changelogJsonPath: string, skip: ReadmeInjectionSkip): string {
+  switch (skip.reason) {
+    case 'missing-file':
+      return describeChangelogFileProblem('missing', changelogJsonPath);
+    case 'unreadable-file':
+      return describeChangelogFileProblem('unreadable', changelogJsonPath);
+    case 'no-entry':
+      return `no changelog entry for version ${skip.version}`;
+    case 'empty-body':
+      return `no user-facing release notes for version ${skip.version}`;
+  }
+}
+
+/**
+ * Restricts the resolved tag set to publishable workspaces, which excludes every directory and project tag.
+ *
+ * When the user named tags explicitly via `--tags` (`isExplicit === true`), each unpublishable
+ * tag is skipped with a warning and the publishable tags still publish. When resolution was
+ * implicit, unpublishable tags are dropped silently.
+ */
+function filterPublishableTags(resolvedTags: ResolvedTag[], isExplicit: boolean): ResolvedTag[] {
+  const publishableTags: ResolvedTag[] = [];
+  const unpublishableTags: ResolvedTag[] = [];
+  for (const tag of resolvedTags) {
+    (tag.isPublishable ? publishableTags : unpublishableTags).push(tag);
+  }
+
+  // Warn only on explicit naming: An implicit HEAD scan routinely finds private-but-tagged workspaces, whereas
+  // naming a tag signals that the user expected it to publish.
+  if (isExplicit) {
+    for (const resolvedTag of unpublishableTags) {
+      console.warn(formatPublishSkip(resolvedTag));
+    }
+  }
+
+  return publishableTags;
+}
+
+/** Formats the warning for a README injection that `publish` skipped, naming the tag, its workspace, and the reason. */
+function formatInjectionSkip(resolvedTag: ResolvedTag, changelogJsonPath: string, skip: ReadmeInjectionSkip): string {
+  return `Skipping README injection for ${resolvedTag.tag} (${resolvedTag.workspacePath}): ${describeInjectionSkip(changelogJsonPath, skip)}`;
+}
+
+/** Formats the warning for a tag that `publish` skips, by what owns the tag. */
+function formatPublishSkip(resolvedTag: ResolvedTag): string {
+  switch (resolvedTag.kind) {
+    case 'directory':
+      return formatDirectoryPublishSkip(resolvedTag);
+    case 'project':
+      return formatProjectPublishSkip(resolvedTag);
+    case 'package':
+      return formatPrivateSkip(resolvedTag);
+  }
+}
+
+// endregion | Helpers

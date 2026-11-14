@@ -1,14 +1,14 @@
 import type { CheckOutcome } from 'readyup';
 import { isRecord } from 'readyup/check-utils';
 
-import { hasProvenance } from '../../src/init/hasProvenance.ts';
 import {
   AUTH_ERROR_CODES,
   type NpmCommandResult,
   type NpmPackageLookup,
   readNpmError,
   UNREACHABLE_ERROR_CODES,
-} from '../../src/npmRegistry.ts';
+} from '../../src/clients/npm/npm-registry.ts';
+import { hasProvenance } from '../../src/init/hasProvenance.ts';
 
 // The npm error code that means the session is authenticated but lacks the elevation that a trust query needs.
 const OTP_ERROR_CODE = 'EOTP';

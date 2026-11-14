@@ -6,8 +6,8 @@ import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 import { findPackageRoot, isRecord, UserError } from '@williamthorsen/nmr-core';
 import { parse } from 'yaml';
 
-import { labelSpecSchema } from '../configSchema.ts';
-import { chainUserError } from '../user-error-chaining.ts';
+import { labelSpecSchema } from '../config/config-schema.ts';
+import { chainUserError } from '../portable/user-error-chaining.ts';
 import { deriveTypeLabels } from './typeLabels.ts';
 import type { LabelDefinition } from './types.ts';
 

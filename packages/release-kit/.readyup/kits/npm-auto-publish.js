@@ -17,7 +17,7 @@ import {
   readJsonFile
 } from "readyup/check-utils";
 
-// src/npmRegistry.ts
+// src/clients/npm/npm-registry.ts
 import { execFileSync } from "node:child_process";
 
 // ../nmr-core/dist/esm/portable/isRecord.js
@@ -25,7 +25,7 @@ function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// src/npmRegistry.ts
+// src/clients/npm/npm-registry.ts
 var AUTH_ERROR_CODES = /* @__PURE__ */ new Set(["E401", "ENEEDAUTH"]);
 var UNREACHABLE_ERROR_CODES = /* @__PURE__ */ new Set([
   "EAI_AGAIN",

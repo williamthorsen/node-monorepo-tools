@@ -16,12 +16,12 @@ const mockMkdirSync = vi.hoisted(() => vi.fn());
 const mockReadFileSync = vi.hoisted(() => vi.fn());
 const mockWriteFileSync = vi.hoisted(() => vi.fn());
 
-vi.mock(import('../../loadConfig.ts'), async (importOriginal) => {
+vi.mock(import('../../config/loadConfig.ts'), async (importOriginal) => {
   const originalModule = await importOriginal();
   return { ...originalModule, loadConfig: mockLoadConfig };
 });
 
-vi.mock(import('../../validateConfig.ts'), () => ({
+vi.mock(import('../../config/validateConfig.ts'), () => ({
   validateConfig: mockValidateConfig,
 }));
 

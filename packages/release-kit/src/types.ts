@@ -1,6 +1,6 @@
 import type { BreakingPolicy } from '@williamthorsen/change-grammar';
 
-import type { LegacyIdentity } from './configSchema.ts';
+import type { LegacyIdentity } from './config/config-schema.ts';
 
 /** Semver release type for version bumping. */
 export type ReleaseType = 'major' | 'minor' | 'patch';

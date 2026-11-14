@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import { type Git, realGit } from '../git.ts';
+import { type Git, realGit } from '../clients/git/git.ts';
 import { parseJsonRecord } from './parseJsonRecord.ts';
 
 /** Result of an eligibility check. */

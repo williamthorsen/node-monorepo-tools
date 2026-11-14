@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { assert, describe, expect, it } from 'vitest';
 
-import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../defaults.ts';
+import { DEFAULT_BREAKING_POLICIES, DEFAULT_WORK_TYPES } from '../config/defaults.ts';
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const docPath = resolve(thisDir, '..', '..', 'docs', 'work-types.md');

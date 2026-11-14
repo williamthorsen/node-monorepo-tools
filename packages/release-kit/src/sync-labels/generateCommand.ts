@@ -6,9 +6,9 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { stringify } from 'yaml';
 
 import { BIN } from '../bin.ts';
-import type { RepoLabelsConfig } from '../configSchema.ts';
-import { CONFIG_FILE_PATH } from '../loadConfig.ts';
-import { loadValidatedConfig, reportConfigProblem } from '../loadValidatedConfig.ts';
+import type { RepoLabelsConfig } from '../config/config-schema.ts';
+import { CONFIG_FILE_PATH } from '../config/loadConfig.ts';
+import { loadValidatedConfig, reportConfigProblem } from '../config/loadValidatedConfig.ts';
 import { hashPreset } from './presets.ts';
 import { resolveLabels } from './resolveLabels.ts';
 import type { LabelDefinition } from './types.ts';

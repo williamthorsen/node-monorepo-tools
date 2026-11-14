@@ -618,10 +618,10 @@ function readProvenanceSetting() {
 // .readyup/lib/changelog-checks.ts
 import { discoverWorkspaces, readFile } from "readyup/check-utils";
 
-// src/changelogArchive.ts
+// src/changelog/changelog-archive.ts
 var CHANGELOG_ARCHIVE_DIRECTORY = "changelogs";
 
-// src/packsPath.ts
+// src/publish/packsPath.ts
 function packsPath(filesField, path) {
   if (!isStringArray(filesField)) return true;
   const prefixes = listAncestorPrefixes(path);

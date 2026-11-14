@@ -1,0 +1,75 @@
+import { type BreakingPolicy, CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
+
+import type { ChangelogJsonConfig, ReleaseNotesConfig, VersionPatterns, WorkTypeConfig } from '../types.ts';
+
+/** Composes the rendered section heading of a work-type entry as `${emoji} ${label}`. */
+export function composeHeader(entry: { emoji: string; label: string }): string {
+  return `${entry.emoji} ${entry.label}`;
+}
+
+/** Tier names treated as dev-only (not shown in public release notes). */
+const DEV_ONLY_TIERS = new Set(['internal', 'process']);
+
+/** Default work types, ordered by canonical priority. */
+export const DEFAULT_WORK_TYPES: Record<string, WorkTypeConfig> = deriveDefaultWorkTypes();
+
+/** The breaking policy of each canonical work type, which decides whether a `!` on it is a policy violation. */
+export const DEFAULT_BREAKING_POLICIES: Record<string, BreakingPolicy> = Object.fromEntries(
+  CANONICAL_TAXONOMY.types.map((entry) => [entry.key, entry.breakingPolicy]),
+);
+
+/** Default version bump patterns. The `none` types do not change the code that a consumer runs. */
+export const DEFAULT_VERSION_PATTERNS: VersionPatterns & { none: string[] } = {
+  major: ['!'],
+  minor: ['feat'],
+  none: ['ai', 'ci', 'docs', 'tests', 'tooling'],
+};
+
+/** Default configuration for structured changelog JSON generation. */
+export const DEFAULT_CHANGELOG_JSON_CONFIG: ChangelogJsonConfig = {
+  enabled: true,
+  outputPath: '.meta/changelog.json',
+  devOnlySections: deriveDevOnlySections(),
+};
+
+/** Default configuration for release notes consumption. */
+export const DEFAULT_RELEASE_NOTES_CONFIG: ReleaseNotesConfig = {
+  shouldInjectIntoReadme: false,
+};
+
+/** Default tag prefix for project-level releases. */
+export const DEFAULT_PROJECT_TAG_PREFIX = 'v';
+
+// region | Helpers
+
+/** Derives `DEFAULT_WORK_TYPES` from the canonical taxonomy, in canonical order. */
+function deriveDefaultWorkTypes(): Record<string, WorkTypeConfig> {
+  const result: Record<string, WorkTypeConfig> = {};
+  for (const entry of CANONICAL_TAXONOMY.types) {
+    const config: WorkTypeConfig = {
+      header: composeHeader(entry),
+    };
+    if (entry.aliases.length > 0) {
+      config.aliases = [...entry.aliases];
+    }
+    if (entry.excludedFromChangelog === true) {
+      config.excludedFromChangelog = true;
+    }
+    result[entry.key] = config;
+  }
+  return result;
+}
+
+/** Derives the dev-only section list from the canonical taxonomy, skipping `excludedFromChangelog` entries. */
+function deriveDevOnlySections(): string[] {
+  const sections: string[] = [];
+  for (const entry of CANONICAL_TAXONOMY.types) {
+    if (!DEV_ONLY_TIERS.has(entry.tier) || entry.excludedFromChangelog === true) {
+      continue;
+    }
+    sections.push(composeHeader(entry));
+  }
+  return sections;
+}
+
+// endregion | Helpers

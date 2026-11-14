@@ -7,37 +7,37 @@ import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { commitCommand } from '../commitCommand.ts';
-import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
-import { enterRepoRoot } from '../enterRepoRoot.ts';
+import { validateOverridesCommand } from '../changelog/validateOverridesCommand.ts';
+import { enterRepoRoot } from '../cli/enterRepoRoot.ts';
+import { ConfigProblemError } from '../config/loadValidatedConfig.ts';
 import { initCommand } from '../init/initCommand.ts';
 import { updateTemplatesCommand } from '../init/updateTemplatesCommand.ts';
-import { ConfigProblemError } from '../loadValidatedConfig.ts';
-import { prepareCommand } from '../prepareCommand.ts';
-import { publishCommand } from '../publishCommand.ts';
-import { pushCommand } from '../pushCommand.ts';
+import { commitCommand } from '../prepare/commitCommand.ts';
+import { prepareCommand } from '../prepare/prepareCommand.ts';
+import { publishCommand } from '../publish/publishCommand.ts';
+import { pushCommand } from '../push/pushCommand.ts';
+import { createGithubReleaseCommand } from '../release-notes/createGithubReleaseCommand.ts';
 import { routeCommand } from '../route.ts';
-import { showTagPrefixesCommand } from '../showTagPrefixesCommand.ts';
 import { generateCommand } from '../sync-labels/generateCommand.ts';
 import { syncLabelsInitCommand } from '../sync-labels/initCommand.ts';
 import { syncLabelsCommand } from '../sync-labels/syncCommand.ts';
-import { tagCommand } from '../tagCommand.ts';
-import { validateOverridesCommand } from '../validateOverridesCommand.ts';
+import { showTagPrefixesCommand } from '../tags/showTagPrefixesCommand.ts';
+import { tagCommand } from '../tags/tagCommand.ts';
 
-vi.mock(import('../commitCommand.ts'), () => ({ commitCommand: vi.fn() }));
-vi.mock(import('../createGithubReleaseCommand.ts'), () => ({ createGithubReleaseCommand: vi.fn() }));
-vi.mock(import('../enterRepoRoot.ts'), () => ({ enterRepoRoot: vi.fn() }));
+vi.mock(import('../prepare/commitCommand.ts'), () => ({ commitCommand: vi.fn() }));
+vi.mock(import('../release-notes/createGithubReleaseCommand.ts'), () => ({ createGithubReleaseCommand: vi.fn() }));
+vi.mock(import('../cli/enterRepoRoot.ts'), () => ({ enterRepoRoot: vi.fn() }));
 vi.mock(import('../init/initCommand.ts'), () => ({ initCommand: vi.fn().mockReturnValue(0) }));
 vi.mock(import('../init/updateTemplatesCommand.ts'), () => ({ updateTemplatesCommand: vi.fn().mockReturnValue(0) }));
-vi.mock(import('../prepareCommand.ts'), () => ({ prepareCommand: vi.fn() }));
-vi.mock(import('../publishCommand.ts'), () => ({ publishCommand: vi.fn() }));
-vi.mock(import('../pushCommand.ts'), () => ({ pushCommand: vi.fn() }));
-vi.mock(import('../showTagPrefixesCommand.ts'), () => ({ showTagPrefixesCommand: vi.fn().mockResolvedValue(0) }));
+vi.mock(import('../prepare/prepareCommand.ts'), () => ({ prepareCommand: vi.fn() }));
+vi.mock(import('../publish/publishCommand.ts'), () => ({ publishCommand: vi.fn() }));
+vi.mock(import('../push/pushCommand.ts'), () => ({ pushCommand: vi.fn() }));
+vi.mock(import('../tags/showTagPrefixesCommand.ts'), () => ({ showTagPrefixesCommand: vi.fn().mockResolvedValue(0) }));
 vi.mock(import('../sync-labels/generateCommand.ts'), () => ({ generateCommand: vi.fn().mockResolvedValue(0) }));
 vi.mock(import('../sync-labels/initCommand.ts'), () => ({ syncLabelsInitCommand: vi.fn().mockResolvedValue(0) }));
 vi.mock(import('../sync-labels/syncCommand.ts'), () => ({ syncLabelsCommand: vi.fn().mockReturnValue(0) }));
-vi.mock(import('../tagCommand.ts'), () => ({ tagCommand: vi.fn() }));
-vi.mock(import('../validateOverridesCommand.ts'), () => ({ validateOverridesCommand: vi.fn() }));
+vi.mock(import('../tags/tagCommand.ts'), () => ({ tagCommand: vi.fn() }));
+vi.mock(import('../changelog/validateOverridesCommand.ts'), () => ({ validateOverridesCommand: vi.fn() }));
 
 const COMMANDS = [
   commitCommand,

@@ -3,7 +3,7 @@ import type { FlagSchema } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
 import { BIN } from '../bin.ts';
-import { ConfigProblemError, reportConfigProblem } from '../loadValidatedConfig.ts';
+import { ConfigProblemError, reportConfigProblem } from '../config/loadValidatedConfig.ts';
 
 /** The context that every `release-kit` command receives from the root group. */
 export interface CommandContext {

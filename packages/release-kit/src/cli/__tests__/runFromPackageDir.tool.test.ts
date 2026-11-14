@@ -1,0 +1,76 @@
+import type { StreamStyles } from '@williamthorsen/nmr-core';
+import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
+import { describe, expect, it, vi } from 'vitest';
+
+import { prepareCommand } from '../../prepare/prepareCommand.ts';
+import { makePrepareOptions } from '../../test-utils/command-options.ts';
+import { type GitRepoFixture, scaffoldGitRepo } from '../../test-utils/scaffoldGitRepo.ts';
+import { PNPM_WORKSPACE } from '../../test-utils/scaffoldRepo.ts';
+import { enterRepoRoot } from '../enterRepoRoot.ts';
+
+// The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
+// Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
+vi.mock(import('../../publish/assertTarballsComplete.ts'), () => ({
+  assertTarballsComplete: vi.fn(),
+}));
+
+vi.mock(import('../../clients/npm/npm-registry.ts'), () => ({
+  lookUpNpmPackage: () => ({ status: 'published' }),
+}));
+
+const PLAIN_STYLES: StreamStyles = { stderr: 'plain', stdout: 'plain' };
+
+describe('prepare run from a package directory', () => {
+  it('reports the same release as a run from the monorepo root', async () => {
+    const repo = seedMonorepo();
+
+    const outputFromPackage = await runDryPrepareFrom(`${repo.dir}/packages/pkg-a`);
+    const outputFromRoot = await runDryPrepareFrom(repo.dir);
+
+    expect(outputFromPackage).toBe(outputFromRoot);
+    expect(outputFromRoot).toContain('pkg-a-v1.1.0');
+    expect(outputFromRoot).toContain('pkg-b-v1.0.1');
+    expect(outputFromRoot).toContain('Found 1 commits since pkg-a-v1.0.0');
+    expect(outputFromRoot).toContain('Found 1 commits since pkg-b-v1.0.0');
+  });
+
+  it('still releases a single-package repo as one package from its root', async () => {
+    const repo = scaffoldGitRepo({ 'package.json': JSON.stringify({ name: 'solo', version: '1.0.0' }) + '\n' });
+    repo.commit('chore: initial commit');
+    repo.tag('v1.0.0');
+    repo.commit('## feat: Add feature', { 'src/feature.ts': 'export const flag = true;\n' });
+
+    const output = await runDryPrepareFrom(repo.dir);
+
+    expect(output).toContain('v1.1.0');
+    expect(output).toContain('Found 1 commits since v1.0.0');
+  });
+});
+
+// region | Helpers
+/** Runs `prepare --dry-run` as the bin does, entering the repo root from `dir`, and returns its stdout. */
+async function runDryPrepareFrom(dir: string): Promise<string> {
+  using _cwd = pointCwdAt(dir, { chdir: true });
+  enterRepoRoot();
+  using stdioCapture = captureStdio({ includeConsole: true });
+  await prepareCommand(makePrepareOptions({ isDryRun: true, styles: PLAIN_STYLES }));
+  return stdioCapture.stdout;
+}
+
+/** Builds a two-workspace monorepo with baseline tags and one commit touching each workspace since. */
+function seedMonorepo(): GitRepoFixture {
+  const repo = scaffoldGitRepo({
+    'package.json': JSON.stringify({ name: 'fixture-monorepo', private: true }) + '\n',
+    'packages/pkg-a/package.json': JSON.stringify({ name: '@fixture/pkg-a', version: '1.0.0' }) + '\n',
+    'packages/pkg-b/package.json': JSON.stringify({ name: '@fixture/pkg-b', version: '1.0.0' }) + '\n',
+    'pnpm-workspace.yaml': PNPM_WORKSPACE,
+  });
+  repo.commit('chore: initial commit');
+  repo.tag('pkg-a-v1.0.0');
+  repo.tag('pkg-b-v1.0.0');
+  // The `##` ticket prefix is required by `classifyChangelogCommit`, which rejects every unticketed commit.
+  repo.commit('## pkg-a|feat: Add feature flag', { 'packages/pkg-a/feature.ts': 'export const flag = true;\n' });
+  repo.commit('## pkg-b|fix: Correct patch', { 'packages/pkg-b/patch.ts': 'export const patched = true;\n' });
+  return repo;
+}
+// endregion | Helpers

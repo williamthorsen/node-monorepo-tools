@@ -3,7 +3,7 @@ import { basename, resolve } from 'node:path';
 
 import { findPackageRoot } from '@williamthorsen/nmr-core';
 
-import { chainUserError } from '../user-error-chaining.ts';
+import { chainUserError } from '../portable/user-error-chaining.ts';
 import type { LabelDefinition } from './types.ts';
 
 /** Reads the bundled caller workflow for `sync-labels`. Throws if the template cannot be read. */

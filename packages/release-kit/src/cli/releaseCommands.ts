@@ -1,14 +1,14 @@
 import { createCli } from '@williamthorsen/nmr-core/cli';
 
-import { commitCommand } from '../commitCommand.ts';
-import { createGithubReleaseCommand } from '../createGithubReleaseCommand.ts';
-import { enterRepoRoot } from '../enterRepoRoot.ts';
-import { parseRequestedTags } from '../parseRequestedTags.ts';
-import { prepareCommand } from '../prepareCommand.ts';
-import { publishCommand } from '../publishCommand.ts';
-import { pushCommand } from '../pushCommand.ts';
-import { tagCommand } from '../tagCommand.ts';
+import { commitCommand } from '../prepare/commitCommand.ts';
+import { prepareCommand } from '../prepare/prepareCommand.ts';
+import { publishCommand } from '../publish/publishCommand.ts';
+import { pushCommand } from '../push/pushCommand.ts';
+import { createGithubReleaseCommand } from '../release-notes/createGithubReleaseCommand.ts';
+import { parseRequestedTags } from '../tags/parseRequestedTags.ts';
+import { tagCommand } from '../tags/tagCommand.ts';
 import { type CommandContext, CONFIG_FLAG, runReportingFailures } from './commandKit.ts';
+import { enterRepoRoot } from './enterRepoRoot.ts';
 
 const { defineCommand } = createCli<CommandContext>();
 

@@ -1,6 +1,6 @@
 import { UserError } from '@williamthorsen/nmr-core';
 
-import type { RepoLabelsConfig } from '../configSchema.ts';
+import type { RepoLabelsConfig } from '../config/config-schema.ts';
 import { loadPreset } from './presets.ts';
 import type { LabelDefinition } from './types.ts';
 

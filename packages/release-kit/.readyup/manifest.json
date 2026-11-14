@@ -145,7 +145,7 @@
           "path": "kits/default.ts"
         },
         {
-          "hash": "dafe3ffb",
+          "hash": "e54b10ab",
           "kind": "module",
           "path": "lib/changelog-checks.ts"
         },
@@ -175,7 +175,7 @@
         {
           "hash": "694186f4",
           "kind": "module",
-          "path": "../src/changelogArchive.ts"
+          "path": "../src/changelog/changelog-archive.ts"
         },
         {
           "hash": "65fa2f33",
@@ -210,7 +210,7 @@
         {
           "hash": "2210df36",
           "kind": "module",
-          "path": "../src/packsPath.ts"
+          "path": "../src/publish/packsPath.ts"
         }
       ],
       "name": "default",
@@ -218,7 +218,7 @@
       "readyupVersion": "0.46.2",
       "source": "kits/default.ts",
       "sourceHash": "026cacdf",
-      "targetHash": "29f00231"
+      "targetHash": "0e9145d6"
     },
     {
       "bundledDependencies": {
@@ -345,32 +345,32 @@
           "path": "../../nmr-core/dist/esm/timer.js"
         },
         {
-          "hash": "2b7c0bbc",
+          "hash": "65329bfe",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
         },
         {
-          "hash": "05215737",
+          "hash": "2dc0d69e",
           "kind": "module",
           "path": "lib/npm-trust.ts"
+        },
+        {
+          "hash": "4f6456ae",
+          "kind": "module",
+          "path": "../src/clients/npm/npm-registry.ts"
         },
         {
           "hash": "d360febf",
           "kind": "module",
           "path": "../src/init/hasProvenance.ts"
-        },
-        {
-          "hash": "4f6456ae",
-          "kind": "module",
-          "path": "../src/npmRegistry.ts"
         }
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.46.2",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "2b7c0bbc",
-      "targetHash": "4822ef79"
+      "sourceHash": "65329bfe",
+      "targetHash": "28c12aa3"
     }
   ]
 }
