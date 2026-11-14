@@ -809,16 +809,6 @@ var COMMON_PRESET_HASH = "c39637a3c99735331c46ef0ca29eb5031c02185c53e1cb007ccc50
 var SYNC_LABELS_WORKFLOW_HASH = "0a88829d154c0de7cdd4246fede99e9311a89ab4199034dbe601663d641ab1e4";
 
 // .readyup/kits/default.ts
-function getMinVersion() {
-  const picked = { "version": "18.3.0" };
-  if (typeof picked["version"] !== "string") {
-    throw new TypeError("release-kit/package.json: 'version' must be a string");
-  }
-  return picked["version"];
-}
-function hasPublishablePackages() {
-  return discoverWorkspaces3({ filter: (w) => w.isPackage }).length > 0;
-}
 var default_default = defineRdyKit({
   checklists: [
     {
@@ -1037,6 +1027,16 @@ var default_default = defineRdyKit({
     }
   ]
 });
+function getMinVersion() {
+  const picked = { "version": "18.3.0" };
+  if (typeof picked["version"] !== "string") {
+    throw new TypeError("release-kit/package.json: 'version' must be a string");
+  }
+  return picked["version"];
+}
+function hasPublishablePackages() {
+  return discoverWorkspaces3({ filter: (w) => w.isPackage }).length > 0;
+}
 export {
   default_default as default
 };
