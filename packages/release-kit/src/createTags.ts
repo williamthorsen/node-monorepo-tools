@@ -65,6 +65,8 @@ export function createTags(options: CreateTagsOptions, git: Git = realGit): stri
   return tags;
 }
 
+// region | Helpers
+
 /** Throws if a tracked file has staged or unstaged changes. */
 function assertCleanWorkingTree(git: Git): void {
   let isDirty: boolean;
@@ -79,3 +81,5 @@ function assertCleanWorkingTree(git: Git): void {
     );
   }
 }
+
+// endregion | Helpers

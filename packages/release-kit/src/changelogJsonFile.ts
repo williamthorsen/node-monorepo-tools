@@ -32,9 +32,27 @@ export function mergeChangelogEntriesWithDisk(filePath: string, entries: Changel
   return mergeEntries(entries, readExistingEntries(filePath));
 }
 
-/** Sorts changelog entries newest-first by SemVer-aware version comparison. */
-function sortNewestFirst(entries: Iterable<ChangelogEntry>): ChangelogEntry[] {
-  return [...entries].toSorted((a, b) => compareVersionsDescending(a.version, b.version));
+// region | Helpers
+
+/** Builds the error that refuses to rewrite a changelog file that cannot be read as entries. */
+function buildRefusal(filePath: string, problem: string): UserError {
+  return new UserError(
+    `Cannot prepare the changelog from ${filePath}: ${problem}. Repair or delete the file, then rerun 'release-kit prepare'.`,
+  );
+}
+
+/** Merges new entries with existing ones; a new entry replaces an existing one of the same version. */
+function mergeEntries(newEntries: ChangelogEntry[], existingEntries: ChangelogEntry[]): ChangelogEntry[] {
+  const versionMap = new Map<string, ChangelogEntry>();
+
+  for (const entry of existingEntries) {
+    versionMap.set(entry.version, entry);
+  }
+  for (const entry of newEntries) {
+    versionMap.set(entry.version, entry);
+  }
+
+  return sortNewestFirst(versionMap.values());
 }
 
 /** Reads the changelog entries in a JSON file: none when the file is missing. */
@@ -54,23 +72,9 @@ function readExistingEntries(filePath: string): ChangelogEntry[] {
   return loaded.entries;
 }
 
-/** Merges new entries with existing ones; a new entry replaces an existing one of the same version. */
-function mergeEntries(newEntries: ChangelogEntry[], existingEntries: ChangelogEntry[]): ChangelogEntry[] {
-  const versionMap = new Map<string, ChangelogEntry>();
-
-  for (const entry of existingEntries) {
-    versionMap.set(entry.version, entry);
-  }
-  for (const entry of newEntries) {
-    versionMap.set(entry.version, entry);
-  }
-
-  return sortNewestFirst(versionMap.values());
+/** Sorts changelog entries newest-first by SemVer-aware version comparison. */
+function sortNewestFirst(entries: Iterable<ChangelogEntry>): ChangelogEntry[] {
+  return [...entries].toSorted((a, b) => compareVersionsDescending(a.version, b.version));
 }
 
-/** Builds the error that refuses to rewrite a changelog file that cannot be read as entries. */
-function buildRefusal(filePath: string, problem: string): UserError {
-  return new UserError(
-    `Cannot prepare the changelog from ${filePath}: ${problem}. Repair or delete the file, then rerun 'release-kit prepare'.`,
-  );
-}
+// endregion | Helpers

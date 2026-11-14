@@ -74,7 +74,11 @@ export function detectUndeclaredTagPrefixes(knownPrefixes: readonly string[], gi
   return results.toSorted((a, b) => a.prefix.localeCompare(b.prefix));
 }
 
+// region | Helpers
+
 /** Strips the trailing `-v` from a candidate prefix to suggest the workspace `dir`. */
 function stripTrailingTagMarker(prefix: string): string {
   return prefix.endsWith('-v') ? prefix.slice(0, -2) : prefix;
 }
+
+// endregion | Helpers

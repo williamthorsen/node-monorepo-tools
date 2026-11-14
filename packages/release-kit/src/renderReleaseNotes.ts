@@ -2,12 +2,6 @@ import { CANONICAL_TAXONOMY } from '@williamthorsen/change-grammar';
 
 import type { ChangelogAudience, ChangelogEntry, ChangelogSection } from './types.ts';
 
-/** Builds the per-bullet breaking-marker prefix from change-grammar's canonical `markers.breaking`. */
-function getBreakingPrefix(): string {
-  const { emoji, label } = CANONICAL_TAXONOMY.markers.breaking;
-  return `${emoji} **${label}:** `;
-}
-
 /** Options for rendering a single changelog entry to markdown. */
 export interface RenderOptions {
   /** Predicate to filter sections. When absent, all sections are included. */
@@ -20,16 +14,6 @@ export interface RenderOptions {
    * order is preserved from the entry.
    */
   sectionOrder?: string[];
-}
-
-/** Matches every section. */
-function matchAllSections() {
-  return true;
-}
-
-/** Matches the sections whose audience is `all`. */
-function matchPublicSections(section: ChangelogSection) {
-  return section.audience === 'all';
 }
 
 /**
@@ -86,6 +70,29 @@ export function renderReleaseNotesSingle(entry: ChangelogEntry, options?: Render
   return lines.join('\n') + '\n';
 }
 
+// region | Helpers
+
+/** Builds the per-bullet breaking-marker prefix from change-grammar's canonical `markers.breaking`. */
+function getBreakingPrefix(): string {
+  const { emoji, label } = CANONICAL_TAXONOMY.markers.breaking;
+  return `${emoji} **${label}:** `;
+}
+
+/** Indents each line of a body with two spaces so that it renders as nested content under a bullet. */
+function indentBodyLines(body: string): string[] {
+  return body.split('\n').map((line) => (line.length === 0 ? '' : `  ${line}`));
+}
+
+/** Matches every section. */
+function matchAllSections() {
+  return true;
+}
+
+/** Matches the sections whose audience is `all`. */
+function matchPublicSections(section: ChangelogSection) {
+  return section.audience === 'all';
+}
+
 /**
  * Stable-sorts sections so that titles appearing in `order` come first, in that order.
  * Unknown titles preserve their relative position after known ones.
@@ -107,7 +114,4 @@ function sortSectionsByOrder(sections: ChangelogSection[], order: string[]): Cha
   return indexedSections.map(({ section }) => section);
 }
 
-/** Indents each line of a body with two spaces so that it renders as nested content under a bullet. */
-function indentBodyLines(body: string): string[] {
-  return body.split('\n').map((line) => (line.length === 0 ? '' : `  ${line}`));
-}
+// endregion | Helpers

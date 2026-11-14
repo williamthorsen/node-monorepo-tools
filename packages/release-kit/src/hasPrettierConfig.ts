@@ -21,20 +21,6 @@ export function hasPrettierConfig(): boolean {
   return hasPrettierKeyInPackageJson(path.join(cwd, 'package.json'));
 }
 
-/** Returns true if `package.json` contains a top-level `"prettier"` key. */
-function hasPrettierKeyInPackageJson(packageJsonPath: string): boolean {
-  if (!existsSync(packageJsonPath)) {
-    return false;
-  }
-
-  try {
-    const parsedJson: unknown = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-    return isRecord(parsedJson) && 'prettier' in parsedJson;
-  } catch {
-    return false;
-  }
-}
-
 /** Config file names that indicate a project uses prettier. */
 const PRETTIER_CONFIG_FILES = [
   '.prettierrc',
@@ -52,3 +38,21 @@ const PRETTIER_CONFIG_FILES = [
   'prettier.config.mjs',
   'prettier.config.ts',
 ];
+
+// region | Helpers
+
+/** Returns true if `package.json` contains a top-level `"prettier"` key. */
+function hasPrettierKeyInPackageJson(packageJsonPath: string): boolean {
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  try {
+    const parsedJson: unknown = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+    return isRecord(parsedJson) && 'prettier' in parsedJson;
+  } catch {
+    return false;
+  }
+}
+
+// endregion | Helpers

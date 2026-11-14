@@ -71,27 +71,21 @@ export function resolveReleaseTags(args?: ResolveReleaseTagsArgs, git: Git = rea
   return resolveSinglePackageTags(tags, args.singleWorkspace);
 }
 
+// region | Helpers
+
 /**
- * Matches single-package tags of the form `v{semver}`, warning if multiple are found.
+ * Returns the workspace whose `tagPrefix` begins the tag and whose version suffix matches
+ * `SEMVER_SUFFIX_PATTERN`. Expects `sortedWorkspaces` to be ordered longest-prefix first.
  *
- * `singleWorkspace` is undefined when invoked via the `resolveReleaseTags()` no-arg
- * test form; resolved tags default to `isPublishable: true` in that case.
+ * `tagPrefix` ends with `v` (e.g., `core-v`), so the suffix after it is a bare semver without a leading `v`.
  */
-function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceConfig): ResolvedTag[] {
-  const matchedTags = tags.filter((tag) => VERSION_PATTERN.test(tag));
-  const isPublishable = singleWorkspace?.isPublishable ?? true;
+function findMatchingWorkspace(tag: string, sortedWorkspaces: readonly WorkspaceConfig[]): WorkspaceConfig | undefined {
+  return sortedWorkspaces.find((workspace) => hasVersionAfterPrefix(tag, workspace.tagPrefix));
+}
 
-  if (matchedTags.length > 1) {
-    console.warn(
-      `Warning: Multiple version tags found on HEAD: ${matchedTags.join(', ')}. ` +
-        `Publishing the same package multiple times is almost certainly unintended. Using only the first tag.`,
-    );
-    return matchedTags
-      .slice(0, 1)
-      .map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
-  }
-
-  return matchedTags.map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
+/** Reports whether the tag starts with `tagPrefix` and continues with a bare semver. */
+function hasVersionAfterPrefix(tag: string, tagPrefix: string): boolean {
+  return tag.startsWith(tagPrefix) && SEMVER_SUFFIX_PATTERN.test(tag.slice(tagPrefix.length));
 }
 
 /**
@@ -145,16 +139,26 @@ function resolveMonorepoTags(
 }
 
 /**
- * Returns the workspace whose `tagPrefix` begins the tag and whose version suffix matches
- * `SEMVER_SUFFIX_PATTERN`. Expects `sortedWorkspaces` to be ordered longest-prefix first.
+ * Matches single-package tags of the form `v{semver}`, warning if multiple are found.
  *
- * `tagPrefix` ends with `v` (e.g., `core-v`), so the suffix after it is a bare semver without a leading `v`.
+ * `singleWorkspace` is undefined when invoked via the `resolveReleaseTags()` no-arg
+ * test form; resolved tags default to `isPublishable: true` in that case.
  */
-function findMatchingWorkspace(tag: string, sortedWorkspaces: readonly WorkspaceConfig[]): WorkspaceConfig | undefined {
-  return sortedWorkspaces.find((workspace) => hasVersionAfterPrefix(tag, workspace.tagPrefix));
+function resolveSinglePackageTags(tags: string[], singleWorkspace?: WorkspaceConfig): ResolvedTag[] {
+  const matchedTags = tags.filter((tag) => VERSION_PATTERN.test(tag));
+  const isPublishable = singleWorkspace?.isPublishable ?? true;
+
+  if (matchedTags.length > 1) {
+    console.warn(
+      `Warning: Multiple version tags found on HEAD: ${matchedTags.join(', ')}. ` +
+        `Publishing the same package multiple times is almost certainly unintended. Using only the first tag.`,
+    );
+    return matchedTags
+      .slice(0, 1)
+      .map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
+  }
+
+  return matchedTags.map((tag) => ({ tag, kind: 'package', dir: '.', workspacePath: '.', isPublishable }));
 }
 
-/** Reports whether the tag starts with `tagPrefix` and continues with a bare semver. */
-function hasVersionAfterPrefix(tag: string, tagPrefix: string): boolean {
-  return tag.startsWith(tagPrefix) && SEMVER_SUFFIX_PATTERN.test(tag.slice(tagPrefix.length));
-}
+// endregion | Helpers

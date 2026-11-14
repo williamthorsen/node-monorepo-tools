@@ -46,35 +46,96 @@ export function reportPrepare(plan: PrepareResult, options: ReportPrepareOptions
   return formatSingleWorkspace(plan, options);
 }
 
-/** Formats output for a single-package release. */
-function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
-  const isDryRun = !options.applied;
-  const { style } = options;
-  const lines: string[] = [];
-  const workspace = result.targets[0];
+/** Where a section sits in the report and how it names the previous release. */
+interface SectionLayout {
+  /** The section-level indent, which the warning and file helpers take as their `indent`. */
+  indent: string;
+  /** The text after the commit count. */
+  sinceLabel: string;
+}
 
-  if (workspace === undefined || workspace.kind === 'composite') {
-    return '';
+/** What set a released target's version besides its own commits. */
+interface BumpOrigin {
+  /** The dependencies whose bump propagated to the target. */
+  propagatedFrom: PropagationSource[] | undefined;
+  /** True when propagation alone set the bump. */
+  isPropagatedOnly: boolean;
+  /** The version that `--set-version` applied. */
+  versionOverride: string | undefined;
+}
+
+// region | Helpers
+
+/** Reads a released target's propagation and version override; a composite takes neither. */
+function describeBumpOrigin(target: ReleasedTargetResult): BumpOrigin {
+  if (target.kind === 'composite') {
+    return { propagatedFrom: undefined, isPropagatedOnly: false, versionOverride: undefined };
+  }
+  if (target.kind === 'directory') {
+    return { propagatedFrom: undefined, isPropagatedOnly: false, versionOverride: target.versionOverride };
+  }
+  return {
+    propagatedFrom: target.propagatedFrom,
+    isPropagatedOnly: target.propagatedOnly === true,
+    versionOverride: target.versionOverride,
+  };
+}
+
+/**
+ * Appends the bump-override / set-version label and the "Bumping versions..." line. The label sits at column 2,
+ * whatever the section's indent is, which keeps the report's whitespace unchanged.
+ */
+function formatBumpLabels(lines: string[], target: ReleasedTargetResult, origin: BumpOrigin, indent: string): void {
+  if (origin.versionOverride !== undefined) {
+    lines.push(`  Using version override: ${origin.versionOverride}`);
+  } else if (target.bumpOverride !== undefined && !origin.isPropagatedOnly) {
+    lines.push(`  Using bump override: ${target.bumpOverride}`);
   }
 
-  const sinceLabel = `since ${workspace.previousTag ?? 'the beginning'}`;
-  formatTargetSection(lines, workspace, { indent: '', sinceLabel }, isDryRun, style);
+  if (target.releaseType !== undefined) {
+    lines.push(dim(`${indent}Bumping versions (${target.releaseType})...`));
+  } else if (origin.versionOverride !== undefined) {
+    lines.push(dim(`${indent}Bumping versions (version override)...`));
+  }
+}
 
-  if (workspace.status === 'skipped') {
-    formatWarnings(lines, result, style);
-    return lines.join('\n');
+/**
+ * Appends the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. The
+ * line sits at column 2, whatever the section's indent is, which keeps the report's whitespace unchanged.
+ */
+function formatCommitSummary(lines: string[], target: ReleasedTargetResult, origin: BumpOrigin): void {
+  if (origin.isPropagatedOnly && origin.propagatedFrom !== undefined) {
+    const dependencyNames = origin.propagatedFrom.map((p) => p.packageName).join(', ');
+    lines.push(dim(`  Bumped via dependency: ${dependencyNames}`));
+  } else if (target.parsedCommitCount !== undefined && target.parsedCommitCount > 0) {
+    // Suppress "Parsed 0 typed commits", which says nothing about a forced release without a
+    // parsed commit.
+    lines.push(dim(`  Parsed ${target.parsedCommitCount} typed commits`));
+  }
+}
+
+/** Appends format command lines. */
+function formatFormatCommand(lines: string[], result: PrepareResult, options: ReportPrepareOptions): void {
+  if (result.formatCommand === undefined) {
+    return;
   }
 
-  formatFormatCommand(lines, result, options);
+  if (!options.applied) {
+    lines.push(dim(`\n  [dry-run] Would run format command: ${result.formatCommand.command}`));
+    return;
+  }
 
-  formatWarnings(lines, result, style);
+  if (options.formatError === undefined) {
+    lines.push(dim(`\n  Running format command: ${result.formatCommand.command}`));
+    return;
+  }
 
+  // Indent the failure message to the column at which the status line's message starts.
+  const messageIndent = ' '.repeat(2 + measureGlyphColumn(STATUS_GLYPHS[options.style]) + 1);
   lines.push(
-    formatStatusLine(style, 'passed', 'Release preparation complete.'),
-    `   ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`,
+    `\n  ${formatStatusLine(options.style, 'warning', `Format command failed: ${result.formatCommand.command}`)}`,
+    `${messageIndent}${options.formatError}`,
   );
-
-  return lines.join('\n');
 }
 
 /** Formats output for a monorepo release with multiple workspaces. */
@@ -115,20 +176,44 @@ function formatMultiWorkspace(result: PrepareResult, options: ReportPrepareOptio
   return lines.join('\n');
 }
 
-/** Returns a section's title: `project` for a `project` block's composite, else the target's name, if it has one. */
-function getSectionTitle(target: TargetPrepareResult): string | undefined {
-  if (target.kind === 'composite') {
-    return target.targetId === PROJECT_TARGET_ID ? 'project' : target.targetId;
+/** Formats the propagation suffix for the version bump line (e.g., `, dependency: core`). */
+function formatPropagationSuffix(propagatedFrom: PropagationSource[] | undefined): string {
+  if (propagatedFrom === undefined || propagatedFrom.length === 0) {
+    return '';
   }
-  return target.name;
+  const names = propagatedFrom.map((p) => p.packageName).join(', ');
+  return `, dependency: ${names}`;
 }
 
-/** Where a section sits in the report and how it names the previous release. */
-interface SectionLayout {
-  /** The section-level indent, which the warning and file helpers take as their `indent`. */
-  indent: string;
-  /** The text after the commit count. */
-  sinceLabel: string;
+/** Formats output for a single-package release. */
+function formatSingleWorkspace(result: PrepareResult, options: ReportPrepareOptions): string {
+  const isDryRun = !options.applied;
+  const { style } = options;
+  const lines: string[] = [];
+  const workspace = result.targets[0];
+
+  if (workspace === undefined || workspace.kind === 'composite') {
+    return '';
+  }
+
+  const sinceLabel = `since ${workspace.previousTag ?? 'the beginning'}`;
+  formatTargetSection(lines, workspace, { indent: '', sinceLabel }, isDryRun, style);
+
+  if (workspace.status === 'skipped') {
+    formatWarnings(lines, result, style);
+    return lines.join('\n');
+  }
+
+  formatFormatCommand(lines, result, options);
+
+  formatWarnings(lines, result, style);
+
+  lines.push(
+    formatStatusLine(style, 'passed', 'Release preparation complete.'),
+    `   ${formatGlyphLine(RELEASE_GLYPHS, style, 'tag', bold(workspace.tag))}`,
+  );
+
+  return lines.join('\n');
 }
 
 /**
@@ -170,64 +255,6 @@ function formatTargetWarnings(lines: string[], target: TargetPrepareResult, styl
   formatChangeRecordWarnings(lines, target, style, indent);
 }
 
-/** What set a released target's version besides its own commits. */
-interface BumpOrigin {
-  /** The dependencies whose bump propagated to the target. */
-  propagatedFrom: PropagationSource[] | undefined;
-  /** True when propagation alone set the bump. */
-  isPropagatedOnly: boolean;
-  /** The version that `--set-version` applied. */
-  versionOverride: string | undefined;
-}
-
-/** Reads a released target's propagation and version override; a composite takes neither. */
-function describeBumpOrigin(target: ReleasedTargetResult): BumpOrigin {
-  if (target.kind === 'composite') {
-    return { propagatedFrom: undefined, isPropagatedOnly: false, versionOverride: undefined };
-  }
-  if (target.kind === 'directory') {
-    return { propagatedFrom: undefined, isPropagatedOnly: false, versionOverride: target.versionOverride };
-  }
-  return {
-    propagatedFrom: target.propagatedFrom,
-    isPropagatedOnly: target.propagatedOnly === true,
-    versionOverride: target.versionOverride,
-  };
-}
-
-/**
- * Appends the line under the commit count: the dependencies behind a propagation-only bump, or the parsed count. The
- * line sits at column 2, whatever the section's indent is, which keeps the report's whitespace unchanged.
- */
-function formatCommitSummary(lines: string[], target: ReleasedTargetResult, origin: BumpOrigin): void {
-  if (origin.isPropagatedOnly && origin.propagatedFrom !== undefined) {
-    const dependencyNames = origin.propagatedFrom.map((p) => p.packageName).join(', ');
-    lines.push(dim(`  Bumped via dependency: ${dependencyNames}`));
-  } else if (target.parsedCommitCount !== undefined && target.parsedCommitCount > 0) {
-    // Suppress "Parsed 0 typed commits", which says nothing about a forced release without a
-    // parsed commit.
-    lines.push(dim(`  Parsed ${target.parsedCommitCount} typed commits`));
-  }
-}
-
-/**
- * Appends the bump-override / set-version label and the "Bumping versions..." line. The label sits at column 2,
- * whatever the section's indent is, which keeps the report's whitespace unchanged.
- */
-function formatBumpLabels(lines: string[], target: ReleasedTargetResult, origin: BumpOrigin, indent: string): void {
-  if (origin.versionOverride !== undefined) {
-    lines.push(`  Using version override: ${origin.versionOverride}`);
-  } else if (target.bumpOverride !== undefined && !origin.isPropagatedOnly) {
-    lines.push(`  Using bump override: ${target.bumpOverride}`);
-  }
-
-  if (target.releaseType !== undefined) {
-    lines.push(dim(`${indent}Bumping versions (${target.releaseType})...`));
-  } else if (origin.versionOverride !== undefined) {
-    lines.push(dim(`${indent}Bumping versions (version override)...`));
-  }
-}
-
 /** Appends the `currentVersion → newVersion` line with the appropriate suffix. */
 function formatVersionLine(
   lines: string[],
@@ -247,35 +274,12 @@ function formatVersionLine(
   }
 }
 
-/** Formats the propagation suffix for the version bump line (e.g., `, dependency: core`). */
-function formatPropagationSuffix(propagatedFrom: PropagationSource[] | undefined): string {
-  if (propagatedFrom === undefined || propagatedFrom.length === 0) {
-    return '';
+/** Returns a section's title: `project` for a `project` block's composite, else the target's name, if it has one. */
+function getSectionTitle(target: TargetPrepareResult): string | undefined {
+  if (target.kind === 'composite') {
+    return target.targetId === PROJECT_TARGET_ID ? 'project' : target.targetId;
   }
-  const names = propagatedFrom.map((p) => p.packageName).join(', ');
-  return `, dependency: ${names}`;
+  return target.name;
 }
 
-/** Appends format command lines. */
-function formatFormatCommand(lines: string[], result: PrepareResult, options: ReportPrepareOptions): void {
-  if (result.formatCommand === undefined) {
-    return;
-  }
-
-  if (!options.applied) {
-    lines.push(dim(`\n  [dry-run] Would run format command: ${result.formatCommand.command}`));
-    return;
-  }
-
-  if (options.formatError === undefined) {
-    lines.push(dim(`\n  Running format command: ${result.formatCommand.command}`));
-    return;
-  }
-
-  // Indent the failure message to the column at which the status line's message starts.
-  const messageIndent = ' '.repeat(2 + measureGlyphColumn(STATUS_GLYPHS[options.style]) + 1);
-  lines.push(
-    `\n  ${formatStatusLine(options.style, 'warning', `Format command failed: ${result.formatCommand.command}`)}`,
-    `${messageIndent}${options.formatError}`,
-  );
-}
+// endregion | Helpers

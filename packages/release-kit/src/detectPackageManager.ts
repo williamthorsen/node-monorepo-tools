@@ -39,15 +39,6 @@ export function resolveExecutable(packageManager: PackageManager): string {
 
 // region | Helpers
 
-/** Reports whether the version string indicates Yarn v2+. */
-function isYarnBerry(version: string | undefined): boolean {
-  if (version === undefined) {
-    return false;
-  }
-  const majorVersion = Number.parseInt(version, 10);
-  return !Number.isNaN(majorVersion) && majorVersion >= 2;
-}
-
 /** Detects the package manager from the presence of lockfiles. */
 function detectFromLockfile(): PackageManager {
   const cwd = process.cwd();
@@ -63,6 +54,15 @@ function detectFromLockfile(): PackageManager {
   }
 
   return 'npm';
+}
+
+/** Reports whether the version string indicates Yarn v2+. */
+function isYarnBerry(version: string | undefined): boolean {
+  if (version === undefined) {
+    return false;
+  }
+  const majorVersion = Number.parseInt(version, 10);
+  return !Number.isNaN(majorVersion) && majorVersion >= 2;
 }
 
 // endregion | Helpers

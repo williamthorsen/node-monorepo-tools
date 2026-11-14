@@ -12,26 +12,6 @@ interface ParsedVersion {
 }
 
 /**
- * Parses a canonical `N.N.N` version into its numeric components; throws on a pre-release, build metadata, or any
- * other form.
- */
-function parseCanonicalSemver(version: string): ParsedVersion {
-  const match = version.match(CANONICAL_SEMVER_PATTERN);
-  if (!match) {
-    throw new UserError(`Invalid semver version: '${version}'`);
-  }
-
-  // A match always fills all three groups; the defaults only satisfy the type checker.
-  const [, major = '', minor = '', patch = ''] = match;
-
-  return {
-    major: Number.parseInt(major, 10),
-    minor: Number.parseInt(minor, 10),
-    patch: Number.parseInt(patch, 10),
-  };
-}
-
-/**
  * Compares two version strings in descending order (newest first).
  *
  * Valid SemVer inputs are ordered per SemVer §11 (delegated to `semver.rcompare`): prerelease
@@ -66,3 +46,27 @@ export function isForwardVersion(current: string, target: string): boolean {
   }
   return targetParsedVersion.patch > currentParsedVersion.patch;
 }
+
+// region | Helpers
+
+/**
+ * Parses a canonical `N.N.N` version into its numeric components; throws on a pre-release, build metadata, or any
+ * other form.
+ */
+function parseCanonicalSemver(version: string): ParsedVersion {
+  const match = version.match(CANONICAL_SEMVER_PATTERN);
+  if (!match) {
+    throw new UserError(`Invalid semver version: '${version}'`);
+  }
+
+  // A match always fills all three groups; the defaults only satisfy the type checker.
+  const [, major = '', minor = '', patch = ''] = match;
+
+  return {
+    major: Number.parseInt(major, 10),
+    minor: Number.parseInt(minor, 10),
+    patch: Number.parseInt(patch, 10),
+  };
+}
+
+// endregion | Helpers

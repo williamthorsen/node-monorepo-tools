@@ -246,6 +246,7 @@ export function isRepoRoot(target: DirectoryTarget): boolean {
 }
 
 // region | Helpers
+
 /** Names a target in the untagged-baseline error. */
 function describeBaselineLabel(target: ReleaseTarget): string {
   switch (target.kind) {
@@ -255,21 +256,6 @@ function describeBaselineLabel(target: ReleaseTarget): string {
       return `directory '${target.id}'`;
     case 'package':
       return target.isWorkspace ? `workspace '${target.id}'` : 'package';
-  }
-}
-
-/** Adds the kind of the target, and a workspace's or a directory's name, to the fields of its skipped result. */
-function labelSkippedResult(
-  target: ReleaseTarget,
-  fields: Omit<SkippedPackageResult, 'kind' | 'name'>,
-): SkippedCompositeResult | SkippedDirectoryResult | SkippedPackageResult {
-  switch (target.kind) {
-    case 'package':
-      return { ...fields, kind: 'package', ...(target.isWorkspace && { name: target.id }) };
-    case 'directory':
-      return { ...fields, kind: 'directory', name: target.id };
-    case 'composite':
-      return { ...fields, kind: 'composite' };
   }
 }
 
@@ -297,6 +283,21 @@ function isScopeRouted(target: ReleaseTarget): boolean {
     return !isRepoRoot(target);
   }
   return target.kind === 'package' && target.isWorkspace;
+}
+
+/** Adds the kind of the target, and a workspace's or a directory's name, to the fields of its skipped result. */
+function labelSkippedResult(
+  target: ReleaseTarget,
+  fields: Omit<SkippedPackageResult, 'kind' | 'name'>,
+): SkippedCompositeResult | SkippedDirectoryResult | SkippedPackageResult {
+  switch (target.kind) {
+    case 'package':
+      return { ...fields, kind: 'package', ...(target.isWorkspace && { name: target.id }) };
+    case 'directory':
+      return { ...fields, kind: 'directory', name: target.id };
+    case 'composite':
+      return { ...fields, kind: 'composite' };
+  }
 }
 
 // endregion | Helpers

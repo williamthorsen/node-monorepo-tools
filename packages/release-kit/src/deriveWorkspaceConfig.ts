@@ -37,6 +37,8 @@ export function deriveWorkspaceConfig(workspacePath: string): WorkspaceConfig {
   };
 }
 
+// region | Helpers
+
 /**
  * Strips a leading `@scope/` from an npm package name. An npm package name doesn't contain a `/` outside the scope
  * separator, so splitting on the first `/` is safe.
@@ -47,3 +49,5 @@ function stripNpmScope(name: string): string {
   }
   return name;
 }
+
+// endregion | Helpers
