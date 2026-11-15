@@ -330,35 +330,6 @@ function commitAll(repo: string, message: string): void {
   runTestGit(repo, ['commit', '--message', message]);
 }
 
-/** Runs git in `cwd` and returns its stdout. */
-function runTestGit(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
-}
-
-/** Writes a committed fixture repository: two source files on `main`, nothing dirty. */
-function initRepo(tree: TempTree, objectFormat: 'sha1' | 'sha256' = 'sha1'): void {
-  runTestGit(tree.dir, ['init', '--initial-branch=main', `--object-format=${objectFormat}`]);
-  runTestGit(tree.dir, ['config', 'user.email', 'fixture@example.com']);
-  runTestGit(tree.dir, ['config', 'user.name', 'Fixture']);
-  runTestGit(tree.dir, ['config', 'commit.gpgsign', 'false']);
-
-  tree.writeAll({
-    'src/index.ts': 'export const value = 1;\n',
-    'src/other.ts': 'export const other = 1;\n',
-  });
-  commitAll(tree.dir, 'initial');
-}
-
-/** Captures what a write to the repository would change: the object database's contents and the index's bytes. */
-function observeRepository(repo: string): { indexContent: Buffer; objectCountReport: string; objectPaths: string[] } {
-  const objectsDir = path.join(repo, '.git', 'objects');
-  return {
-    indexContent: fs.readFileSync(path.join(repo, '.git', 'index')),
-    objectCountReport: runTestGit(repo, ['count-objects', '-v']),
-    objectPaths: fs.readdirSync(objectsDir, { recursive: true, encoding: 'utf8' }).toSorted(),
-  };
-}
-
 /**
  * Returns the tree id that `git add --all` into a copy of the real index followed by `git write-tree` records, the
  * way the delegation snapshot builds its tree. It writes objects, so a test calls it only after `hashWorkingTree`.
@@ -380,6 +351,55 @@ function computeReferenceTreeId(repo: string): string {
   }
 }
 
+/** Returns the tree id, failing the test if the tree could not be identified. */
+function getTreeId(cwd: string): string {
+  const result = hashWorkingTree(cwd);
+  if (!result.ok) {
+    throw new Error(`expected a tree id, got: ${result.reason}`);
+  }
+  return result.treeId;
+}
+
+/** Writes a committed fixture repository: two source files on `main`, nothing dirty. */
+function initRepo(tree: TempTree, objectFormat: 'sha1' | 'sha256' = 'sha1'): void {
+  runTestGit(tree.dir, ['init', '--initial-branch=main', `--object-format=${objectFormat}`]);
+  runTestGit(tree.dir, ['config', 'user.email', 'fixture@example.com']);
+  runTestGit(tree.dir, ['config', 'user.name', 'Fixture']);
+  runTestGit(tree.dir, ['config', 'commit.gpgsign', 'false']);
+
+  tree.writeAll({
+    'src/index.ts': 'export const value = 1;\n',
+    'src/other.ts': 'export const other = 1;\n',
+  });
+  commitAll(tree.dir, 'initial');
+}
+
+/**
+ * Returns the leading character of every `--porcelain=v2` record that git currently reports, so that a test can
+ * pin which record shape its fixture produces rather than assume it.
+ */
+function listStatusRecordTypes(repo: string): string[] {
+  return runTestGit(repo, ['status', '--porcelain=v2', '-z', '--untracked-files=all'])
+    .split('\0')
+    .filter((record) => record !== '')
+    .map((record) => record.slice(0, 1));
+}
+
+/** Captures what a write to the repository would change: the object database's contents and the index's bytes. */
+function observeRepository(repo: string): { indexContent: Buffer; objectCountReport: string; objectPaths: string[] } {
+  const objectsDir = path.join(repo, '.git', 'objects');
+  return {
+    indexContent: fs.readFileSync(path.join(repo, '.git', 'index')),
+    objectCountReport: runTestGit(repo, ['count-objects', '-v']),
+    objectPaths: fs.readdirSync(objectsDir, { recursive: true, encoding: 'utf8' }).toSorted(),
+  };
+}
+
+/** Runs git in `cwd` and returns its stdout. */
+function runTestGit(cwd: string, args: string[], env?: NodeJS.ProcessEnv): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
 /** Leaves the repository mid-merge with one conflicted path, and returns its entry path. */
 function startConflictingMerge(tree: TempTree): string {
   const conflictedPath = 'src/index.ts';
@@ -399,26 +419,6 @@ function startConflictingMerge(tree: TempTree): string {
   }
 
   return conflictedPath;
-}
-
-/**
- * Returns the leading character of every `--porcelain=v2` record that git currently reports, so that a test can
- * pin which record shape its fixture produces rather than assume it.
- */
-function listStatusRecordTypes(repo: string): string[] {
-  return runTestGit(repo, ['status', '--porcelain=v2', '-z', '--untracked-files=all'])
-    .split('\0')
-    .filter((record) => record !== '')
-    .map((record) => record.slice(0, 1));
-}
-
-/** Returns the tree id, failing the test if the tree could not be identified. */
-function getTreeId(cwd: string): string {
-  const result = hashWorkingTree(cwd);
-  if (!result.ok) {
-    throw new Error(`expected a tree id, got: ${result.reason}`);
-  }
-  return result.treeId;
 }
 
 // endregion | Helpers
