@@ -32,12 +32,7 @@ export function formatRelativeTime(fromIso: string, now: Date): string {
   return pluralize(elapsedYears, 'year');
 }
 
-/** Parses a YYYY-MM-DD (or full ISO) string into a UTC Date; returns undefined if invalid. */
-function parseDateUtc(iso: string): Date | undefined {
-  // ECMAScript parses date-only ISO strings (YYYY-MM-DD) and full ISO strings as UTC.
-  const parsedDate = new Date(iso);
-  return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate;
-}
+// region | Helpers
 
 /** Computes the number of whole months between two dates in UTC. */
 function diffMonthsUtc(fromDate: Date, now: Date): number {
@@ -49,7 +44,16 @@ function diffMonthsUtc(fromDate: Date, now: Date): number {
   return Math.max(0, elapsedMonths);
 }
 
+/** Parses a YYYY-MM-DD (or full ISO) string into a UTC Date; returns undefined if invalid. */
+function parseDateUtc(iso: string): Date | undefined {
+  // ECMAScript parses date-only ISO strings (YYYY-MM-DD) and full ISO strings as UTC.
+  const parsedDate = new Date(iso);
+  return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate;
+}
+
 /** Formats an integer count + unit, pluralizing with a simple `s`. */
 function pluralize(count: number, unit: string): string {
   return `${count} ${unit}${count === 1 ? '' : 's'} ago`;
 }
+
+// endregion | Helpers

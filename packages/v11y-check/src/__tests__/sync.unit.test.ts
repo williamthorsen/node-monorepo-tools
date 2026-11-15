@@ -16,10 +16,6 @@ import {
 } from '../sync.ts';
 import type { AllowlistEntry, AuditResult, V11yCheckConfig } from '../types.ts';
 
-function makeAuditResult(overrides: Partial<AuditResult> & Pick<AuditResult, 'id' | 'path' | 'url'>): AuditResult {
-  return { paths: [overrides.path], ...overrides };
-}
-
 const fixedDate = new Date('2025-06-15T00:00:00Z');
 
 const it = baseIt.extend(
@@ -339,3 +335,11 @@ describe(syncAllowlist, () => {
     await expect(promise).rejects.toHaveProperty('cause.code', 'ENOENT');
   });
 });
+
+// region | Helpers
+
+function makeAuditResult(overrides: Partial<AuditResult> & Pick<AuditResult, 'id' | 'path' | 'url'>): AuditResult {
+  return { paths: [overrides.path], ...overrides };
+}
+
+// endregion | Helpers

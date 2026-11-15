@@ -16,28 +16,6 @@ export function formatFriendlyUtc(date: Date): string {
   return iso.slice(0, 10) + ' ' + iso.slice(11, 19) + ' UTC';
 }
 
-/**
- * Serializes an allowlist entry with keys in alphabetical order.
- *
- * Produces consistent, reviewable JSON diffs regardless of insertion order.
- */
-function serializeEntry(entry: AllowlistEntry): Record<string, string> {
-  return {
-    ...(entry.addedAt !== undefined && { addedAt: entry.addedAt }),
-    id: entry.id,
-    ...(entry.reason !== undefined && { reason: entry.reason }),
-    url: entry.url,
-  };
-}
-
-/** Builds a serializable representation of a scope config with ordered keys. */
-function serializeScopeConfig(scopeConfig: ScopeConfig): Record<string, unknown> {
-  return {
-    ...(scopeConfig.severityThreshold !== undefined && { severityThreshold: scopeConfig.severityThreshold }),
-    allowlist: scopeConfig.allowlist.map(serializeEntry),
-  };
-}
-
 /** An allowlist entry that sync added, with the dependency chains through which the advisory currently arrives. */
 export interface AddedEntry extends AllowlistEntry {
   paths: string[];
@@ -162,6 +140,29 @@ export async function syncAllowlist(
 }
 
 // region | Helpers
+
+/**
+ * Serializes an allowlist entry with keys in alphabetical order.
+ *
+ * Produces consistent, reviewable JSON diffs regardless of insertion order.
+ */
+function serializeEntry(entry: AllowlistEntry): Record<string, string> {
+  return {
+    ...(entry.addedAt !== undefined && { addedAt: entry.addedAt }),
+    id: entry.id,
+    ...(entry.reason !== undefined && { reason: entry.reason }),
+    url: entry.url,
+  };
+}
+
+/** Builds a serializable representation of a scope config with ordered keys. */
+function serializeScopeConfig(scopeConfig: ScopeConfig): Record<string, unknown> {
+  return {
+    ...(scopeConfig.severityThreshold !== undefined && { severityThreshold: scopeConfig.severityThreshold }),
+    allowlist: scopeConfig.allowlist.map(serializeEntry),
+  };
+}
+
 /** Drops the report-only `paths` from an added entry, leaving what the config stores. */
 function toAllowlistEntry(entry: AddedEntry): AllowlistEntry {
   return {
@@ -171,4 +172,5 @@ function toAllowlistEntry(entry: AddedEntry): AllowlistEntry {
     url: entry.url,
   };
 }
+
 // endregion | Helpers
