@@ -13,15 +13,6 @@ export interface WriteResult {
   error?: string;
 }
 
-/** Strips trailing whitespace from each line and from EOF. */
-function normalizeTrailingWhitespace(content: string): string {
-  return content
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .trimEnd();
-}
-
 /**
  * Writes a file with existence and content checks, creating parent directories as needed.
  *
@@ -72,3 +63,16 @@ export function writeFileWithCheck(
 
   return { filePath, outcome };
 }
+
+// region | Helpers
+
+/** Strips trailing whitespace from each line and from EOF. */
+function normalizeTrailingWhitespace(content: string): string {
+  return content
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trimEnd();
+}
+
+// endregion | Helpers

@@ -62,15 +62,15 @@ var default_default = defineRdyKit({
     }
   ]
 });
+function hasNoLegacyAuditCiDirectory() {
+  return !existsSync(join(process.cwd(), ".audit-ci"));
+}
 function getMinVersion() {
   const pickedFields = { "version": "1.0.2" };
   if (typeof pickedFields["version"] !== "string") {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }
   return pickedFields["version"];
-}
-function hasNoLegacyAuditCiDirectory() {
-  return !existsSync(join(process.cwd(), ".audit-ci"));
 }
 export {
   AUDIT_WORKFLOW_HASH,

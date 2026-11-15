@@ -90,7 +90,7 @@
           "path": "../../nmr-core/dist/esm/files/updateManagedFile.js"
         },
         {
-          "hash": "d377c37c",
+          "hash": "b6acb7f3",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/files/writeFileWithCheck.js"
         },
@@ -110,7 +110,7 @@
           "path": "../../nmr-core/dist/esm/git/gitOutputLimit.js"
         },
         {
-          "hash": "62be92c4",
+          "hash": "04d4495a",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/git/hashWorkingTree.js"
         },
@@ -295,7 +295,7 @@
           "path": "../../nmr-core/dist/esm/files/updateManagedFile.js"
         },
         {
-          "hash": "d377c37c",
+          "hash": "b6acb7f3",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/files/writeFileWithCheck.js"
         },
@@ -315,7 +315,7 @@
           "path": "../../nmr-core/dist/esm/git/gitOutputLimit.js"
         },
         {
-          "hash": "62be92c4",
+          "hash": "04d4495a",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/git/hashWorkingTree.js"
         },

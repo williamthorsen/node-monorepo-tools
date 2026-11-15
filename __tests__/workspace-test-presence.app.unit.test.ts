@@ -61,6 +61,8 @@ describe(hasTestFile, () => {
   });
 });
 
+// region | Helpers
+
 /**
  * Walks `dir` depth-first, returning at the first test file found inside a `__tests__` directory. Files elsewhere
  * are ignored, matching what the shared Vitest config collects.
@@ -81,3 +83,5 @@ function hasTestFile(dir: string, inTestDir = false): boolean {
   }
   return false;
 }
+
+// endregion | Helpers

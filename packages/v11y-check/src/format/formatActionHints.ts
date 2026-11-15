@@ -6,21 +6,6 @@ const REMOVE_SYNC_HINT = 'Run `v11y sync` to remove stale allowlist entries.';
 const ADD_AND_REMOVE_SYNC_HINT =
   'Run `v11y sync` to add the listed vulnerabilities to the allowlist and remove stale entries.';
 
-/** Builds the `--verbose` flag string reflecting the original scope flags. */
-function buildVerboseFlag(scopes: AuditScope[]): string {
-  if (scopes.length === 1) {
-    return `--${scopes[0]} --verbose`;
-  }
-  return '--verbose';
-}
-
-/** Picks the sync hint matching the current mix of unallowed vulns and stale entries. */
-function selectSyncHint(hasUnallowed: boolean, hasStale: boolean): string {
-  if (hasUnallowed && hasStale) return ADD_AND_REMOVE_SYNC_HINT;
-  if (hasUnallowed) return ADD_SYNC_HINT;
-  return REMOVE_SYNC_HINT;
-}
-
 /**
  * Computes the "Actions:" footer for check output.
  *
@@ -49,3 +34,22 @@ export function formatActionHints(result: CheckResult, scopes: AuditScope[]): st
 
   return `  Actions:\n${bullets.join('\n')}`;
 }
+
+// region | Helpers
+
+/** Builds the `--verbose` flag string reflecting the original scope flags. */
+function buildVerboseFlag(scopes: AuditScope[]): string {
+  if (scopes.length === 1) {
+    return `--${scopes[0]} --verbose`;
+  }
+  return '--verbose';
+}
+
+/** Picks the sync hint matching the current mix of unallowed vulns and stale entries. */
+function selectSyncHint(hasUnallowed: boolean, hasStale: boolean): string {
+  if (hasUnallowed && hasStale) return ADD_AND_REMOVE_SYNC_HINT;
+  if (hasUnallowed) return ADD_SYNC_HINT;
+  return REMOVE_SYNC_HINT;
+}
+
+// endregion | Helpers

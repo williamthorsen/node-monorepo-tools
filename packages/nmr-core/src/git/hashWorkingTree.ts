@@ -195,11 +195,6 @@ function buildTreeId(options: {
   return { ok: true, treeId: rootId.toString('hex') };
 }
 
-/** Returns the number of directories that contain a path from the toplevel; the root itself has depth 0. */
-function measureDepth(directory: string): number {
-  return directory === '' ? 0 : directory.split('/').length;
-}
-
 /** Returns the entries of `directory`, adding an empty set for a directory not yet seen. */
 function ensureEntries(trees: Map<string, Map<string, GitTreeEntry>>, directory: string): Map<string, GitTreeEntry> {
   let entries = trees.get(directory);
@@ -221,6 +216,11 @@ function hasSymlinkLeadingPath(toplevel: string, relativePath: string): boolean 
       return false;
     }
   });
+}
+
+/** Returns the number of directories that contain a path from the toplevel; the root itself has depth 0. */
+function measureDepth(directory: string): number {
+  return directory === '' ? 0 : directory.split('/').length;
 }
 
 /**

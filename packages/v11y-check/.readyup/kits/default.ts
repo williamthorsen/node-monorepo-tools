@@ -75,6 +75,11 @@ export default defineRdyKit({
   ],
 });
 
+/** Checks that the working directory does not contain a legacy `.audit-ci/` directory. */
+export function hasNoLegacyAuditCiDirectory(): boolean {
+  return !existsSync(join(process.cwd(), '.audit-ci'));
+}
+
 // region | Helpers
 
 /** Returns the minimum v11y-check version that the kit requires: this package's own version. */
@@ -87,11 +92,6 @@ function getMinVersion(): string {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }
   return pickedFields['version'];
-}
-
-/** Checks that the working directory does not contain a legacy `.audit-ci/` directory. */
-export function hasNoLegacyAuditCiDirectory(): boolean {
-  return !existsSync(join(process.cwd(), '.audit-ci'));
 }
 
 // endregion | Helpers

@@ -12,16 +12,6 @@ interface ScaffoldModule {
   copyWorkflowTemplate: (isDryRun: boolean, overwrite: boolean) => { filePath: string; outcome: string };
 }
 
-/** Checks whether a dynamic import result exports `copyWorkflowTemplate` as a function. */
-function isScaffoldModule(value: unknown): value is ScaffoldModule {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'copyWorkflowTemplate' in value &&
-    typeof value.copyWorkflowTemplate === 'function'
-  );
-}
-
 describe('copyWorkflowTemplate (packaged)', () => {
   it('resolves audit.yaml.template from the built output and writes .github/workflows/audit.yaml', async () => {
     assert(
@@ -47,3 +37,17 @@ describe('copyWorkflowTemplate (packaged)', () => {
     expect(content).toContain('name: Dependency audit');
   });
 });
+
+// region | Helpers
+
+/** Checks whether a dynamic import result exports `copyWorkflowTemplate` as a function. */
+function isScaffoldModule(value: unknown): value is ScaffoldModule {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'copyWorkflowTemplate' in value &&
+    typeof value.copyWorkflowTemplate === 'function'
+  );
+}
+
+// endregion | Helpers

@@ -25,6 +25,8 @@ describe('rdy kit source files', () => {
   });
 });
 
+// region | Helpers
+
 /** Collects every kit source in the repo, as monorepo-relative paths, from the root and each workspace package. */
 function findKitSources(): string[] {
   return [monorepoRoot, ...getWorkspacePackageDirs(monorepoRoot)]
@@ -37,3 +39,5 @@ function findKitSources(): string[] {
     )
     .toSorted();
 }
+
+// endregion | Helpers
