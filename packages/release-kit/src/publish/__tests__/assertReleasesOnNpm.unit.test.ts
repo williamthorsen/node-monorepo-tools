@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { NpmPackageLookup } from '../../clients/npm/npm-registry.ts';
+import { type NpmPackageLookup, realNpm } from '../../clients/npm/npm-registry.ts';
 import { assertReleasesOnNpm } from '../assertReleasesOnNpm.ts';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
@@ -11,7 +11,8 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../../clients/npm/npm-registry.ts'), () => ({
+vi.mock(import('../../clients/npm/npm-registry.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   lookUpNpmPackage: mockLookUpNpmPackage,
 }));
 
@@ -42,14 +43,14 @@ describe(assertReleasesOnNpm, () => {
 
   it('passes when npm lists every publishable package', () => {
     expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'])).not.toThrow();
-    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/arrays', undefined);
-    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/strings', undefined);
+    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/arrays', undefined, realNpm);
+    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/strings', undefined, realNpm);
   });
 
   it('reads the root package.json for a single-package repo', () => {
     assertReleasesOnNpm(['.']);
 
-    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('single', undefined);
+    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('single', undefined, realNpm);
   });
 
   it('does not call the registry when there are no workspaces to check', () => {
@@ -67,7 +68,7 @@ describe(assertReleasesOnNpm, () => {
   it("queries the registry that the package's publishConfig names", () => {
     assertReleasesOnNpm(['packages/mirrored']);
 
-    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/mirrored', 'https://npm.example.com/');
+    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/mirrored', 'https://npm.example.com/', realNpm);
   });
 
   it('names each unpublished package with the command that publishes it', () => {

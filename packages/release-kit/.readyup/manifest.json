@@ -345,7 +345,7 @@
           "path": "../../nmr-core/dist/esm/timer.js"
         },
         {
-          "hash": "65329bfe",
+          "hash": "530ed5bd",
           "kind": "module",
           "path": "kits/npm-auto-publish.ts"
         },
@@ -355,7 +355,7 @@
           "path": "lib/npm-trust.ts"
         },
         {
-          "hash": "4f6456ae",
+          "hash": "853a2b05",
           "kind": "module",
           "path": "../src/clients/npm/npm-registry.ts"
         },
@@ -369,8 +369,8 @@
       "path": "kits/npm-auto-publish.js",
       "readyupVersion": "0.46.2",
       "source": "kits/npm-auto-publish.ts",
-      "sourceHash": "65329bfe",
-      "targetHash": "28c12aa3"
+      "sourceHash": "530ed5bd",
+      "targetHash": "77292676"
     }
   ]
 }

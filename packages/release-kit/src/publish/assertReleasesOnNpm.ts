@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
-import { lookUpNpmPackage } from '../clients/npm/npm-registry.ts';
+import { lookUpNpmPackage, type Npm, realNpm } from '../clients/npm/npm-registry.ts';
 import { readJsonFile } from '../portable/readJsonFile.ts';
 import { isPublishableManifest } from '../targets/isPublishableManifest.ts';
 
@@ -12,7 +12,7 @@ import { isPublishableManifest } from '../targets/isPublishableManifest.ts';
  * Each workspace path is repo-relative and is read from the current directory. A private package is not looked up,
  * and an empty list doesn't call the registry at all.
  */
-export function assertReleasesOnNpm(workspacePaths: readonly string[]): void {
+export function assertReleasesOnNpm(workspacePaths: readonly string[], npm: Npm = realNpm): void {
   const unpublishedCandidates: NpmCandidate[] = [];
   const unverifiableCandidates: Array<{ candidate: NpmCandidate; detail: string }> = [];
 
@@ -22,7 +22,7 @@ export function assertReleasesOnNpm(workspacePaths: readonly string[]): void {
       continue;
     }
 
-    const lookup = lookUpNpmPackage(candidate.name, candidate.registry);
+    const lookup = lookUpNpmPackage(candidate.name, candidate.registry, npm);
     if (lookup.status === 'unpublished') {
       unpublishedCandidates.push(candidate);
     } else if (lookup.status === 'unverifiable') {

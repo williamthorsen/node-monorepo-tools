@@ -14,7 +14,8 @@ import { applyReleasePlan, type ReleasePlan } from '../release-plan.ts';
 import { reportPrepare } from '../reportPrepare.ts';
 
 // The fixture packages exist only in the temp repo, so the npm check would refuse them; this suite stays off the network.
-vi.mock(import('../../clients/npm/npm-registry.ts'), () => ({
+vi.mock(import('../../clients/npm/npm-registry.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   lookUpNpmPackage: () => ({ status: 'published' }),
 }));
 

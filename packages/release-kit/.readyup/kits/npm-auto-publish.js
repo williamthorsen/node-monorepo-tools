@@ -37,10 +37,10 @@ var UNREACHABLE_ERROR_CODES = /* @__PURE__ */ new Set([
   "ETIMEDOUT"
 ]);
 function classifyNpmPackageLookup(result) {
-  if (result.exitOk) {
+  if (result.ok) {
     return { status: "published" };
   }
-  const error = readNpmError(result.stdout);
+  const { error } = result;
   if (error === void 0) {
     return { status: "unverifiable", detail: "The npm registry query failed without a readable error payload" };
   }
@@ -55,9 +55,8 @@ function classifyNpmPackageLookup(result) {
   }
   return { status: "unverifiable", detail: `The npm registry query failed (${error.code}): ${error.summary}` };
 }
-function lookUpNpmPackage(packageName, registry) {
-  const args = ["view", packageName, "version", "--json", ...registry === void 0 ? [] : ["--registry", registry]];
-  return classifyNpmPackageLookup(runNpmJson(args));
+function lookUpNpmPackage(packageName, registry, npm) {
+  return classifyNpmPackageLookup(npm.viewVersion(packageName, registry));
 }
 function readNpmError(stdout) {
   let parsedJson;
@@ -72,6 +71,19 @@ function readNpmError(stdout) {
   const { code, summary } = parsedJson["error"];
   return { code, summary: typeof summary === "string" ? summary : "" };
 }
+var realNpm = {
+  viewVersion: (packageName, registry) => {
+    const args = [
+      "view",
+      packageName,
+      "version",
+      "--json",
+      ...registry === void 0 ? [] : ["--registry", registry]
+    ];
+    const result = runNpmJson(args);
+    return result.exitOk ? { ok: true } : { ok: false, error: readNpmError(result.stdout) };
+  }
+};
 function runNpmJson(args) {
   try {
     return { exitOk: true, stdout: execFileSync("npm", args, { encoding: "utf8", stdio: "pipe" }) };
@@ -346,7 +358,7 @@ function buildWorkspaceCheck(workspace) {
         const auth = getCachedNpmAuthStatus();
         return auth.status === "unreachable" && auth.detail;
       },
-      check: () => describeNpmPackageLookup(lookUpNpmPackage(displayName, readPublishRegistry(workspace))),
+      check: () => describeNpmPackageLookup(lookUpNpmPackage(displayName, readPublishRegistry(workspace), realNpm)),
       fix: `Run "npm publish --access public" from ${workspace.dir} to bootstrap the package on npm`,
       checks: [
         {

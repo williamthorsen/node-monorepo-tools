@@ -26,7 +26,8 @@ vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../../clients/npm/npm-registry.ts'), () => ({
+vi.mock(import('../../clients/npm/npm-registry.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   lookUpNpmPackage: mockLookUpNpmPackage,
 }));
 
