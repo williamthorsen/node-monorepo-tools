@@ -12,6 +12,15 @@ const IMPORT_WRAPPER = "await import('../dist/esm/cli.js');\n";
 const URL_WRAPPER =
   "const entryPoint = new URL('../dist/esm/cli.js', import.meta.url);\nawait import(entryPoint.href);\n";
 
+/** A wrapper that loads the source entry when it is present and the build entry otherwise. */
+const SOURCE_FIRST_WRAPPER = [
+  "import { existsSync } from 'node:fs';",
+  "const sourceEntry = new URL('../src/cli.ts', import.meta.url);",
+  "const buildEntry = new URL('../dist/esm/cli.js', import.meta.url);",
+  'await import((existsSync(sourceEntry) ? sourceEntry : buildEntry).href);',
+  '',
+].join('\n');
+
 describe(everyBinWrapperTargetIsCoveredByFiles, () => {
   it('passes when files names the directory from which the wrapper loads', () => {
     useMonorepo({
@@ -39,6 +48,35 @@ describe(everyBinWrapperTargetIsCoveredByFiles, () => {
     });
 
     expect(getDetail(everyBinWrapperTargetIsCoveredByFiles())).toContain('-> dist/esm/cli.js');
+  });
+
+  it('passes a wrapper that loads source first when files names the build output', () => {
+    useMonorepo({
+      'packages/tool/bin/tool.js': SOURCE_FIRST_WRAPPER,
+      'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' }, files: ['bin', 'dist'] }),
+    });
+
+    expect(everyBinWrapperTargetIsCoveredByFiles()).toBe(true);
+  });
+
+  it('reports the build output of a wrapper that loads source first when files omits it', () => {
+    useMonorepo({
+      'packages/tool/bin/tool.js': SOURCE_FIRST_WRAPPER,
+      'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' }, files: ['bin'] }),
+    });
+
+    const detail = getDetail(everyBinWrapperTargetIsCoveredByFiles());
+    expect(detail).toContain('@fixture/tool:tool -> bin/tool.js -> dist/esm/cli.js');
+    expect(detail).not.toContain('src/');
+  });
+
+  it('skips a wrapper that does not name a specifier under the build output', () => {
+    useMonorepo({
+      'packages/tool/bin/tool.js': "await import('../src/cli.ts');\n",
+      'packages/tool/package.json': buildManifest({ bin: { tool: 'bin/tool.js' }, files: ['bin'] }),
+    });
+
+    expect(everyBinWrapperTargetIsCoveredByFiles()).toBe(true);
   });
 
   it('skips a package that does not declare files, which publishes its whole tree', () => {

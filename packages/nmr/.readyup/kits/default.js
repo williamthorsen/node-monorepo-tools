@@ -7433,7 +7433,7 @@ function readFileIn(cwd, relativePath) {
 
 // .readyup/lib/bin-targets.ts
 var BUILD_OUTPUT_DIR = "dist";
-var WRAPPER_TARGET_PATTERN = /['"](\.\.?\/[^'"]+)['"]/;
+var WRAPPER_SPECIFIER_PATTERN = /['"](\.\.?\/[^'"]+)['"]/g;
 var binTargetChecks = [
   {
     name: "every bin target is a committed wrapper",
@@ -7510,9 +7510,13 @@ function readWrapperTarget(cwd, workspace, entry) {
   if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return void 0;
   const content = readFileIn(cwd, `${workspace.dir}/${entry.target}`);
   if (content === void 0) return void 0;
-  const specifier = WRAPPER_TARGET_PATTERN.exec(content)?.[1];
-  if (specifier === void 0) return void 0;
-  return posix.normalize(posix.join(posix.dirname(entry.target), specifier));
+  const wrapperDir = posix.dirname(entry.target);
+  for (const [, specifier] of content.matchAll(WRAPPER_SPECIFIER_PATTERN)) {
+    if (specifier === void 0) continue;
+    const target = posix.normalize(posix.join(wrapperDir, specifier));
+    if (readFirstSegment(target) === BUILD_OUTPUT_DIR) return target;
+  }
+  return void 0;
 }
 
 // .readyup/lib/root-scripts.ts
