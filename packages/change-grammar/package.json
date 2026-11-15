@@ -40,7 +40,7 @@
   "devDependencies": {
     "@williamthorsen/nmr": "workspace:*",
     "ajv": "8.20.0",
-    "eslint": "10.14.0",
+    "eslint": "10.15.0",
     "vitest": "catalog:"
   },
   "engines": {
