@@ -180,7 +180,7 @@
           "path": "kits/default.ts"
         },
         {
-          "hash": "fbdddbc3",
+          "hash": "e2eb1111",
           "kind": "module",
           "path": "lib/bin-targets.ts"
         },
@@ -363,7 +363,7 @@
       "readyupVersion": "0.46.2",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "9d07e5f2"
+      "targetHash": "92739a3f"
     }
   ]
 }

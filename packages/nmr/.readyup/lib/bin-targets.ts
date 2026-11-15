@@ -9,12 +9,13 @@ import { discoverWorkspacesOrFailure, formatPaths, readFileIn } from './repo-fil
 const BUILD_OUTPUT_DIR = 'dist';
 
 /**
- * Matches the first relative specifier named by a bin wrapper, which is the build entry that it loads at runtime.
+ * Matches each relative specifier named by a bin wrapper, among which the one under `dist/` is the build entry that
+ * it loads at runtime.
  *
  * One pattern reaches both shapes in use: `await import('../dist/esm/cli.js')`, and
  * `new URL('../dist/esm/cli.js', import.meta.url)` whose href the wrapper then imports.
  */
-const WRAPPER_TARGET_PATTERN = /['"](\.\.?\/[^'"]+)['"]/;
+const WRAPPER_SPECIFIER_PATTERN = /['"](\.\.?\/[^'"]+)['"]/g;
 
 /** One `bin` entry of a workspace package, with its target normalized to a package-relative path. */
 interface BinEntry {
@@ -76,7 +77,7 @@ export async function everyBinTargetIsACommittedWrapper(): Promise<boolean | Che
  *
  * A package that does not declare `files` skips, as does a target under `dist/`, which is build output rather than
  * a wrapper and belongs to `everyBinTargetIsACommittedWrapper`. An unreadable file and one that does not name a
- * relative specifier skip too: The wrapper's shape is a convention rather than a contract.
+ * relative specifier under `dist/` skip too: The wrapper's shape is a convention rather than a contract.
  *
  * @internal - Exported only to enable testing
  */
@@ -165,9 +166,11 @@ function readFirstSegment(entry: string): string {
 /**
  * Resolves the build entry that a wrapper loads, as a package-relative path, or undefined when it does not name one.
  *
- * A target under `dist/` resolves to undefined: It is build output rather than a wrapper, and in a built
- * checkout reading it would match the compiled entry's own first relative import. A build directory under any
- * other name is still read as a wrapper, which is a limitation of identifying one by `dist/` alone.
+ * The build entry is the first relative specifier that resolves under `dist/`, so a wrapper that loads `src/` when
+ * present and the build output otherwise is read by its build output. A target under `dist/` resolves to undefined:
+ * It is build output rather than a wrapper, and in a built checkout reading it would match the compiled entry's own
+ * relative imports. A build directory under any other name is not recognized, which is a limitation of identifying
+ * build output by `dist/` alone.
  */
 function readWrapperTarget(cwd: string, workspace: Workspace, entry: BinEntry): string | undefined {
   if (readFirstSegment(entry.target) === BUILD_OUTPUT_DIR) return undefined;
@@ -175,10 +178,14 @@ function readWrapperTarget(cwd: string, workspace: Workspace, entry: BinEntry): 
   const content = readFileIn(cwd, `${workspace.dir}/${entry.target}`);
   if (content === undefined) return undefined;
 
-  const specifier = WRAPPER_TARGET_PATTERN.exec(content)?.[1];
-  if (specifier === undefined) return undefined;
+  const wrapperDir = posix.dirname(entry.target);
+  for (const [, specifier] of content.matchAll(WRAPPER_SPECIFIER_PATTERN)) {
+    if (specifier === undefined) continue;
+    const target = posix.normalize(posix.join(wrapperDir, specifier));
+    if (readFirstSegment(target) === BUILD_OUTPUT_DIR) return target;
+  }
 
-  return posix.normalize(posix.join(posix.dirname(entry.target), specifier));
+  return undefined;
 }
 
 // endregion | Helpers
