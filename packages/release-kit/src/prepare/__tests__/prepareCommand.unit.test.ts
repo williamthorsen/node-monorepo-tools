@@ -9,7 +9,6 @@ const {
   makePrepareResult,
   mockAssertCleanWorkingTree,
   mockDiscoverWorkspaces,
-  mockExecSync,
   mockExistsSync,
   mockLoadConfig,
   mockLookUpNpmPackage,
@@ -24,16 +23,13 @@ vi.mock(import('../../publish/assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: vi.fn(),
 }));
 
-vi.mock(import('node:child_process'), () => ({
-  execSync: mockExecSync,
-}));
-
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../../clients/npm/npm-registry.ts'), () => ({
+vi.mock(import('../../clients/npm/npm-registry.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   lookUpNpmPackage: mockLookUpNpmPackage,
 }));
 
@@ -71,6 +67,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 import { realGit } from '../../clients/git/git.ts';
 import { ConfigProblemError } from '../../config/loadValidatedConfig.ts';
 import { makePrepareOptions } from '../../test-utils/command-options.ts';
+import { makeFakeShell } from '../../test-utils/makeFakeShell.ts';
 import { makeEmptyWorkspace, makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import { prepareCommand } from '../prepareCommand.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from '../release-files.ts';
@@ -380,6 +377,19 @@ describe(prepareCommand, () => {
     expect(error.message).toContain('Not written:');
   });
 
+  it("runs the plan's format command after applying the release", async () => {
+    mockPrepareReleaseTargets.mockReturnValue(
+      makePrepareResult({
+        formatCommand: { command: 'npx prettier --write packages/arrays/package.json', files: [] },
+      }),
+    );
+    const shell = makeFakeShell();
+
+    await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }), shell);
+
+    expect(shell.run).toHaveBeenCalledExactlyOnceWith('npx prettier --write packages/arrays/package.json');
+  });
+
   it('leaves the release applied and the tags file written when the format command fails', async () => {
     mockPrepareReleaseTargets.mockReturnValue(
       makePrepareResult({
@@ -387,11 +397,15 @@ describe(prepareCommand, () => {
         formatCommand: { command: 'npx prettier --write packages/arrays/package.json', files: [] },
       }),
     );
-    mockExecSync.mockImplementation(() => {
-      throw new Error('prettier exited with code 2');
+    const shell = makeFakeShell({
+      run: () => {
+        throw new Error('prettier exited with code 2');
+      },
     });
 
-    const error = await captureError(UserError, () => prepareCommand(makePrepareOptions({ styles: RICH_STYLES })));
+    const error = await captureError(UserError, () =>
+      prepareCommand(makePrepareOptions({ styles: RICH_STYLES }), shell),
+    );
     expect(mockWriteFileWithCheck).toHaveBeenCalledWith(RELEASE_TAGS_FILE, 'arrays-v1.0.0', expect.any(Object));
     expect(error.message).toContain('the release is prepared');
   });

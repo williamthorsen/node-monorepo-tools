@@ -1,19 +1,17 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { NpmPackageLookup } from '../../clients/npm/npm-registry.ts';
+import type { NpmViewResult } from '../../clients/npm/npm-registry.ts';
+import { type FakeNpm, makeFakeNpm } from '../../test-utils/makeFakeNpm.ts';
 import { assertReleasesOnNpm } from '../assertReleasesOnNpm.ts';
 
 const mockReadFileSync = vi.hoisted(() => vi.fn());
-const mockLookUpNpmPackage = vi.hoisted(() => vi.fn());
 
 vi.mock(import('node:fs'), () => ({
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../../clients/npm/npm-registry.ts'), () => ({
-  lookUpNpmPackage: mockLookUpNpmPackage,
-}));
+const NOT_FOUND: NpmViewResult = { ok: false, error: { code: 'E404', summary: 'Not Found' } };
 
 const MANIFESTS: Record<string, unknown> = {
   'package.json': { name: 'single' },
@@ -27,6 +25,8 @@ const MANIFESTS: Record<string, unknown> = {
 };
 
 describe(assertReleasesOnNpm, () => {
+  let npm: FakeNpm;
+
   beforeEach(() => {
     mockReadFileSync.mockReset();
     mockReadFileSync.mockImplementation((filePath: string) => {
@@ -36,45 +36,44 @@ describe(assertReleasesOnNpm, () => {
       }
       return JSON.stringify(manifest);
     });
-    mockLookUpNpmPackage.mockReset();
-    mockLookUpNpmPackage.mockReturnValue({ status: 'published' } satisfies NpmPackageLookup);
+    npm = makeFakeNpm();
   });
 
   it('passes when npm lists every publishable package', () => {
-    expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'])).not.toThrow();
-    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/arrays', undefined);
-    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/strings', undefined);
+    expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'], npm)).not.toThrow();
+    expect(npm.viewVersion).toHaveBeenCalledWith('@scope/arrays', undefined);
+    expect(npm.viewVersion).toHaveBeenCalledWith('@scope/strings', undefined);
   });
 
   it('reads the root package.json for a single-package repo', () => {
-    assertReleasesOnNpm(['.']);
+    assertReleasesOnNpm(['.'], npm);
 
-    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('single', undefined);
+    expect(npm.viewVersion).toHaveBeenCalledWith('single', undefined);
   });
 
   it('does not call the registry when there are no workspaces to check', () => {
-    assertReleasesOnNpm([]);
+    assertReleasesOnNpm([], npm);
 
-    expect(mockLookUpNpmPackage).not.toHaveBeenCalled();
+    expect(npm.viewVersion).not.toHaveBeenCalled();
   });
 
   it('does not look up a private package', () => {
-    assertReleasesOnNpm(['packages/internal']);
+    assertReleasesOnNpm(['packages/internal'], npm);
 
-    expect(mockLookUpNpmPackage).not.toHaveBeenCalled();
+    expect(npm.viewVersion).not.toHaveBeenCalled();
   });
 
   it("queries the registry that the package's publishConfig names", () => {
-    assertReleasesOnNpm(['packages/mirrored']);
+    assertReleasesOnNpm(['packages/mirrored'], npm);
 
-    expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/mirrored', 'https://npm.example.com/');
+    expect(npm.viewVersion).toHaveBeenCalledWith('@scope/mirrored', 'https://npm.example.com/');
   });
 
   it('names each unpublished package with the command that publishes it', () => {
-    mockLookUpNpmPackage.mockReturnValue({ status: 'unpublished' } satisfies NpmPackageLookup);
+    npm.viewVersion.mockReturnValue(NOT_FOUND);
 
-    expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'])).toThrow(UserError);
-    expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'])).toThrow(
+    expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'], npm)).toThrow(UserError);
+    expect(() => assertReleasesOnNpm(['packages/arrays', 'packages/strings'], npm)).toThrow(
       [
         'Cannot prepare the release: npm must already have every package that the release publishes.',
         '',
@@ -87,12 +86,12 @@ describe(assertReleasesOnNpm, () => {
   });
 
   it('reports a package that it could not look up separately, without advising a publish', () => {
-    mockLookUpNpmPackage.mockReturnValue({
-      status: 'unverifiable',
-      detail: 'Cannot reach the npm registry (ENOTFOUND)',
-    } satisfies NpmPackageLookup);
+    npm.viewVersion.mockReturnValue({
+      ok: false,
+      error: { code: 'ENOTFOUND', summary: 'getaddrinfo ENOTFOUND registry.npmjs.org' },
+    });
 
-    const runAssertion = () => assertReleasesOnNpm(['packages/arrays']);
+    const runAssertion = () => assertReleasesOnNpm(['packages/arrays'], npm);
 
     expect(runAssertion).toThrow(UserError);
     expect(runAssertion).toThrow(
@@ -102,14 +101,14 @@ describe(assertReleasesOnNpm, () => {
   });
 
   it('lists every failing package, unpublished and unconfirmed alike', () => {
-    mockLookUpNpmPackage.mockImplementation((name: string): NpmPackageLookup =>
-      name === '@scope/arrays' ? { status: 'unpublished' } : { status: 'unverifiable', detail: 'E500' },
+    npm.viewVersion.mockImplementation((name): NpmViewResult =>
+      name === '@scope/arrays' ? NOT_FOUND : { ok: false, error: { code: 'E500', summary: 'Internal Server Error' } },
     );
 
-    const runAssertion = () => assertReleasesOnNpm(['packages/arrays', 'packages/strings']);
+    const runAssertion = () => assertReleasesOnNpm(['packages/arrays', 'packages/strings'], npm);
 
     expect(runAssertion).toThrow(UserError);
     expect(runAssertion).toThrow('  - @scope/arrays: run "npm publish --access public" from packages/arrays');
-    expect(runAssertion).toThrow('  - @scope/strings: E500');
+    expect(runAssertion).toThrow('  - @scope/strings: The npm registry query failed (E500): Internal Server Error');
   });
 });

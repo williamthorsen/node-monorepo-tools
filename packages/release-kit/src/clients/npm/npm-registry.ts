@@ -21,12 +21,12 @@ export const UNREACHABLE_ERROR_CODES: ReadonlySet<string> = new Set([
  *
  * Only `E404` means that the registry doesn't know the package; any other failure leaves the question open.
  */
-export function classifyNpmPackageLookup(result: NpmCommandResult): NpmPackageLookup {
-  if (result.exitOk) {
+export function classifyNpmPackageLookup(result: NpmViewResult): NpmPackageLookup {
+  if (result.ok) {
     return { status: 'published' };
   }
 
-  const error = readNpmError(result.stdout);
+  const { error } = result;
   if (error === undefined) {
     return { status: 'unverifiable', detail: 'The npm registry query failed without a readable error payload' };
   }
@@ -47,9 +47,14 @@ export function classifyNpmPackageLookup(result: NpmCommandResult): NpmPackageLo
 }
 
 /** Looks up whether a package exists on the npm registry, querying `registry` when one is given. */
-export function lookUpNpmPackage(packageName: string, registry?: string): NpmPackageLookup {
-  const args = ['view', packageName, 'version', '--json', ...(registry === undefined ? [] : ['--registry', registry])];
-  return classifyNpmPackageLookup(runNpmJson(args));
+export function lookUpNpmPackage(packageName: string, registry: string | undefined, npm: Npm): NpmPackageLookup {
+  return classifyNpmPackageLookup(npm.viewVersion(packageName, registry));
+}
+
+/** The npm operations that release-kit runs. */
+export interface Npm {
+  /** Runs `npm view <package> version --json`, querying `registry` when one is given; never throws. */
+  viewVersion(packageName: string, registry?: string): NpmViewResult;
 }
 
 export interface NpmCommandResult {
@@ -64,6 +69,9 @@ export interface NpmErrorPayload {
 
 export type NpmPackageLookup =
   { status: 'published' } | { status: 'unpublished' } | { status: 'unverifiable'; detail: string };
+
+/** The outcome of an npm query: success, or failure with npm's error envelope when stdout contains a readable one. */
+export type NpmViewResult = { ok: true } | { ok: false; error: NpmErrorPayload | undefined };
 
 /** Reads npm's `--json` error envelope, which npm writes to stdout on both the success and failure paths. */
 export function readNpmError(stdout: string): NpmErrorPayload | undefined {
@@ -81,6 +89,21 @@ export function readNpmError(stdout: string): NpmErrorPayload | undefined {
   const { code, summary } = parsedJson['error'];
   return { code, summary: typeof summary === 'string' ? summary : '' };
 }
+
+/** The `Npm` that runs the `npm` CLI in the process's working directory. */
+export const realNpm: Npm = {
+  viewVersion: (packageName, registry) => {
+    const args = [
+      'view',
+      packageName,
+      'version',
+      '--json',
+      ...(registry === undefined ? [] : ['--registry', registry]),
+    ];
+    const result = runNpmJson(args);
+    return result.exitOk ? { ok: true } : { ok: false, error: readNpmError(result.stdout) };
+  },
+};
 
 /**
  * Runs npm with the given arguments, capturing stdout whether or not the command exits zero.

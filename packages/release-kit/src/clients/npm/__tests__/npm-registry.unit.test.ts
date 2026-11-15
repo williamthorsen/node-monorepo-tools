@@ -1,102 +1,95 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { lookUpNpmPackage } from '../npm-registry.ts';
-
-const mockExecFileSync = vi.hoisted(() => vi.fn());
-
-vi.mock(import('node:child_process'), () => ({
-  execFileSync: mockExecFileSync,
-}));
+import { makeFakeNpm } from '../../../test-utils/makeFakeNpm.ts';
+import { lookUpNpmPackage, type NpmErrorPayload, readNpmError } from '../npm-registry.ts';
 
 describe(lookUpNpmPackage, () => {
-  beforeEach(() => {
-    mockExecFileSync.mockReset();
-  });
-
   it('reports a package that npm can view as published', () => {
-    mockExecFileSync.mockReturnValue('"1.2.3"\n');
+    const npm = makeFakeNpm();
 
-    expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({ status: 'published' });
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npm',
-      ['view', '@scope/pkg', 'version', '--json'],
-      expect.objectContaining({ stdio: 'pipe' }),
-    );
+    expect(lookUpNpmPackage('@scope/pkg', undefined, npm)).toStrictEqual({ status: 'published' });
+    expect(npm.viewVersion).toHaveBeenCalledExactlyOnceWith('@scope/pkg', undefined);
   });
 
   it('queries the given registry', () => {
-    mockExecFileSync.mockReturnValue('"1.2.3"\n');
+    const npm = makeFakeNpm();
 
-    lookUpNpmPackage('@scope/pkg', 'https://npm.example.com/');
+    lookUpNpmPackage('@scope/pkg', 'https://npm.example.com/', npm);
 
-    expect(mockExecFileSync).toHaveBeenCalledWith(
-      'npm',
-      ['view', '@scope/pkg', 'version', '--json', '--registry', 'https://npm.example.com/'],
-      expect.anything(),
-    );
+    expect(npm.viewVersion).toHaveBeenCalledExactlyOnceWith('@scope/pkg', 'https://npm.example.com/');
   });
 
   it('reports an E404 as unpublished', () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw buildNpmFailure(buildErrorPayload('E404', 'Not Found - GET https://registry.npmjs.org/@scope%2fpkg'));
-    });
+    const npm = makeFailingNpm({ code: 'E404', summary: 'Not Found - GET https://registry.npmjs.org/@scope%2fpkg' });
 
-    expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({ status: 'unpublished' });
+    expect(lookUpNpmPackage('@scope/pkg', undefined, npm)).toStrictEqual({ status: 'unpublished' });
   });
 
   it('reports an unreachable registry as unverifiable', () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw buildNpmFailure(buildErrorPayload('ENOTFOUND', 'getaddrinfo ENOTFOUND registry.npmjs.org'));
-    });
+    const npm = makeFailingNpm({ code: 'ENOTFOUND', summary: 'getaddrinfo ENOTFOUND registry.npmjs.org' });
 
-    expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({
+    expect(lookUpNpmPackage('@scope/pkg', undefined, npm)).toStrictEqual({
       status: 'unverifiable',
       detail: 'Cannot reach the npm registry (ENOTFOUND)',
     });
   });
 
   it('reports a rejected session as unverifiable', () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw buildNpmFailure(buildErrorPayload('E401', '401 Unauthorized'));
-    });
+    const npm = makeFailingNpm({ code: 'E401', summary: '401 Unauthorized' });
 
-    expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({
+    expect(lookUpNpmPackage('@scope/pkg', undefined, npm)).toStrictEqual({
       status: 'unverifiable',
       detail: 'The npm registry rejected the session (E401)',
     });
   });
 
   it('reports any other npm error as unverifiable, with its code and summary', () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw buildNpmFailure(buildErrorPayload('E500', 'Internal Server Error'));
-    });
+    const npm = makeFailingNpm({ code: 'E500', summary: 'Internal Server Error' });
 
-    expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({
+    expect(lookUpNpmPackage('@scope/pkg', undefined, npm)).toStrictEqual({
       status: 'unverifiable',
       detail: 'The npm registry query failed (E500): Internal Server Error',
     });
   });
 
   it('reports a failure without a readable payload as unverifiable', () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw buildNpmFailure('');
-    });
+    const npm = makeFailingNpm(undefined);
 
-    expect(lookUpNpmPackage('@scope/pkg')).toStrictEqual({
+    expect(lookUpNpmPackage('@scope/pkg', undefined, npm)).toStrictEqual({
       status: 'unverifiable',
       detail: 'The npm registry query failed without a readable error payload',
     });
   });
 });
 
+describe(readNpmError, () => {
+  it("reads the code and summary of npm's error envelope", () => {
+    const stdout = JSON.stringify({ error: { code: 'E404', summary: 'Not Found', detail: '' } });
+
+    expect(readNpmError(stdout)).toStrictEqual({ code: 'E404', summary: 'Not Found' });
+  });
+
+  it('returns undefined when stdout is not JSON', () => {
+    expect(readNpmError('npm error code E404')).toBeUndefined();
+  });
+
+  it('returns undefined when the error code is not a string', () => {
+    expect(readNpmError(JSON.stringify({ error: { code: 404, summary: 'Not Found' } }))).toBeUndefined();
+  });
+
+  it('reads an empty summary when the summary is not a string', () => {
+    expect(readNpmError(JSON.stringify({ error: { code: 'E500', summary: null } }))).toStrictEqual({
+      code: 'E500',
+      summary: '',
+    });
+  });
+});
+
 // region | Helpers
-/** Builds npm's `--json` error envelope. */
-function buildErrorPayload(code: string, summary: string): string {
-  return JSON.stringify({ error: { code, summary, detail: '' } });
+
+/** Builds an `Npm` whose query fails with `error` as its parsed envelope. */
+function makeFailingNpm(error: NpmErrorPayload | undefined) {
+  return makeFakeNpm({ viewVersion: () => ({ ok: false, error }) });
 }
 
-/** Builds the error that `execFileSync` throws when npm exits non-zero, with npm's stdout attached. */
-function buildNpmFailure(stdout: string): Error {
-  return Object.assign(new Error('Command failed: npm view'), { stdout });
-}
 // endregion | Helpers

@@ -7,7 +7,6 @@ const {
   applyPrepareCommandDefaults,
   mockAssertCleanWorkingTree,
   mockDiscoverWorkspaces,
-  mockExecSync,
   mockExistsSync,
   mockLoadConfig,
   mockLookUpNpmPackage,
@@ -22,16 +21,13 @@ vi.mock(import('../../publish/assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: vi.fn(),
 }));
 
-vi.mock(import('node:child_process'), () => ({
-  execSync: mockExecSync,
-}));
-
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../../clients/npm/npm-registry.ts'), () => ({
+vi.mock(import('../../clients/npm/npm-registry.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   lookUpNpmPackage: mockLookUpNpmPackage,
 }));
 

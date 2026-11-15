@@ -8,7 +8,6 @@ import type { ReleasePlan } from '../release-plan.ts';
 
 export const mockAssertCleanWorkingTree = vi.fn();
 export const mockDiscoverWorkspaces = vi.fn();
-export const mockExecSync = vi.fn();
 export const mockExistsSync = vi.fn();
 export const mockLoadConfig = vi.fn();
 export const mockLookUpNpmPackage = vi.fn();
@@ -56,7 +55,6 @@ export function resetPrepareCommandMocks(): void {
   for (const mock of [
     mockAssertCleanWorkingTree,
     mockDiscoverWorkspaces,
-    mockExecSync,
     mockExistsSync,
     mockLoadConfig,
     mockLookUpNpmPackage,

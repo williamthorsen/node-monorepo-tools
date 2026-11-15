@@ -1,5 +1,4 @@
-import { execFileSync } from 'node:child_process';
-
+import { type PackageManagerCli, realPackageManagerCli } from '../clients/package-manager/package-manager.ts';
 import { asUserError } from '../portable/user-error-chaining.ts';
 import type { ResolvedTag } from '../tags/resolveReleaseTags.ts';
 import { type PackageManager, resolveExecutable } from './detectPackageManager.ts';
@@ -14,6 +13,7 @@ export function publishPackage(
   resolvedTag: ResolvedTag,
   packageManager: PackageManager,
   options: PublishOptions,
+  cli: PackageManagerCli = realPackageManagerCli,
 ): void {
   const { isDryRun, shouldGenerateProvenance } = options;
   const executable = resolveExecutable(packageManager);
@@ -23,7 +23,7 @@ export function publishPackage(
     `\n${isDryRun ? '[dry-run] ' : ''}Running: ${executable} ${args.join(' ')} (cwd: ${resolvedTag.workspacePath})`,
   );
   try {
-    execFileSync(executable, args, { cwd: resolvedTag.workspacePath, stdio: 'inherit' });
+    cli.publish(executable, args, resolvedTag.workspacePath);
   } catch (error: unknown) {
     throw asUserError(error);
   }

@@ -8,7 +8,6 @@ const {
   makePrepareResult,
   mockAssertCleanWorkingTree,
   mockDiscoverWorkspaces,
-  mockExecSync,
   mockExistsSync,
   mockLoadConfig,
   mockLookUpNpmPackage,
@@ -25,16 +24,13 @@ vi.mock(import('../../publish/assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: mockAssertTarballsComplete,
 }));
 
-vi.mock(import('node:child_process'), () => ({
-  execSync: mockExecSync,
-}));
-
 vi.mock(import('node:fs'), () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
 }));
 
-vi.mock(import('../../clients/npm/npm-registry.ts'), () => ({
+vi.mock(import('../../clients/npm/npm-registry.ts'), async (importOriginal) => ({
+  ...(await importOriginal()),
   lookUpNpmPackage: mockLookUpNpmPackage,
 }));
 
@@ -69,6 +65,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
   };
 });
 
+import { realNpm } from '../../clients/npm/npm-registry.ts';
 import { makePrepareOptions } from '../../test-utils/command-options.ts';
 import { makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import type { ReleasedPackageResult, SkippedPackageResult } from '../../types.ts';
@@ -104,7 +101,7 @@ describe(prepareCommand, () => {
       await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
       expect(mockLookUpNpmPackage).toHaveBeenCalledTimes(1);
-      expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/arrays', undefined);
+      expect(mockLookUpNpmPackage).toHaveBeenCalledWith('@scope/arrays', undefined, realNpm);
     });
 
     it('refuses without writing any file when npm does not list a released package', async () => {
@@ -154,7 +151,7 @@ describe(prepareCommand, () => {
 
       await prepareCommand(makePrepareOptions({ styles: RICH_STYLES }));
 
-      expect(mockLookUpNpmPackage).toHaveBeenCalledWith('single-package', undefined);
+      expect(mockLookUpNpmPackage).toHaveBeenCalledWith('single-package', undefined, realNpm);
     });
 
     it('does not call the registry when the plan does not release anything', async () => {

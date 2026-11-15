@@ -26,7 +26,7 @@ import {
   type Workspace,
 } from 'readyup/check-utils';
 
-import { lookUpNpmPackage, runNpmJson } from '../../src/clients/npm/npm-registry.ts';
+import { lookUpNpmPackage, realNpm, runNpmJson } from '../../src/clients/npm/npm-registry.ts';
 import {
   classifyNpmAuth,
   classifyProvenanceSetting,
@@ -158,7 +158,7 @@ export function buildWorkspaceCheck(workspace: Workspace): RdyCheck {
         const auth = getCachedNpmAuthStatus();
         return auth.status === 'unreachable' && auth.detail;
       },
-      check: () => describeNpmPackageLookup(lookUpNpmPackage(displayName, readPublishRegistry(workspace))),
+      check: () => describeNpmPackageLookup(lookUpNpmPackage(displayName, readPublishRegistry(workspace), realNpm)),
       fix: `Run "npm publish --access public" from ${workspace.dir} to bootstrap the package on npm`,
       checks: [
         {

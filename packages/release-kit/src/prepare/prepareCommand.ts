@@ -1,5 +1,3 @@
-import { execSync } from 'node:child_process';
-
 import {
   formatGlyphLine,
   isAnticipatedFailure,
@@ -13,6 +11,7 @@ import { describeError } from '@williamthorsen/toolbelt.errors';
 import { dim } from '../cli/format.ts';
 import { RELEASE_GLYPHS } from '../cli/glyphs.ts';
 import { realGit } from '../clients/git/git.ts';
+import { realShell, type Shell } from '../clients/shell/shell.ts';
 import type { ReleaseKitConfig } from '../config/config-schema.ts';
 import { ConfigProblemError, loadValidatedConfig, reportConfigWarnings } from '../config/loadValidatedConfig.ts';
 import { prefixUserError } from '../portable/user-error-chaining.ts';
@@ -55,17 +54,20 @@ export interface PrepareCommandOptions {
  * Orchestrates the CLI `prepare` command: checks the working tree, loads and validates the config, discovers the
  * workspaces, and prepares the release over the targets of the repo shape.
  */
-export async function prepareCommand({
-  bumpOverride,
-  configPath,
-  isDryRun,
-  onlyNames,
-  setVersion,
-  shouldForce,
-  shouldIncludeReleaseNotes,
-  shouldSkipGitChecks,
-  styles,
-}: PrepareCommandOptions): Promise<void> {
+export async function prepareCommand(
+  {
+    bumpOverride,
+    configPath,
+    isDryRun,
+    onlyNames,
+    setVersion,
+    shouldForce,
+    shouldIncludeReleaseNotes,
+    shouldSkipGitChecks,
+    styles,
+  }: PrepareCommandOptions,
+  shell: Shell = realShell,
+): Promise<void> {
   const options = {
     shouldForce,
     ...(bumpOverride !== undefined && { bumpOverride }),
@@ -120,6 +122,7 @@ export async function prepareCommand({
     },
     isDryRun,
     styles.stdout,
+    shell,
   );
 }
 
@@ -244,7 +247,7 @@ function resolveSetVersions(setVersion: string, targets: readonly ReleaseTarget[
  * that the plan just wrote. Its failure leaves the release on disk and the tags file in place;
  * `release-kit commit` still proceeds.
  */
-function runAndReport(computePlan: () => ReleasePlan, isDryRun: boolean, style: OutputStyle): void {
+function runAndReport(computePlan: () => ReleasePlan, isDryRun: boolean, style: OutputStyle, shell: Shell): void {
   let plan: ReleasePlan;
   try {
     plan = computePlan();
@@ -264,7 +267,7 @@ function runAndReport(computePlan: () => ReleasePlan, isDryRun: boolean, style: 
 
   applyReleasePlan(plan);
 
-  const formatError = runFormatCommand(plan.formatCommand);
+  const formatError = runFormatCommand(plan.formatCommand, shell);
 
   process.stdout.write(
     reportPrepare(plan, { applied: true, style, ...(formatError !== undefined && { formatError }) }) + '\n',
@@ -287,13 +290,13 @@ function runAndReport(computePlan: () => ReleasePlan, isDryRun: boolean, style: 
  * Never throws. By the time this runs the release is already on disk, so a formatting failure is
  * reported rather than allowed to undo it.
  */
-function runFormatCommand(formatCommand: ReleasePlan['formatCommand']): string | undefined {
+function runFormatCommand(formatCommand: ReleasePlan['formatCommand'], shell: Shell): string | undefined {
   if (formatCommand === undefined) {
     return undefined;
   }
 
   try {
-    execSync(formatCommand.command, { stdio: 'inherit' });
+    shell.run(formatCommand.command);
     return undefined;
   } catch (error: unknown) {
     return describeError(error);
