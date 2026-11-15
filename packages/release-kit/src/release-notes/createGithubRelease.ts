@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
 import { extractVersion, loadChangelogEntries } from '../changelog/changelog-entries.ts';
+import { buildReleaseCreateArgs, type Gh, realGh } from '../clients/gh/gh.ts';
 import { asUserError } from '../portable/user-error-chaining.ts';
 import { matchesAudience, renderReleaseNotesSingle } from './render-release-notes.ts';
 
@@ -31,7 +31,7 @@ export type CreateReleaseResult = { status: 'created' } | { status: 'skipped'; r
  * Returns a skip when the changelog is missing or unreadable, the entry is missing, doesn't have any all-audience
  * content, or renders an empty body. Throws when `gh` fails, so that the caller does not exit 0 on a failed release.
  */
-export function createGithubRelease(options: CreateGithubReleaseOptions): CreateReleaseResult {
+export function createGithubRelease(options: CreateGithubReleaseOptions, gh: Gh): CreateReleaseResult {
   const { tag, changelogJsonPath, isDryRun, sectionOrder } = options;
 
   const loaded = loadChangelogEntries(changelogJsonPath);
@@ -62,15 +62,13 @@ export function createGithubRelease(options: CreateGithubReleaseOptions): Create
     return { status: 'skipped', reason: 'empty-body' };
   }
 
-  const args = ['release', 'create', tag, '--title', tag, '--notes', body];
-
   if (isDryRun) {
-    console.info(`[dry-run] Would run: gh ${args.join(' ')}`);
+    console.info(`[dry-run] Would run: gh ${buildReleaseCreateArgs(tag, body).join(' ')}`);
     return { status: 'created' };
   }
 
   try {
-    execFileSync('gh', args, { stdio: 'inherit' });
+    gh.createRelease(tag, body);
   } catch (error: unknown) {
     throw asUserError(error);
   }
@@ -98,17 +96,21 @@ export function createGithubReleases(
   changelogJsonOutputPath: string,
   isDryRun: boolean,
   sectionOrder?: string[],
+  gh: Gh = realGh,
 ): CreateGithubReleasesOutcome {
   const createdTags: string[] = [];
   const skippedTags: SkippedReleaseTag[] = [];
   for (const { tag, workspacePath } of tags) {
     const changelogJsonPath = join(workspacePath, changelogJsonOutputPath);
-    const result = createGithubRelease({
-      tag,
-      changelogJsonPath,
-      isDryRun,
-      ...(sectionOrder !== undefined && { sectionOrder }),
-    });
+    const result = createGithubRelease(
+      {
+        tag,
+        changelogJsonPath,
+        isDryRun,
+        ...(sectionOrder !== undefined && { sectionOrder }),
+      },
+      gh,
+    );
     if (result.status === 'created') {
       createdTags.push(tag);
     } else {
