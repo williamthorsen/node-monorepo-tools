@@ -8,7 +8,6 @@ const {
   makePrepareResult,
   mockAssertCleanWorkingTree,
   mockDiscoverWorkspaces,
-  mockExecSync,
   mockExistsSync,
   mockLoadConfig,
   mockLookUpNpmPackage,
@@ -23,10 +22,6 @@ const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
 vi.mock(import('../../publish/assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: mockAssertTarballsComplete,
-}));
-
-vi.mock(import('node:child_process'), () => ({
-  execSync: mockExecSync,
 }));
 
 vi.mock(import('node:fs'), () => ({
