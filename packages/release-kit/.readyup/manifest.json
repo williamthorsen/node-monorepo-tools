@@ -4,7 +4,7 @@
     {
       "bundledDependencies": {
         "@williamthorsen/toolbelt.datetime": "4.1.5",
-        "@williamthorsen/toolbelt.errors": "0.10.1",
+        "@williamthorsen/toolbelt.errors": "0.10.1, 0.11.0",
         "@williamthorsen/toolbelt.filesystem": "0.11.0",
         "@williamthorsen/toolbelt.numbers": "8.0.2",
         "@williamthorsen/toolbelt.objects": "4.4.3",
@@ -215,15 +215,15 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.46.2",
+      "readyupVersion": "0.46.3",
       "source": "kits/default.ts",
       "sourceHash": "026cacdf",
-      "targetHash": "0e9145d6"
+      "targetHash": "422769b9"
     },
     {
       "bundledDependencies": {
         "@williamthorsen/toolbelt.datetime": "4.1.5",
-        "@williamthorsen/toolbelt.errors": "0.10.1",
+        "@williamthorsen/toolbelt.errors": "0.10.1, 0.11.0",
         "@williamthorsen/toolbelt.filesystem": "0.11.0",
         "@williamthorsen/toolbelt.numbers": "8.0.2",
         "@williamthorsen/toolbelt.objects": "4.4.3",
@@ -367,10 +367,10 @@
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
-      "readyupVersion": "0.46.2",
+      "readyupVersion": "0.46.3",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "530ed5bd",
-      "targetHash": "77292676"
+      "targetHash": "3dcdd369"
     }
   ]
 }
