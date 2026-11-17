@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.16.3 — 2026-11-17
+
+### ♻️ Refactoring
+
+- Moves the unexported helpers in nmr-core, v11y-check, and the root `__tests__/` suites into a trailing `// region | Helpers` block sorted by name, so that each file's exported code comes before its helpers. (#1359)
+
 ## 0.16.2 — 2026-11-12
 
 ### Notes

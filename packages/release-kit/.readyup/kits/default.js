@@ -1028,7 +1028,7 @@ var default_default = defineRdyKit({
   ]
 });
 function getMinVersion() {
-  const picked = { "version": "18.3.0" };
+  const picked = { "version": "18.3.1" };
   if (typeof picked["version"] !== "string") {
     throw new TypeError("release-kit/package.json: 'version' must be a string");
   }

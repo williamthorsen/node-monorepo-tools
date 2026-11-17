@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.2.3 — 2026-11-17
+
+### 🐛 Bug fixes
+
+- Fixes the issue that `nmr`'s readyup check "every bin wrapper's build-output target is covered by files" read a wrapper's first relative specifier as its target and so reported a `src/` entry as uncovered when the wrapper loads `src/` if present and `dist/` otherwise; the check now uses the first specifier under `dist/` and skips a wrapper that does not name one. (#1360)
+- Fixes the issue that the `self-hosted runner` checklist reported a bare-label `CI_RUNS_ON`, such as `my-runner`, as invalid although the reusable workflows accept it, and now names what is wrong with a value that opens like JSON but does not parse or does not name labels or a runner group. (#1365)
+- Fixes the issue that the `self-hosted runner` checklist skipped its readiness checks when `CI_RUNS_ON` named a custom label without `self-hosted`, and reported a missing runner for a pool whose runners register only while a job runs; it now counts a selection as served when an online runner has every selected label or when one of the repo's 10 most recent completed runs ran a job on a self-hosted runner with those labels. (#1365)
+- Fixes the issue that the `self-hosted runner` checklist recommended setting `CI_RUNS_ON` to `"self-hosted"`, a label that the repo's runners do not have, and makes the checklist recommend the custom label shared by the most online runners, or recommend nothing when the repo does not have any online runner. (#1365)
+
+### ♻️ Refactoring
+
+- Sweep the remaining helpers into regions (#1359)
+
+  Moves the unexported helper functions in nmr-core, v11y-check, and the root `__tests__/` suites into a trailing `// region | Helpers` block in each file, sorted by name, so that each file's exported code comes first as the declaration-order convention requires. Behavior is unchanged.
+
 ## 2.2.2 — 2026-11-14
 
 ### ♻️ Refactoring

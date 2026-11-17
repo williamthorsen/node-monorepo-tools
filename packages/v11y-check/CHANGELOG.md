@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.3 — 2026-11-17
+
+### ♻️ Refactoring
+
+- Moves the unexported helpers in nmr-core, v11y-check, and the root `__tests__/` suites into a trailing `// region | Helpers` block sorted by name, so that each file's exported code comes before its helpers. (#1359)
+
+### 🧪 Tests
+
+- Replaces the file-wide `silenceConsole` calls in the release-kit and v11y-check tests with a `using` silencer in each test that logs, restricted to the channels that the test fires, and reads asserted output through `listConsoleLines` rather than through the `console` mocks. (#1349)
+
 ## 1.0.2 — 2026-11-12
 
 ### ⚙️ Tooling

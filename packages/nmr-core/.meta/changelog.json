@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.16.3",
+    "date": "2026-11-17",
+    "sections": [
+      {
+        "title": "♻️ Refactoring",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Moves the unexported helpers in nmr-core, v11y-check, and the root `__tests__/` suites into a trailing `// region | Helpers` block sorted by name, so that each file's exported code comes before its helpers. (#1359)",
+            "hash": "20ec0d75418830c323b05950c4eb7c83184fbfe6",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.16.2",
     "date": "2026-11-12",
     "sections": [{ "title": "Notes", "audience": "dev", "items": [{ "description": "Forced version bump." }] }]

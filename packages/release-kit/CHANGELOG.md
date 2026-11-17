@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.3.1 — 2026-11-17
+
+### ♻️ Refactoring
+
+- Moves the unexported helpers of release-kit's source modules and of its `default` and `npm-auto-publish` readyup kits into one trailing, alphabetically sorted Helpers region per file, so that each file's exported logic comes first. (#1356)
+- Moves the modules at the root of `packages/release-kit/src` into role directories, such as `changelog/`, `config/`, and `prepare/`, renames them to follow the file-naming rule, and moves the tests from `src/__tests__/` and the helpers from `src/test-utils/` beside the modules that use them. (#1357)
+- Adds the `Npm`, `Gh`, `PackageManagerCli`, and `Shell` adapters under `src/clients/` and passes them to `lookUpNpmPackage`, `assertReleasesOnNpm`, `publishPackage`, `createGithubRelease`, `syncLabelsCommand`, and `prepareCommand`, whose unit tests now inject fakes from `test-utils/` in place of `vi.mock` on `node:child_process`. (#1358)
+- Sweep the remaining helpers into regions (#1359)
+
+  Moves the unexported helper functions in nmr-core, v11y-check, and the root `__tests__/` suites into a trailing `// region | Helpers` block in each file, sorted by name, so that each file's exported code comes first as the declaration-order convention requires. Behavior is unchanged.
+
+### 🧪 Tests
+
+- Moves the unexported helpers in release-kit's test files below their `describe` blocks, into one alphabetically sorted Helpers region per file. (#1356)
+
 ## 18.3.0 — 2026-11-14
 
 ### 🎉 Features
