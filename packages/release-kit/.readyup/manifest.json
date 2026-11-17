@@ -3,12 +3,12 @@
   "kits": [
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.datetime": "4.1.8",
-        "@williamthorsen/toolbelt.errors": "0.11.2",
-        "@williamthorsen/toolbelt.filesystem": "0.11.3",
-        "@williamthorsen/toolbelt.numbers": "8.1.2",
-        "@williamthorsen/toolbelt.objects": "4.4.5",
-        "@williamthorsen/toolbelt.packaging": "0.9.2",
+        "@williamthorsen/toolbelt.datetime": "4.1.9",
+        "@williamthorsen/toolbelt.errors": "0.11.3",
+        "@williamthorsen/toolbelt.filesystem": "0.11.4",
+        "@williamthorsen/toolbelt.numbers": "8.1.3",
+        "@williamthorsen/toolbelt.objects": "4.4.6",
+        "@williamthorsen/toolbelt.packaging": "0.9.3",
         "@williamthorsen/toolbelt.terminal": "0.3.2",
         "ansi-regex": "6.6.0",
         "ansi-styles": "6.2.3, 7.0.0",
@@ -215,19 +215,19 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.47.0",
+      "readyupVersion": "0.47.1",
       "source": "kits/default.ts",
       "sourceHash": "026cacdf",
-      "targetHash": "9af15b7b"
+      "targetHash": "4c25bda0"
     },
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.datetime": "4.1.8",
-        "@williamthorsen/toolbelt.errors": "0.11.2",
-        "@williamthorsen/toolbelt.filesystem": "0.11.3",
-        "@williamthorsen/toolbelt.numbers": "8.1.2",
-        "@williamthorsen/toolbelt.objects": "4.4.5",
-        "@williamthorsen/toolbelt.packaging": "0.9.2",
+        "@williamthorsen/toolbelt.datetime": "4.1.9",
+        "@williamthorsen/toolbelt.errors": "0.11.3",
+        "@williamthorsen/toolbelt.filesystem": "0.11.4",
+        "@williamthorsen/toolbelt.numbers": "8.1.3",
+        "@williamthorsen/toolbelt.objects": "4.4.6",
+        "@williamthorsen/toolbelt.packaging": "0.9.3",
         "@williamthorsen/toolbelt.terminal": "0.3.2",
         "ansi-regex": "6.6.0",
         "ansi-styles": "6.2.3, 7.0.0",
@@ -367,10 +367,10 @@
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
-      "readyupVersion": "0.47.0",
+      "readyupVersion": "0.47.1",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "530ed5bd",
-      "targetHash": "ee7e4c96"
+      "targetHash": "b991f859"
     }
   ]
 }

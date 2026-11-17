@@ -1,6 +1,6 @@
 /** @noformat -- @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.47.0";
+export const __readyupVersion = "0.47.1";
 import { createRequire as __rdyCreateRequire } from 'node:module';
 const require = __rdyCreateRequire(import.meta.url);
 
@@ -7382,12 +7382,12 @@ import { isRecord, listTrackedFiles } from "readyup/check-utils";
 import { globSync } from "node:fs";
 import { basename, join, sep } from "node:path";
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
 function isError(error) {
   return error instanceof Error || Object.prototype.toString.call(error) === "[object Error]";
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.3/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
 function describeError(error) {
   try {
     if (isError(error) && typeof error.message === "string" && error.message !== "") {
@@ -8165,11 +8165,25 @@ function formatMalformedScript(dir, key, value) {
   return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/CliError.js
+var CliError = class extends Error {
+  exitCode;
+  constructor(message, options) {
+    const exitCode = options?.exitCode ?? 1;
+    if (!Number.isSafeInteger(exitCode) || exitCode < 1 || exitCode > 255) {
+      throw new RangeError(`A CliError exit code must be an integer from 1 to 255: ${String(exitCode)}`);
+    }
+    super(message, options);
+    this.name = "CliError";
+    this.exitCode = exitCode;
+  }
+};
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
 import path6 from "node:path";
 import process2 from "node:process";
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.0/node_modules/@williamthorsen/toolbelt.strings/dist/esm/3-candidate/findCloseMatch.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.1/node_modules/@williamthorsen/toolbelt.strings/dist/esm/3-candidate/findCloseMatch.js
 var MAX_DISTANCE = 2;
 function findCloseMatch(input, candidates) {
   const source = Array.from(input);
@@ -8206,7 +8220,7 @@ function readCell2(grid, width, i, j) {
   return grid[i * width + j] ?? 0;
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.0/node_modules/@williamthorsen/toolbelt.strings/dist/esm/internal/splitWords.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.1/node_modules/@williamthorsen/toolbelt.strings/dist/esm/internal/splitWords.js
 function splitWords(text) {
   return text.replaceAll(LOWER_THEN_UPPER, "$1 $2").replaceAll(ACRONYM_THEN_WORD, "$1 $2").split(SEPARATORS).filter((word) => word !== "");
 }
@@ -8214,22 +8228,22 @@ var LOWER_THEN_UPPER = /([\p{Ll}\p{Lm}\p{Lo}\p{N}])(\p{Lu})/gu;
 var ACRONYM_THEN_WORD = /(\p{Lu})(\p{Lu}\p{Ll})/gu;
 var SEPARATORS = /[^\p{L}\p{N}]+/u;
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.0/node_modules/@williamthorsen/toolbelt.strings/dist/esm/3-candidate/toKebabCase.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.1/node_modules/@williamthorsen/toolbelt.strings/dist/esm/3-candidate/toKebabCase.js
 function toKebabCase(text) {
   return splitWords(text).map((word) => word.toLowerCase()).join("-");
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/UsageError.js
-var UsageError = class extends Error {
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/UsageError.js
+var UsageError = class extends CliError {
   suggestion;
   constructor(message, options) {
-    super(message, options);
+    super(message, { ...options, exitCode: 2 });
     this.name = "UsageError";
     this.suggestion = options?.suggestion;
   }
 };
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/ParseError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/ParseError.js
 var ParseError = class extends UsageError {
   kind;
   token;
@@ -8241,12 +8255,12 @@ var ParseError = class extends UsageError {
   }
 };
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/resolveLongName.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/resolveLongName.js
 function resolveLongName(key, definition) {
   return definition.long ?? toKebabCase(key);
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/tokenizeArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/tokenizeArgs.js
 import { parseArgs as nodeParseArgs } from "node:util";
 function findFlagEntry(flagsByName, token) {
   const entry = flagsByName.get(token.name);
@@ -8276,10 +8290,10 @@ function tokenizeArgs(argv, schema, extraBooleans = []) {
   return { tokens, flagsByName };
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/reserved-flags.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/reserved-flags.js
 var HELP_FLAG = { long: "help", short: "h", description: "Print this help" };
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/validateSpec.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/validateSpec.js
 var CAMEL_CASE_KEY = /^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)*$/;
 function validateSpec(spec) {
   validateFlags(spec.flags ?? {});
@@ -8360,7 +8374,7 @@ function validateOperands(operands) {
   }
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.13.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
 function parseArgs(argv, spec, options = {}) {
   validateSpec(spec);
   return parseValidatedArgs(argv, spec, options);
