@@ -481,7 +481,10 @@ function failed(stderr: string): GhResult {
   return { ok: false, isMissing: false, stderr };
 }
 
-/** Builds a `gh` double that answers each call by the first key contained in its joined arguments, recording each call. */
+/**
+ * Builds a `gh` double that answers each call by the first key contained in its joined arguments, recording each
+ * call.
+ */
 function fakeGh(responses: Record<string, GhResult>, calls: string[] = []) {
   return (args: string[]): Promise<GhResult> => {
     const command = args.join(' ');
