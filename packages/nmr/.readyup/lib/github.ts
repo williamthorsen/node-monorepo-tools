@@ -29,22 +29,22 @@ export type GhResult = { ok: true; stdout: string } | { ok: false; isMissing: bo
 
 export type RunGh = (args: string[], cwd: string) => Promise<GhResult>;
 
+/** An online runner registered to the repo, with every label and with its custom labels apart. */
+export interface OnlineRunner {
+  labels: string[];
+  customLabels: string[];
+}
+
+/** A job that ran on a self-hosted runner: the labels that its `runs-on` requested, and the runner's group. */
+export interface SelfHostedJob {
+  labels: string[];
+  group: string;
+}
+
 /** A workflow file's name and its jobs. */
 export interface Workflow {
   file: string;
   jobs: Array<[string, Record<string, unknown>]>;
-}
-
-/** Counts the runners that are online and labelled `self-hosted` in an `actions/runners` response. */
-export function countOnlineSelfHostedRunners(response: unknown): number {
-  if (!isRecord(response) || !Array.isArray(response['runners'])) return 0;
-  return response['runners'].filter(
-    (runner: unknown) =>
-      isRecord(runner) &&
-      runner['status'] === 'online' &&
-      Array.isArray(runner['labels']) &&
-      runner['labels'].some((label: unknown) => isRecord(label) && label['name'] === 'self-hosted'),
-  ).length;
 }
 
 /** Composes a skip reason from a failed `gh` invocation. */
@@ -129,6 +129,25 @@ export function parseJson(text: string): unknown {
   }
 }
 
+/** Returns the online runners of an `actions/runners` response. */
+export function readOnlineRunners(response: unknown): OnlineRunner[] {
+  if (!isRecord(response) || !Array.isArray(response['runners'])) return [];
+  const entries: unknown[] = response['runners'];
+  const runners: OnlineRunner[] = [];
+  for (const runner of entries) {
+    if (!isRecord(runner) || runner['status'] !== 'online' || !Array.isArray(runner['labels'])) continue;
+    const labels: unknown[] = runner['labels'];
+    const online: OnlineRunner = { labels: [], customLabels: [] };
+    for (const label of labels) {
+      if (!isRecord(label) || typeof label['name'] !== 'string') continue;
+      online.labels.push(label['name']);
+      if (label['type'] === 'custom') online.customLabels.push(label['name']);
+    }
+    runners.push(online);
+  }
+  return runners;
+}
+
 /** Returns the organization's `CI_RUNS_ON` value visible to the repo, or undefined when it has none. */
 export async function readOrganizationValue(
   nameWithOwner: string,
@@ -144,6 +163,35 @@ export async function readOrganizationValue(
     (entry: unknown) => isRecord(entry) && entry['name'] === 'CI_RUNS_ON',
   );
   return readVariableValue(variable);
+}
+
+/** Returns the run IDs of an `actions/runs` response, newest first. */
+export function readRunIds(response: unknown): number[] {
+  if (!isRecord(response) || !Array.isArray(response['workflow_runs'])) return [];
+  const ids: number[] = [];
+  const runs: unknown[] = response['workflow_runs'];
+  for (const run of runs) {
+    if (isRecord(run) && typeof run['id'] === 'number') ids.push(run['id']);
+  }
+  return ids;
+}
+
+/**
+ * Returns the jobs of an `actions/runs/{id}/jobs` response that ran on a self-hosted runner. A GitHub-hosted job
+ * reports runner group 0, and a job that never started reports a null runner.
+ */
+export function readSelfHostedJobs(response: unknown): SelfHostedJob[] {
+  if (!isRecord(response) || !Array.isArray(response['jobs'])) return [];
+  const jobs: SelfHostedJob[] = [];
+  const entries: unknown[] = response['jobs'];
+  for (const job of entries) {
+    if (!isRecord(job) || !Array.isArray(job['labels'])) continue;
+    const { runner_group_id: groupId, runner_group_name: group, runner_name: runnerName } = job;
+    if (typeof groupId !== 'number' || groupId <= 0 || typeof group !== 'string') continue;
+    if (typeof runnerName !== 'string' || runnerName === '') continue;
+    jobs.push({ labels: job['labels'].filter((label: unknown) => typeof label === 'string'), group });
+  }
+  return jobs;
 }
 
 /** Returns the `value` of a variable from the GitHub API. */
