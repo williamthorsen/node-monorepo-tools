@@ -1,6 +1,6 @@
 /** @noformat -- @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.46.3";
+export const __readyupVersion = "0.47.0";
 import { createRequire as __rdyCreateRequire } from 'node:module';
 const require = __rdyCreateRequire(import.meta.url);
 
@@ -7382,12 +7382,12 @@ import { isRecord, listTrackedFiles } from "readyup/check-utils";
 import { globSync } from "node:fs";
 import { basename, join, sep } from "node:path";
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.0/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
 function isError(error) {
   return error instanceof Error || Object.prototype.toString.call(error) === "[object Error]";
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.0/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
 function describeError(error) {
   try {
     if (isError(error) && typeof error.message === "string" && error.message !== "") {
@@ -8165,19 +8165,71 @@ function formatMalformedScript(dir, key, value) {
   return `${rejection} A step list belongs in \`${CONFIG_RELATIVE_PATH}\` under \`${field}\`.`;
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.10.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
 import path6 from "node:path";
 import process2 from "node:process";
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.10.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/UsageError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.0/node_modules/@williamthorsen/toolbelt.strings/dist/esm/3-candidate/findCloseMatch.js
+var MAX_DISTANCE = 2;
+function findCloseMatch(input, candidates) {
+  const source = Array.from(input);
+  let closest;
+  for (const candidate of candidates) {
+    const distance = measureAlignmentDistance(source, Array.from(candidate));
+    if (distance > MAX_DISTANCE || distance >= source.length)
+      continue;
+    if (closest === void 0 || distance < closest.distance)
+      closest = { candidate, distance };
+  }
+  return closest?.candidate;
+}
+function measureAlignmentDistance(source, target) {
+  const width = target.length + 1;
+  const grid = [];
+  for (let i = 0; i <= source.length; i += 1) {
+    for (let j = 0; j <= target.length; j += 1) {
+      if (i === 0 || j === 0) {
+        grid.push(i + j);
+        continue;
+      }
+      const cost = source[i - 1] === target[j - 1] ? 0 : 1;
+      let distance = Math.min(readCell2(grid, width, i - 1, j) + 1, readCell2(grid, width, i, j - 1) + 1, readCell2(grid, width, i - 1, j - 1) + cost);
+      if (i > 1 && j > 1 && source[i - 1] === target[j - 2] && source[i - 2] === target[j - 1]) {
+        distance = Math.min(distance, readCell2(grid, width, i - 2, j - 2) + 1);
+      }
+      grid.push(distance);
+    }
+  }
+  return readCell2(grid, width, source.length, target.length);
+}
+function readCell2(grid, width, i, j) {
+  return grid[i * width + j] ?? 0;
+}
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.0/node_modules/@williamthorsen/toolbelt.strings/dist/esm/internal/splitWords.js
+function splitWords(text) {
+  return text.replaceAll(LOWER_THEN_UPPER, "$1 $2").replaceAll(ACRONYM_THEN_WORD, "$1 $2").split(SEPARATORS).filter((word) => word !== "");
+}
+var LOWER_THEN_UPPER = /([\p{Ll}\p{Lm}\p{Lo}\p{N}])(\p{Lu})/gu;
+var ACRONYM_THEN_WORD = /(\p{Lu})(\p{Lu}\p{Ll})/gu;
+var SEPARATORS = /[^\p{L}\p{N}]+/u;
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.strings@10.0.0/node_modules/@williamthorsen/toolbelt.strings/dist/esm/3-candidate/toKebabCase.js
+function toKebabCase(text) {
+  return splitWords(text).map((word) => word.toLowerCase()).join("-");
+}
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/UsageError.js
 var UsageError = class extends Error {
+  suggestion;
   constructor(message, options) {
     super(message, options);
     this.name = "UsageError";
+    this.suggestion = options?.suggestion;
   }
 };
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.10.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/ParseError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/ParseError.js
 var ParseError = class extends UsageError {
   kind;
   token;
@@ -8189,13 +8241,19 @@ var ParseError = class extends UsageError {
   }
 };
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.10.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/resolveLongName.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/resolveLongName.js
 function resolveLongName(key, definition) {
-  return definition.long ?? key.replaceAll(/[A-Z]/g, (capital) => `-${capital.toLowerCase()}`);
+  return definition.long ?? toKebabCase(key);
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.10.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/tokenizeArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/tokenizeArgs.js
 import { parseArgs as nodeParseArgs } from "node:util";
+function findFlagEntry(flagsByName, token) {
+  const entry = flagsByName.get(token.name);
+  if (entry === void 0 || token.rawName.startsWith("--"))
+    return entry;
+  return entry.definition.short === token.rawName.slice(1) ? entry : void 0;
+}
 function tokenizeArgs(argv, schema, extraBooleans = []) {
   const nodeOptions = {};
   const flagsByName = /* @__PURE__ */ new Map();
@@ -8217,22 +8275,19 @@ function tokenizeArgs(argv, schema, extraBooleans = []) {
   });
   return { tokens, flagsByName };
 }
-function findFlagEntry(flagsByName, token) {
-  const entry = flagsByName.get(token.name);
-  if (entry === void 0 || token.rawName.startsWith("--"))
-    return entry;
-  return entry.definition.short === token.rawName.slice(1) ? entry : void 0;
-}
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.10.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/validateSpec.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/reserved-flags.js
+var HELP_FLAG = { long: "help", short: "h", description: "Print this help" };
+
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/validateSpec.js
 var CAMEL_CASE_KEY = /^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]+)*$/;
 function validateSpec(spec) {
   validateFlags(spec.flags ?? {});
   validateOperands(spec.operands ?? []);
 }
 function validateFlags(flags) {
-  const longNames = /* @__PURE__ */ new Set(["help"]);
-  const shortNames = /* @__PURE__ */ new Set(["h"]);
+  const longNames = /* @__PURE__ */ new Set([HELP_FLAG.long]);
+  const shortNames = /* @__PURE__ */ new Set([HELP_FLAG.short]);
   for (const [key, definition] of Object.entries(flags)) {
     if (definition.long === void 0 && !CAMEL_CASE_KEY.test(key)) {
       throw new Error(`Flag key '${key}' must be camelCase or declare 'long'.`);
@@ -8305,7 +8360,7 @@ function validateOperands(operands) {
   }
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.10.1/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.cli@0.12.0/node_modules/@williamthorsen/toolbelt.cli/dist/esm/3-candidate/parseArgs.js
 function parseArgs(argv, spec, options = {}) {
   validateSpec(spec);
   return parseValidatedArgs(argv, spec, options);
@@ -8318,7 +8373,7 @@ function parseValidatedArgs(argv, spec, options = {}) {
   const { tokens, flagsByName } = tokenizeArgs(argv, schema);
   const flags = {};
   for (const [key, definition] of Object.entries(schema)) {
-    flags[key] = "default" in definition ? definition.default : initialValue(definition);
+    flags[key] = "default" in definition ? definition.default : deriveInitialValue(definition);
   }
   const positionals = [];
   let rest = [];
@@ -8345,7 +8400,9 @@ function parseValidatedArgs(argv, spec, options = {}) {
         rest = splitAtOption(argv, token.index, precedingInArgument);
         break;
       }
-      throw new ParseError("unknown-flag", token.rawName, `Unknown option: ${token.rawName}`);
+      throw new ParseError("unknown-flag", token.rawName, `Unknown option: ${token.rawName}`, {
+        suggestion: findLongNameSuggestion(token, flagsByName.keys(), options.reservedLongNames)
+      });
     }
     const value = readFlagValue(token, entry.key, entry.definition, baseDir);
     const collected = flags[entry.key];
@@ -8381,15 +8438,21 @@ function assignOperands(positionals, definitions) {
   }
   return operands;
 }
-function initialValue(definition) {
-  if (definition.multiple === true)
-    return [];
-  return definition.type === "boolean" ? false : void 0;
-}
 function checkChoice(value, choices, label) {
   if (choices === void 0 || choices.includes(value))
     return;
   throw new ParseError("invalid-choice", value, `Invalid value for ${label}: ${value}. Expected one of: ${choices.join(", ")}`);
+}
+function deriveInitialValue(definition) {
+  if (definition.multiple === true)
+    return [];
+  return definition.type === "boolean" ? false : void 0;
+}
+function findLongNameSuggestion(token, longNames, reservedLongNames = []) {
+  if (!token.rawName.startsWith("--"))
+    return void 0;
+  const match = findCloseMatch(token.name, [...longNames, ...reservedLongNames].toSorted());
+  return match === void 0 ? void 0 : `--${match}`;
 }
 function readFlagValue(token, key, definition, baseDir) {
   if (definition.type === "boolean") {

@@ -1,6 +1,6 @@
 /** @noformat -- @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.46.3";
+export const __readyupVersion = "0.47.0";
 
 
 // .readyup/kits/default.ts
@@ -18,12 +18,12 @@ import {
 // src/init/detectRepoType.ts
 import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.0/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/isError.js
 function isError(error) {
   return error instanceof Error || Object.prototype.toString.call(error) === "[object Error]";
 }
 
-// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.0/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
+// ../../node_modules/.pnpm/@williamthorsen+toolbelt.errors@0.11.2/node_modules/@williamthorsen/toolbelt.errors/dist/esm/4-release/describeError.js
 function describeError(error) {
   try {
     if (isError(error) && typeof error.message === "string" && error.message !== "") {
