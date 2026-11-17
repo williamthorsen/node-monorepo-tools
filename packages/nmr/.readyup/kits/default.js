@@ -8019,7 +8019,7 @@ function readRootScripts(cwd) {
 }
 
 // .readyup/lib/self-hosted-runner.ts
-import { isRecord as isRecord5 } from "readyup/check-utils";
+import { isRecord as isRecord6 } from "readyup/check-utils";
 
 // src/config.ts
 import { existsSync as existsSync3 } from "node:fs";
@@ -9245,12 +9245,6 @@ var MIN_CODE_QUALITY_MAJOR = 8;
 var GH_TIMEOUT_MS = 15e3;
 var IMAGE_ABSENT_PROGRAM_PATTERN = /(?:^|[\s;&|(])(corepack|gh|node|npm|npx|pnpm)(?=\s|$)/gm;
 var NEVER_INSTALLED_PROGRAMS = /* @__PURE__ */ new Set(["corepack", "gh"]);
-function countOnlineSelfHostedRunners(response) {
-  if (!isRecord4(response) || !Array.isArray(response["runners"])) return 0;
-  return response["runners"].filter(
-    (runner) => isRecord4(runner) && runner["status"] === "online" && Array.isArray(runner["labels"]) && runner["labels"].some((label) => isRecord4(label) && label["name"] === "self-hosted")
-  ).length;
-}
 function describeGhFailure(result, context) {
   if (result.isMissing) return "gh is not installed";
   if (/gh auth login|not logged in/i.test(result.stderr)) return "gh is not authenticated";
@@ -9318,6 +9312,23 @@ function parseJson(text) {
     return void 0;
   }
 }
+function readOnlineRunners(response) {
+  if (!isRecord4(response) || !Array.isArray(response["runners"])) return [];
+  const entries = response["runners"];
+  const runners = [];
+  for (const runner of entries) {
+    if (!isRecord4(runner) || runner["status"] !== "online" || !Array.isArray(runner["labels"])) continue;
+    const labels = runner["labels"];
+    const online = { labels: [], customLabels: [] };
+    for (const label of labels) {
+      if (!isRecord4(label) || typeof label["name"] !== "string") continue;
+      online.labels.push(label["name"]);
+      if (label["type"] === "custom") online.customLabels.push(label["name"]);
+    }
+    runners.push(online);
+  }
+  return runners;
+}
 async function readOrganizationValue(nameWithOwner, cwd, runGh) {
   const result = await runGh(["api", `repos/${nameWithOwner}/actions/organization-variables`], cwd);
   if (!result.ok) return void 0;
@@ -9327,6 +9338,28 @@ async function readOrganizationValue(nameWithOwner, cwd, runGh) {
     (entry) => isRecord4(entry) && entry["name"] === "CI_RUNS_ON"
   );
   return readVariableValue(variable);
+}
+function readRunIds(response) {
+  if (!isRecord4(response) || !Array.isArray(response["workflow_runs"])) return [];
+  const ids = [];
+  const runs = response["workflow_runs"];
+  for (const run of runs) {
+    if (isRecord4(run) && typeof run["id"] === "number") ids.push(run["id"]);
+  }
+  return ids;
+}
+function readSelfHostedJobs(response) {
+  if (!isRecord4(response) || !Array.isArray(response["jobs"])) return [];
+  const jobs = [];
+  const entries = response["jobs"];
+  for (const job of entries) {
+    if (!isRecord4(job) || !Array.isArray(job["labels"])) continue;
+    const { runner_group_id: groupId, runner_group_name: group, runner_name: runnerName } = job;
+    if (typeof groupId !== "number" || groupId <= 0 || typeof group !== "string") continue;
+    if (typeof runnerName !== "string" || runnerName === "") continue;
+    jobs.push({ labels: job["labels"].filter((label) => typeof label === "string"), group });
+  }
+  return jobs;
 }
 function readVariableValue(variable) {
   return isRecord4(variable) && typeof variable["value"] === "string" ? variable["value"] : void 0;
@@ -9385,8 +9418,44 @@ function readInstalledPrograms(step) {
   return installsNode ? ["pnpm", "node"] : ["pnpm"];
 }
 
+// .readyup/lib/runner-selection.ts
+import { isRecord as isRecord5 } from "readyup/check-utils";
+var HOSTED_LABEL_PATTERN = /^(?:macos|ubuntu|windows)-/i;
+function readRunnerSelection(value) {
+  const trimmed = value?.trim() ?? "";
+  if (trimmed === "") return { kind: "unset" };
+  if (!/^[[{"]/.test(trimmed)) return classifyLabels([trimmed]);
+  const parsed = parseJson(trimmed);
+  if (parsed === void 0) return { kind: "invalid", problem: `opens with ${trimmed.charAt(0)} but is not JSON` };
+  return readJsonSelection(parsed) ?? {
+    kind: "invalid",
+    problem: "is JSON but does not name runner labels or a runner group"
+  };
+}
+function classifyLabels(labels) {
+  return labels.every((label) => HOSTED_LABEL_PATTERN.test(label)) ? { kind: "hosted", labels } : { kind: "self-hosted", labels };
+}
+function readJsonLabels(value) {
+  const labels = Array.isArray(value) ? value : [value];
+  if (labels.length === 0) return void 0;
+  return labels.every((label) => typeof label === "string" && label !== "") ? labels : void 0;
+}
+function readJsonSelection(parsed) {
+  if (!isRecord5(parsed)) {
+    const labels2 = readJsonLabels(parsed);
+    return labels2 === void 0 ? void 0 : classifyLabels(labels2);
+  }
+  const { group } = parsed;
+  if (group !== void 0 && (typeof group !== "string" || group === "")) return void 0;
+  const isEmptyArray = Array.isArray(parsed["labels"]) && parsed["labels"].length === 0;
+  const labels = parsed["labels"] === void 0 || isEmptyArray ? [] : readJsonLabels(parsed["labels"]);
+  if (labels === void 0) return void 0;
+  if (group !== void 0) return { kind: "self-hosted", labels, group };
+  return labels.length === 0 ? void 0 : classifyLabels(labels);
+}
+
 // .readyup/lib/self-hosted-runner.ts
-var SET_CI_RUNS_ON_COMMAND = `gh variable set CI_RUNS_ON --body '"self-hosted"'`;
+var RECENT_RUN_LIMIT = 10;
 var statusByCwd = /* @__PURE__ */ new Map();
 var selfHostedRunnerChecklist = {
   name: "self-hosted runner",
@@ -9399,13 +9468,13 @@ var selfHostedRunnerChecklist = {
       check: () => true,
       checks: [
         {
-          name: "CI_RUNS_ON selects the self-hosted runner",
+          name: "CI_RUNS_ON selects a self-hosted runner",
           severity: "recommend",
           skip: () => describeRecommendationSkip(),
           check: () => recommendSelfHostedRunner()
         },
         {
-          name: "the self-hosted runner can run CI",
+          name: "a self-hosted runner can run CI",
           severity: "warn",
           skip: () => describeReadinessSkip(),
           check: () => selfHostedRunnerCanRunCi()
@@ -9417,14 +9486,16 @@ var selfHostedRunnerChecklist = {
 async function describeReadinessSkip(cwd = process.cwd(), readFacts) {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   if ("skip" in status) return status.skip;
-  if (status.selection === "unset") return "CI_RUNS_ON is unset";
-  if (status.selection === "other") return `CI_RUNS_ON selects ${status.facts.ciRunsOn ?? ""}`;
+  if (status.selection.kind === "unset") return "CI_RUNS_ON is unset";
+  if (status.selection.kind === "hosted") {
+    return `CI_RUNS_ON selects the GitHub-hosted runner ${status.facts.ciRunsOn ?? ""}`;
+  }
   return false;
 }
 async function describeRecommendationSkip(cwd = process.cwd(), readFacts) {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   if ("skip" in status) return status.skip;
-  if (status.selection !== "unset") return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ""}`;
+  if (status.selection.kind !== "unset") return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ""}`;
   if (status.exempt !== void 0) return `the repo is exempt: ${status.exempt}`;
   if (!status.facts.isPrivate) return status.failures.join("\n");
   if (status.failures.length > 0) {
@@ -9437,18 +9508,15 @@ async function describeSelfHostedRunnerSkip(cwd = process.cwd(), readFacts) {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   return "skip" in status && status.skip;
 }
-function findSelfHostedRunnerFailures(facts, cwd) {
+function findSelfHostedRunnerFailures(facts, selection, cwd) {
   if (!facts.isPrivate) {
     return [
       `${facts.nameWithOwner} is public, so a self-hosted runner must not run its CI: A fork's pull request would run code on the runner`
     ];
   }
   const failures = [];
-  if (facts.onlineSelfHostedRunners === 0) {
-    failures.push(
-      `${facts.nameWithOwner} does not have an online runner labelled self-hosted. If williamthorsen/hq has just allocated the repo's slots in apps/runners/config/repos.yaml, the runners may not have registered yet`
-    );
-  }
+  const missingRunner = describeMissingRunner(facts, selection);
+  if (missingRunner !== void 0) failures.push(missingRunner);
   const workflows = readWorkflows(cwd);
   failures.push(...findCodeQualityCallerDefects(workflows), ...findImageIncompatibleSteps(workflows));
   return failures;
@@ -9457,7 +9525,7 @@ async function readGitHubFacts(cwd, runGh = runGhCommand) {
   const repo = await runGh(["repo", "view", "--json", "nameWithOwner,visibility"], cwd);
   if (!repo.ok) return { skip: describeGhFailure(repo, "cannot resolve this repo on GitHub") };
   const repoView = parseJson(repo.stdout);
-  if (!isRecord5(repoView) || typeof repoView["nameWithOwner"] !== "string") {
+  if (!isRecord6(repoView) || typeof repoView["nameWithOwner"] !== "string") {
     return { skip: "gh repo view returned an unexpected shape" };
   }
   const nameWithOwner = repoView["nameWithOwner"];
@@ -9472,28 +9540,35 @@ async function readGitHubFacts(cwd, runGh = runGhCommand) {
     return { skip: describeGhFailure(repoVariable, `cannot read the CI_RUNS_ON variable of ${nameWithOwner}`) };
   }
   const repoValue = repoVariable.ok ? readVariableValue(parseJson(repoVariable.stdout)) : void 0;
-  return {
+  const ciRunsOn = repoValue ?? await readOrganizationValue(nameWithOwner, cwd, runGh);
+  const facts = {
     nameWithOwner,
     isPrivate: repoView["visibility"] !== "PUBLIC",
-    onlineSelfHostedRunners: countOnlineSelfHostedRunners(parseJson(runners.stdout)),
-    ciRunsOn: repoValue ?? await readOrganizationValue(nameWithOwner, cwd, runGh)
+    onlineRunners: readOnlineRunners(parseJson(runners.stdout)),
+    recentSelfHostedJobs: [],
+    ciRunsOn
   };
+  const selection = readRunnerSelection(ciRunsOn);
+  if (selection.kind === "self-hosted" && findSelectionEvidence(facts, selection) === void 0) {
+    facts.recentSelfHostedJobs = await readRecentSelfHostedJobs(nameWithOwner, selection, cwd, runGh);
+  }
+  return facts;
 }
-function readRunnerSelection(value) {
-  if (value === void 0 || value.trim() === "") return "unset";
-  const parsed = parseJson(value);
-  if (parsed === void 0) return "invalid";
-  const labels = Array.isArray(parsed) ? parsed : [parsed];
-  return labels.includes("self-hosted") ? "self-hosted" : "other";
+function findSelectionEvidence(facts, selection) {
+  if (selection.group === void 0 && facts.onlineRunners.some((runner) => hasEveryLabel(runner.labels, selection))) {
+    return "online-runner";
+  }
+  if (facts.recentSelfHostedJobs.some((job) => isJobInSelection(job, selection))) return "recent-job";
+  return void 0;
 }
 async function recommendSelfHostedRunner(cwd = process.cwd(), readFacts) {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
-  if ("skip" in status) return true;
+  if ("skip" in status || status.recommendedLabel === void 0) return true;
   const toolTests = status.toolTestFiles.length === 0 ? "The repo does not have any tool-tier tests." : `Before switching, confirm that the image provides every program that these tool-tier tests spawn: ${formatPaths(status.toolTestFiles)}`;
   return {
     ok: false,
-    detail: `${status.facts.nameWithOwner} can run its CI on the self-hosted runner. ${toolTests}`,
-    fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${status.facts.nameWithOwner}`
+    detail: `${status.facts.nameWithOwner} can run its CI on its self-hosted runners labelled ${status.recommendedLabel}. ${toolTests}`,
+    fix: buildSetCommand(status.recommendedLabel, status.facts.nameWithOwner)
   };
 }
 async function selfHostedRunnerCanRunCi(cwd = process.cwd(), readFacts) {
@@ -9501,22 +9576,50 @@ async function selfHostedRunnerCanRunCi(cwd = process.cwd(), readFacts) {
   if ("skip" in status) return true;
   const { facts } = status;
   const conditions = status.exempt === void 0 ? status.failures : [`the repo is exempt: ${status.exempt}`, ...status.failures];
-  if (status.selection !== "invalid" && conditions.length === 0) return true;
-  const invalidValue = `CI_RUNS_ON is ${facts.ciRunsOn ?? ""}, which is not JSON, so every workflow that reads it with fromJSON fails`;
-  if (conditions.length === 0) {
-    return { ok: false, detail: invalidValue, fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${facts.nameWithOwner}` };
+  const { selection } = status;
+  if (selection.kind !== "invalid" && conditions.length === 0) return true;
+  const invalidValue = selection.kind === "invalid" ? `CI_RUNS_ON is ${facts.ciRunsOn ?? ""}, which ${selection.problem}, so every workflow that reads it fails` : "";
+  if (conditions.length === 0 && status.recommendedLabel !== void 0) {
+    return { ok: false, detail: invalidValue, fix: buildSetCommand(status.recommendedLabel, facts.nameWithOwner) };
   }
-  const problems = status.selection === "invalid" ? [invalidValue, ...conditions] : conditions;
+  const problems = selection.kind === "invalid" ? [invalidValue, ...conditions] : conditions;
   return {
     ok: false,
     detail: problems.map((problem) => `      ${problem}`).join("\n"),
     fix: `Fix each condition, or return the repo's CI to ubuntu-latest: gh variable delete CI_RUNS_ON --repo ${facts.nameWithOwner}`
   };
 }
+function buildSetCommand(label, nameWithOwner) {
+  return `gh variable set CI_RUNS_ON --body ${label} --repo ${nameWithOwner}`;
+}
+function chooseRecommendedLabel(onlineRunners) {
+  if (onlineRunners.length === 0) return void 0;
+  const counts = /* @__PURE__ */ new Map();
+  for (const runner of onlineRunners) {
+    const labels = new Set(runner.customLabels);
+    for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const [best] = [...counts].toSorted(([a, countA], [b, countB]) => countB - countA || a.localeCompare(b));
+  return best?.[0] ?? "self-hosted";
+}
+function describeMissingRunner(facts, selection) {
+  const { nameWithOwner } = facts;
+  if (selection.kind === "unset") {
+    if (facts.onlineRunners.length > 0) return void 0;
+    return `${nameWithOwner} does not have an online self-hosted runner whose label CI_RUNS_ON could name. A pool's runners register only while a job runs, so an idle pool lists none`;
+  }
+  if (selection.kind !== "self-hosted" || findSelectionEvidence(facts, selection) !== void 0) return void 0;
+  const wanted = [
+    ...selection.group === void 0 ? [] : [`in group ${selection.group}`],
+    ...selection.labels.length === 0 ? [] : [`labelled ${selection.labels.join(", ")}`]
+  ].join(" and ");
+  return `${nameWithOwner} does not have an online runner ${wanted}, and none of its ${RECENT_RUN_LIMIT} most recent completed runs ran a job on such a self-hosted runner. If williamthorsen/hq has just allocated the repo's slots in apps/runners/config/repos.yaml, the runners may not have registered yet`;
+}
 async function gatherSelfHostedRunnerStatus(cwd, readFacts) {
   const facts = await readFacts(cwd);
   if ("skip" in facts) return facts;
-  const failures = findSelfHostedRunnerFailures(facts, cwd);
+  const selection = readRunnerSelection(facts.ciRunsOn);
+  const failures = findSelfHostedRunnerFailures(facts, selection, cwd);
   let exempt;
   try {
     exempt = (await loadRootConfig(cwd)).selfHostedRunner?.exempt;
@@ -9525,9 +9628,10 @@ async function gatherSelfHostedRunnerStatus(cwd, readFacts) {
   }
   return {
     facts,
-    selection: readRunnerSelection(facts.ciRunsOn),
+    selection,
     failures,
     exempt,
+    recommendedLabel: chooseRecommendedLabel(facts.onlineRunners),
     toolTestFiles: findTestFiles(cwd).filter(
       (file) => file.endsWith(".tool.test.ts") || file.endsWith(".tool.test.tsx")
     )
@@ -9541,6 +9645,29 @@ function getSelfHostedRunnerStatus(cwd, readFacts) {
     statusByCwd.set(cwd, status);
   }
   return status;
+}
+function hasEveryLabel(labels, selection) {
+  const available = new Set(labels.map((label) => label.toLowerCase()));
+  return selection.labels.every((label) => available.has(label.toLowerCase()));
+}
+function isJobInSelection(job, selection) {
+  return hasEveryLabel(job.labels, selection) && (selection.group === void 0 || job.group === selection.group);
+}
+async function readRecentSelfHostedJobs(nameWithOwner, selection, cwd, runGh) {
+  const runs = await runGh(
+    ["api", `repos/${nameWithOwner}/actions/runs?status=completed&per_page=${RECENT_RUN_LIMIT}`],
+    cwd
+  );
+  if (!runs.ok) return [];
+  const runIds = readRunIds(parseJson(runs.stdout)).slice(0, RECENT_RUN_LIMIT);
+  const jobs = [];
+  for (const runId of runIds) {
+    const response = await runGh(["api", `repos/${nameWithOwner}/actions/runs/${runId}/jobs?per_page=100`], cwd);
+    if (!response.ok) continue;
+    jobs.push(...readSelfHostedJobs(parseJson(response.stdout)));
+    if (jobs.some((job) => isJobInSelection(job, selection))) break;
+  }
+  return jobs;
 }
 
 // .readyup/lib/setup.ts
@@ -9556,7 +9683,7 @@ import {
 // .readyup/lib/catalog.ts
 import { posix as posix3 } from "node:path";
 var import_yaml3 = __toESM(require_dist(), 1);
-import { isRecord as isRecord6 } from "readyup/check-utils";
+import { isRecord as isRecord7 } from "readyup/check-utils";
 var CATALOGUE_CHECKED_FIELDS = ["dependencies", "devDependencies", "optionalDependencies"];
 var PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
 function cataloguedDependenciesUseCatalog() {
@@ -9574,7 +9701,7 @@ function findLiteralCataloguedSpecifiers(workspace, names) {
   const manifestPath = posix3.join(workspace.dir, "package.json");
   return CATALOGUE_CHECKED_FIELDS.flatMap((field) => {
     const declared = workspace.packageJson[field];
-    if (!isRecord6(declared)) return [];
+    if (!isRecord7(declared)) return [];
     return Object.entries(declared).flatMap(
       ([name, specifier]) => names.has(name) && typeof specifier === "string" && !PROTOCOL_PATTERN.test(specifier) ? { manifestPath, name, specifier } : []
     );
@@ -9589,14 +9716,14 @@ function readCataloguedNames(cwd) {
   } catch (error) {
     return { ok: false, detail: `cannot parse pnpm-workspace.yaml: ${describeError(error)}` };
   }
-  if (!isRecord6(workspaceManifest)) return { ok: true, names: /* @__PURE__ */ new Set() };
+  if (!isRecord7(workspaceManifest)) return { ok: true, names: /* @__PURE__ */ new Set() };
   const namedCatalogs = workspaceManifest["catalogs"];
-  const catalogs = [workspaceManifest["catalog"], ...isRecord6(namedCatalogs) ? Object.values(namedCatalogs) : []];
-  return { ok: true, names: new Set(catalogs.filter(isRecord6).flatMap((catalog) => Object.keys(catalog))) };
+  const catalogs = [workspaceManifest["catalog"], ...isRecord7(namedCatalogs) ? Object.values(namedCatalogs) : []];
+  return { ok: true, names: new Set(catalogs.filter(isRecord7).flatMap((catalog) => Object.keys(catalog))) };
 }
 
 // .readyup/lib/manifest-fields.ts
-import { isRecord as isRecord7 } from "readyup/check-utils";
+import { isRecord as isRecord8 } from "readyup/check-utils";
 function noPnpmFieldInPackageJson(cwd = process.cwd()) {
   const declaringFiles = findFiles(["**/package.json"], cwd).flatMap((relativePath) => {
     const keys = readPnpmFieldKeys(readFileIn(cwd, relativePath));
@@ -9617,7 +9744,7 @@ function declaresWorkspacesField(content) {
   if (content === void 0) return false;
   try {
     const parsedManifest = JSON.parse(content);
-    return isRecord7(parsedManifest) && "workspaces" in parsedManifest;
+    return isRecord8(parsedManifest) && "workspaces" in parsedManifest;
   } catch {
     return false;
   }
@@ -9630,9 +9757,9 @@ function readPnpmFieldKeys(content) {
   } catch {
     return void 0;
   }
-  if (!isRecord7(parsedManifest)) return void 0;
+  if (!isRecord8(parsedManifest)) return void 0;
   const pnpm = parsedManifest["pnpm"];
-  return isRecord7(pnpm) ? Object.keys(pnpm).toSorted() : void 0;
+  return isRecord8(pnpm) ? Object.keys(pnpm).toSorted() : void 0;
 }
 
 // .readyup/lib/setup.ts
@@ -9759,7 +9886,7 @@ function toolVersionsHasNoPnpm() {
 }
 
 // .readyup/lib/shared-configs.ts
-import { isRecord as isRecord8 } from "readyup/check-utils";
+import { isRecord as isRecord9 } from "readyup/check-utils";
 var SHARED_PRETTIER_MODULE = "@williamthorsen/nmr/prettier";
 var INERT_PRETTIER_CONFIGS = [".prettierrc", ".prettierrc.{json,json5,yaml,yml,toml}"];
 var SHARED_TAZE_MODULE = "@williamthorsen/nmr/taze";
@@ -9853,7 +9980,7 @@ function hasPrettierConfigKey(cwd) {
   if (manifest === void 0) return false;
   try {
     const parsedManifest = JSON.parse(manifest);
-    return isRecord8(parsedManifest) && parsedManifest["prettier"] !== void 0;
+    return isRecord9(parsedManifest) && parsedManifest["prettier"] !== void 0;
   } catch {
     return false;
   }

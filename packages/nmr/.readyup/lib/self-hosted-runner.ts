@@ -5,33 +5,37 @@ import { isRecord } from 'readyup/check-utils';
 import { loadRootConfig } from '../../src/config.ts';
 import { findTestFiles } from '../../src/tiers.ts';
 import {
-  countOnlineSelfHostedRunners,
   describeGhFailure,
   findCodeQualityCallerDefects,
   findImageIncompatibleSteps,
   isNotFound,
+  type OnlineRunner,
   parseJson,
+  readOnlineRunners,
   readOrganizationValue,
+  readRunIds,
+  readSelfHostedJobs,
   readVariableValue,
   readWorkflows,
   type RunGh,
   runGhCommand,
+  type SelfHostedJob,
 } from './github.ts';
 import { formatPaths } from './repo-files.ts';
+import { readRunnerSelection, type RunnerSelection, type SelfHostedSelection } from './runner-selection.ts';
 
 /** A repo's runner-related state on GitHub, as `gh` reports it. */
 export interface GitHubFacts {
   nameWithOwner: string;
   isPrivate: boolean;
-  onlineSelfHostedRunners: number;
+  onlineRunners: OnlineRunner[];
+  /** The self-hosted jobs of recent completed runs, read only when an online runner does not serve the selection. */
+  recentSelfHostedJobs: SelfHostedJob[];
   /** The raw `CI_RUNS_ON` value: the repository's own, else the organization's, else undefined. */
   ciRunsOn: string | undefined;
 }
 
 export type ReadGitHubFacts = (cwd: string) => Promise<GitHubFacts | { skip: string }>;
-
-/** How a repo's `CI_RUNS_ON` value selects a runner. */
-export type RunnerSelection = 'unset' | 'self-hosted' | 'other' | 'invalid';
 
 /** Everything that the self-hosted runner checks report on, gathered once per repo. */
 export interface SelfHostedRunnerStatus {
@@ -40,11 +44,13 @@ export interface SelfHostedRunnerStatus {
   /** One line per condition that fails, empty when the repo can run its CI on the runner. */
   failures: string[];
   exempt: string | undefined;
+  /** The label that an unset repo's `CI_RUNS_ON` should name, or undefined when no runner is online. */
+  recommendedLabel: string | undefined;
   toolTestFiles: string[];
 }
 
-/** The command that switches a repo to the self-hosted runner. The value is JSON, so its quotes are part of it. */
-const SET_CI_RUNS_ON_COMMAND = `gh variable set CI_RUNS_ON --body '"self-hosted"'`;
+/** How many of the most recent completed runs the checklist searches for a job on a self-hosted runner. */
+const RECENT_RUN_LIMIT = 10;
 
 /** The status gathered through the real `gh`, per working directory, so that the checklist's checks share one set of calls. */
 const statusByCwd = new Map<string, Promise<SelfHostedRunnerStatus | { skip: string }>>();
@@ -60,13 +66,13 @@ export const selfHostedRunnerChecklist: RdyChecklist = {
       check: () => true,
       checks: [
         {
-          name: 'CI_RUNS_ON selects the self-hosted runner',
+          name: 'CI_RUNS_ON selects a self-hosted runner',
           severity: 'recommend',
           skip: () => describeRecommendationSkip(),
           check: () => recommendSelfHostedRunner(),
         },
         {
-          name: 'the self-hosted runner can run CI',
+          name: 'a self-hosted runner can run CI',
           severity: 'warn',
           skip: () => describeReadinessSkip(),
           check: () => selfHostedRunnerCanRunCi(),
@@ -87,8 +93,10 @@ export async function describeReadinessSkip(
 ): Promise<SkipResult> {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   if ('skip' in status) return status.skip;
-  if (status.selection === 'unset') return 'CI_RUNS_ON is unset';
-  if (status.selection === 'other') return `CI_RUNS_ON selects ${status.facts.ciRunsOn ?? ''}`;
+  if (status.selection.kind === 'unset') return 'CI_RUNS_ON is unset';
+  if (status.selection.kind === 'hosted') {
+    return `CI_RUNS_ON selects the GitHub-hosted runner ${status.facts.ciRunsOn ?? ''}`;
+  }
   return false;
 }
 
@@ -103,7 +111,7 @@ export async function describeRecommendationSkip(
 ): Promise<SkipResult> {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   if ('skip' in status) return status.skip;
-  if (status.selection !== 'unset') return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ''}`;
+  if (status.selection.kind !== 'unset') return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ''}`;
   if (status.exempt !== undefined) return `the repo is exempt: ${status.exempt}`;
   if (!status.facts.isPrivate) return status.failures.join('\n');
   if (status.failures.length > 0) {
@@ -126,13 +134,13 @@ export async function describeSelfHostedRunnerSkip(
 }
 
 /**
- * Lists the conditions under which a repo's CI fails on the self-hosted runner: GitHub's settings, the code-quality
+ * Lists the conditions under which a repo's CI fails on a self-hosted runner: GitHub's settings, the code-quality
  * caller, and each job that `CI_RUNS_ON` sends to the runner. A public repo fails on its visibility alone, which rules
  * out the runner whatever else holds.
  *
  * @internal - Exported only to enable testing
  */
-export function findSelfHostedRunnerFailures(facts: GitHubFacts, cwd: string): string[] {
+export function findSelfHostedRunnerFailures(facts: GitHubFacts, selection: RunnerSelection, cwd: string): string[] {
   if (!facts.isPrivate) {
     return [
       `${facts.nameWithOwner} is public, so a self-hosted runner must not run its CI: A fork's pull request would run code on the runner`,
@@ -140,12 +148,8 @@ export function findSelfHostedRunnerFailures(facts: GitHubFacts, cwd: string): s
   }
 
   const failures: string[] = [];
-  if (facts.onlineSelfHostedRunners === 0) {
-    failures.push(
-      `${facts.nameWithOwner} does not have an online runner labelled self-hosted. If williamthorsen/hq has just allocated ` +
-        "the repo's slots in apps/runners/config/repos.yaml, the runners may not have registered yet",
-    );
-  }
+  const missingRunner = describeMissingRunner(facts, selection);
+  if (missingRunner !== undefined) failures.push(missingRunner);
 
   const workflows = readWorkflows(cwd);
   failures.push(...findCodeQualityCallerDefects(workflows), ...findImageIncompatibleSteps(workflows));
@@ -182,28 +186,38 @@ export async function readGitHubFacts(
     return { skip: describeGhFailure(repoVariable, `cannot read the CI_RUNS_ON variable of ${nameWithOwner}`) };
   }
   const repoValue = repoVariable.ok ? readVariableValue(parseJson(repoVariable.stdout)) : undefined;
+  const ciRunsOn = repoValue ?? (await readOrganizationValue(nameWithOwner, cwd, runGh));
 
-  return {
+  const facts: GitHubFacts = {
     nameWithOwner,
     isPrivate: repoView['visibility'] !== 'PUBLIC',
-    onlineSelfHostedRunners: countOnlineSelfHostedRunners(parseJson(runners.stdout)),
-    ciRunsOn: repoValue ?? (await readOrganizationValue(nameWithOwner, cwd, runGh)),
+    onlineRunners: readOnlineRunners(parseJson(runners.stdout)),
+    recentSelfHostedJobs: [],
+    ciRunsOn,
   };
+  const selection = readRunnerSelection(ciRunsOn);
+  if (selection.kind === 'self-hosted' && findSelectionEvidence(facts, selection) === undefined) {
+    facts.recentSelfHostedJobs = await readRecentSelfHostedJobs(nameWithOwner, selection, cwd, runGh);
+  }
+  return facts;
 }
 
 /**
- * Classifies a `CI_RUNS_ON` value by the runner that it selects. The shared workflows read it with `fromJSON`, so
- * a value that is not JSON fails them.
+ * Reports what shows that a runner serves a self-hosted selection: an online runner that has every selected label, or
+ * a recent job that ran on a self-hosted runner with those labels and in the selected group. An online runner cannot
+ * serve a group selection, because the repo's runner listing does not report a runner's group.
  *
  * @internal - Exported only to enable testing
  */
-export function readRunnerSelection(value: string | undefined): RunnerSelection {
-  if (value === undefined || value.trim() === '') return 'unset';
-
-  const parsed = parseJson(value);
-  if (parsed === undefined) return 'invalid';
-  const labels = Array.isArray(parsed) ? parsed : [parsed];
-  return labels.includes('self-hosted') ? 'self-hosted' : 'other';
+export function findSelectionEvidence(
+  facts: GitHubFacts,
+  selection: SelfHostedSelection,
+): 'online-runner' | 'recent-job' | undefined {
+  if (selection.group === undefined && facts.onlineRunners.some((runner) => hasEveryLabel(runner.labels, selection))) {
+    return 'online-runner';
+  }
+  if (facts.recentSelfHostedJobs.some((job) => isJobInSelection(job, selection))) return 'recent-job';
+  return undefined;
 }
 
 /**
@@ -216,7 +230,7 @@ export async function recommendSelfHostedRunner(
   readFacts?: ReadGitHubFacts,
 ): Promise<boolean | CheckOutcome> {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
-  if ('skip' in status) return true;
+  if ('skip' in status || status.recommendedLabel === undefined) return true;
 
   const toolTests =
     status.toolTestFiles.length === 0
@@ -224,8 +238,8 @@ export async function recommendSelfHostedRunner(
       : `Before switching, confirm that the image provides every program that these tool-tier tests spawn: ${formatPaths(status.toolTestFiles)}`;
   return {
     ok: false,
-    detail: `${status.facts.nameWithOwner} can run its CI on the self-hosted runner. ${toolTests}`,
-    fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${status.facts.nameWithOwner}`,
+    detail: `${status.facts.nameWithOwner} can run its CI on its self-hosted runners labelled ${status.recommendedLabel}. ${toolTests}`,
+    fix: buildSetCommand(status.recommendedLabel, status.facts.nameWithOwner),
   };
 }
 
@@ -244,15 +258,19 @@ export async function selfHostedRunnerCanRunCi(
   const { facts } = status;
   const conditions =
     status.exempt === undefined ? status.failures : [`the repo is exempt: ${status.exempt}`, ...status.failures];
-  if (status.selection !== 'invalid' && conditions.length === 0) return true;
+  const { selection } = status;
+  if (selection.kind !== 'invalid' && conditions.length === 0) return true;
 
-  const invalidValue = `CI_RUNS_ON is ${facts.ciRunsOn ?? ''}, which is not JSON, so every workflow that reads it with fromJSON fails`;
-  // Offer the corrected value only to a repo that can run on the runner; any other repo returns to ubuntu-latest.
-  if (conditions.length === 0) {
-    return { ok: false, detail: invalidValue, fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${facts.nameWithOwner}` };
+  const invalidValue =
+    selection.kind === 'invalid'
+      ? `CI_RUNS_ON is ${facts.ciRunsOn ?? ''}, which ${selection.problem}, so every workflow that reads it fails`
+      : '';
+  // Offer a corrected value only to a repo that can run on a runner that it has; any other returns to ubuntu-latest.
+  if (conditions.length === 0 && status.recommendedLabel !== undefined) {
+    return { ok: false, detail: invalidValue, fix: buildSetCommand(status.recommendedLabel, facts.nameWithOwner) };
   }
 
-  const problems = status.selection === 'invalid' ? [invalidValue, ...conditions] : conditions;
+  const problems = selection.kind === 'invalid' ? [invalidValue, ...conditions] : conditions;
   return {
     ok: false,
     detail: problems.map((problem) => `      ${problem}`).join('\n'),
@@ -262,6 +280,50 @@ export async function selfHostedRunnerCanRunCi(
 
 // region | Helpers
 
+/** Renders the command that sets a repo's `CI_RUNS_ON` to one runner label. */
+function buildSetCommand(label: string, nameWithOwner: string): string {
+  return `gh variable set CI_RUNS_ON --body ${label} --repo ${nameWithOwner}`;
+}
+
+/**
+ * Chooses the custom label that the most online runners have, breaking ties alphabetically. `self-hosted`, which every
+ * self-hosted runner has, stands in when no online runner has a custom label.
+ */
+function chooseRecommendedLabel(onlineRunners: OnlineRunner[]): string | undefined {
+  if (onlineRunners.length === 0) return undefined;
+
+  const counts = new Map<string, number>();
+  for (const runner of onlineRunners) {
+    const labels = new Set(runner.customLabels);
+    for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const [best] = [...counts].toSorted(([a, countA], [b, countB]) => countB - countA || a.localeCompare(b));
+  return best?.[0] ?? 'self-hosted';
+}
+
+/** Describes the absence of a runner that the repo's selection, or a recommended one, could use. */
+function describeMissingRunner(facts: GitHubFacts, selection: RunnerSelection): string | undefined {
+  const { nameWithOwner } = facts;
+  if (selection.kind === 'unset') {
+    if (facts.onlineRunners.length > 0) return undefined;
+    return (
+      `${nameWithOwner} does not have an online self-hosted runner whose label CI_RUNS_ON could name. ` +
+      "A pool's runners register only while a job runs, so an idle pool lists none"
+    );
+  }
+  if (selection.kind !== 'self-hosted' || findSelectionEvidence(facts, selection) !== undefined) return undefined;
+
+  const wanted = [
+    ...(selection.group === undefined ? [] : [`in group ${selection.group}`]),
+    ...(selection.labels.length === 0 ? [] : [`labelled ${selection.labels.join(', ')}`]),
+  ].join(' and ');
+  return (
+    `${nameWithOwner} does not have an online runner ${wanted}, and none of its ${RECENT_RUN_LIMIT} most recent ` +
+    'completed runs ran a job on such a self-hosted runner. If williamthorsen/hq has just allocated ' +
+    "the repo's slots in apps/runners/config/repos.yaml, the runners may not have registered yet"
+  );
+}
+
 /** Gathers the facts, the failing conditions, the exemption, and the tool-tier tests. */
 async function gatherSelfHostedRunnerStatus(
   cwd: string,
@@ -270,7 +332,8 @@ async function gatherSelfHostedRunnerStatus(
   const facts = await readFacts(cwd);
   if ('skip' in facts) return facts;
 
-  const failures = findSelfHostedRunnerFailures(facts, cwd);
+  const selection = readRunnerSelection(facts.ciRunsOn);
+  const failures = findSelfHostedRunnerFailures(facts, selection, cwd);
   let exempt: string | undefined;
   try {
     exempt = (await loadRootConfig(cwd)).selfHostedRunner?.exempt;
@@ -280,9 +343,10 @@ async function gatherSelfHostedRunnerStatus(
 
   return {
     facts,
-    selection: readRunnerSelection(facts.ciRunsOn),
+    selection,
     failures,
     exempt,
+    recommendedLabel: chooseRecommendedLabel(facts.onlineRunners),
     toolTestFiles: findTestFiles(cwd).filter(
       (file) => file.endsWith('.tool.test.ts') || file.endsWith('.tool.test.tsx'),
     ),
@@ -302,6 +366,45 @@ function getSelfHostedRunnerStatus(
     statusByCwd.set(cwd, status);
   }
   return status;
+}
+
+/** Reports whether `labels` include every label of the selection, ignoring case as GitHub does. */
+function hasEveryLabel(labels: string[], selection: SelfHostedSelection): boolean {
+  const available = new Set(labels.map((label) => label.toLowerCase()));
+  return selection.labels.every((label) => available.has(label.toLowerCase()));
+}
+
+/** Reports whether a self-hosted job ran with every selected label and in the selected group. */
+function isJobInSelection(job: SelfHostedJob, selection: SelfHostedSelection): boolean {
+  return hasEveryLabel(job.labels, selection) && (selection.group === undefined || job.group === selection.group);
+}
+
+/**
+ * Collects the self-hosted jobs of the repo's most recent completed runs, newest first, stopping at the first run that
+ * contains a job in the selection. A failed `gh` call leaves its run's jobs out.
+ */
+async function readRecentSelfHostedJobs(
+  nameWithOwner: string,
+  selection: SelfHostedSelection,
+  cwd: string,
+  runGh: RunGh,
+): Promise<SelfHostedJob[]> {
+  const runs = await runGh(
+    ['api', `repos/${nameWithOwner}/actions/runs?status=completed&per_page=${RECENT_RUN_LIMIT}`],
+    cwd,
+  );
+  if (!runs.ok) return [];
+
+  const runIds = readRunIds(parseJson(runs.stdout)).slice(0, RECENT_RUN_LIMIT);
+  const jobs: SelfHostedJob[] = [];
+  for (const runId of runIds) {
+    // Read the runs one at a time, so that the search stops at the first run that serves the selection.
+    const response = await runGh(['api', `repos/${nameWithOwner}/actions/runs/${runId}/jobs?per_page=100`], cwd);
+    if (!response.ok) continue;
+    jobs.push(...readSelfHostedJobs(parseJson(response.stdout)));
+    if (jobs.some((job) => isJobInSelection(job, selection))) break;
+  }
+  return jobs;
 }
 
 // endregion | Helpers
