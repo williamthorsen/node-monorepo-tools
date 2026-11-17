@@ -17,9 +17,10 @@
 
 ## Runner selection
 
-`audit`, `create-github-release`, `release`, and `sync-labels` run every job on the runner named by the calling repo's `CI_RUNS_ON` configuration variable, set on the repository or its organization. A called workflow reads the caller's variables, so a repo opts in without editing its caller workflow. The value is JSON: a single label or an array of labels.
+`audit`, `create-github-release`, `release`, and `sync-labels` run every job on the runner named by the calling repo's `CI_RUNS_ON` configuration variable, set on the repository or its organization. A called workflow reads the caller's variables, so a repo opts in without editing its caller workflow. The value is a bare label, a JSON label, a JSON array of labels, or a JSON runner-group object: A value that opens with `[`, `{`, or `"` is read as JSON, and any other value as one label.
 
 ```bash
+gh variable set CI_RUNS_ON --body 'self-hosted' --repo owner/repo
 gh variable set CI_RUNS_ON --body '"self-hosted"' --repo owner/repo
 gh variable set CI_RUNS_ON --body '["self-hosted", "linux"]' --repo owner/repo
 ```
