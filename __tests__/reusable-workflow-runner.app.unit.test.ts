@@ -2,8 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { listJobs, listReusableWorkflows, readReusableWorkflow } from '../test-utils/workflows.ts';
 
-/** The runner selection that every reusable workflow but `publish` uses, falling back to a GitHub-hosted runner. */
-const CALLER_RUNNER = `\${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}`;
+/** The caller's `CI_RUNS_ON`, falling back to a GitHub-hosted runner. */
+const RUNNER_VALUE = `vars.CI_RUNS_ON || 'ubuntu-latest'`;
+
+/**
+ * The runner selection that every reusable workflow but `publish` uses. A value that opens with `[`, `{`, or `"` is
+ * JSON; any other is one label, which `toJSON` quotes so that `fromJSON` reads every form.
+ */
+const CALLER_RUNNER =
+  `\${{ fromJSON((startsWith(${RUNNER_VALUE}, '[') || startsWith(${RUNNER_VALUE}, '{') || ` +
+  `startsWith(${RUNNER_VALUE}, '"')) && (${RUNNER_VALUE}) || toJSON(${RUNNER_VALUE})) }}`;
 
 /** Workflows whose jobs must stay on a GitHub-hosted runner whatever the caller sets. */
 const HOSTED_ONLY_WORKFLOWS = ['publish'];

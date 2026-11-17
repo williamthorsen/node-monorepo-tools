@@ -55,7 +55,7 @@ defaults:
 jobs:
   release:
     name: Release
-    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
+    runs-on: ${{ fromJSON((startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '[') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '{') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '"')) && (vars.CI_RUNS_ON || 'ubuntu-latest') || toJSON(vars.CI_RUNS_ON || 'ubuntu-latest')) }}
     timeout-minutes: 15
 
     env:

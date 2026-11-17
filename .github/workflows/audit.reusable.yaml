@@ -45,7 +45,7 @@ defaults:
 jobs:
   pr-audit:
     if: github.event_name == 'pull_request'
-    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
+    runs-on: ${{ fromJSON((startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '[') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '{') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '"')) && (vars.CI_RUNS_ON || 'ubuntu-latest') || toJSON(vars.CI_RUNS_ON || 'ubuntu-latest')) }}
     steps:
       - uses: actions/checkout@v7
 
@@ -126,7 +126,7 @@ jobs:
 
   scheduled-audit:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '"ubuntu-latest"') }}
+    runs-on: ${{ fromJSON((startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '[') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '{') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '"')) && (vars.CI_RUNS_ON || 'ubuntu-latest') || toJSON(vars.CI_RUNS_ON || 'ubuntu-latest')) }}
     steps:
       - uses: actions/checkout@v7
 
