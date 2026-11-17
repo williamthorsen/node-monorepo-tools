@@ -68,8 +68,8 @@
           "checklist": "self-hosted runner",
           "checks": [
             "GitHub reports the repo's runner settings",
-            "CI_RUNS_ON selects the self-hosted runner",
-            "the self-hosted runner can run CI"
+            "CI_RUNS_ON selects a self-hosted runner",
+            "a self-hosted runner can run CI"
           ]
         }
       ],
@@ -190,7 +190,7 @@
           "path": "lib/catalog.ts"
         },
         {
-          "hash": "369c92bb",
+          "hash": "17c6b4fc",
           "kind": "module",
           "path": "lib/github.ts"
         },
@@ -210,7 +210,12 @@
           "path": "lib/root-scripts.ts"
         },
         {
-          "hash": "97f29052",
+          "hash": "c5b26377",
+          "kind": "module",
+          "path": "lib/runner-selection.ts"
+        },
+        {
+          "hash": "4e51d448",
           "kind": "module",
           "path": "lib/self-hosted-runner.ts"
         },
@@ -363,7 +368,7 @@
       "readyupVersion": "0.47.1",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "e2c5e1ac"
+      "targetHash": "3087933e"
     }
   ]
 }
