@@ -31,7 +31,15 @@ export interface GitHubFacts {
 export type ReadGitHubFacts = (cwd: string) => Promise<GitHubFacts | { skip: string }>;
 
 /** How a repo's `CI_RUNS_ON` value selects a runner. */
-export type RunnerSelection = 'unset' | 'self-hosted' | 'other' | 'invalid';
+export type RunnerSelection =
+  SelfHostedSelection | { kind: 'unset' } | { kind: 'invalid'; problem: string } | { kind: 'hosted'; labels: string[] };
+
+/** A selection of a self-hosted runner by its labels, and by its runner group when `group` is set. */
+export interface SelfHostedSelection {
+  kind: 'self-hosted';
+  labels: string[];
+  group?: string;
+}
 
 /** Everything that the self-hosted runner checks report on, gathered once per repo. */
 export interface SelfHostedRunnerStatus {
@@ -42,6 +50,9 @@ export interface SelfHostedRunnerStatus {
   exempt: string | undefined;
   toolTestFiles: string[];
 }
+
+/** Matches the label of a GitHub-hosted runner image. */
+const HOSTED_LABEL_PATTERN = /^(?:macos|ubuntu|windows)-/i;
 
 /** The command that switches a repo to the self-hosted runner. The value is JSON, so its quotes are part of it. */
 const SET_CI_RUNS_ON_COMMAND = `gh variable set CI_RUNS_ON --body '"self-hosted"'`;
@@ -87,8 +98,10 @@ export async function describeReadinessSkip(
 ): Promise<SkipResult> {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   if ('skip' in status) return status.skip;
-  if (status.selection === 'unset') return 'CI_RUNS_ON is unset';
-  if (status.selection === 'other') return `CI_RUNS_ON selects ${status.facts.ciRunsOn ?? ''}`;
+  if (status.selection.kind === 'unset') return 'CI_RUNS_ON is unset';
+  if (status.selection.kind === 'hosted') {
+    return `CI_RUNS_ON selects the GitHub-hosted runner ${status.facts.ciRunsOn ?? ''}`;
+  }
   return false;
 }
 
@@ -103,7 +116,7 @@ export async function describeRecommendationSkip(
 ): Promise<SkipResult> {
   const status = await getSelfHostedRunnerStatus(cwd, readFacts);
   if ('skip' in status) return status.skip;
-  if (status.selection !== 'unset') return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ''}`;
+  if (status.selection.kind !== 'unset') return `CI_RUNS_ON is already set to ${status.facts.ciRunsOn ?? ''}`;
   if (status.exempt !== undefined) return `the repo is exempt: ${status.exempt}`;
   if (!status.facts.isPrivate) return status.failures.join('\n');
   if (status.failures.length > 0) {
@@ -192,18 +205,25 @@ export async function readGitHubFacts(
 }
 
 /**
- * Classifies a `CI_RUNS_ON` value by the runner that it selects. The shared workflows read it with `fromJSON`, so
- * a value that is not JSON fails them.
+ * Classifies a `CI_RUNS_ON` value by the runner that it selects, by the workflows' rule: A value that opens with `[`,
+ * `{`, or `"` is JSON, and any other value is one label. A selection of GitHub-hosted images alone is hosted; any
+ * other is self-hosted.
  *
  * @internal - Exported only to enable testing
  */
 export function readRunnerSelection(value: string | undefined): RunnerSelection {
-  if (value === undefined || value.trim() === '') return 'unset';
+  const trimmed = value?.trim() ?? '';
+  if (trimmed === '') return { kind: 'unset' };
+  if (!/^[[{"]/.test(trimmed)) return classifyLabels([trimmed]);
 
-  const parsed = parseJson(value);
-  if (parsed === undefined) return 'invalid';
-  const labels = Array.isArray(parsed) ? parsed : [parsed];
-  return labels.includes('self-hosted') ? 'self-hosted' : 'other';
+  const parsed = parseJson(trimmed);
+  if (parsed === undefined) return { kind: 'invalid', problem: `opens with ${trimmed.charAt(0)} but is not JSON` };
+  return (
+    readJsonSelection(parsed) ?? {
+      kind: 'invalid',
+      problem: 'is JSON but does not name runner labels or a runner group',
+    }
+  );
 }
 
 /**
@@ -244,15 +264,19 @@ export async function selfHostedRunnerCanRunCi(
   const { facts } = status;
   const conditions =
     status.exempt === undefined ? status.failures : [`the repo is exempt: ${status.exempt}`, ...status.failures];
-  if (status.selection !== 'invalid' && conditions.length === 0) return true;
+  const { selection } = status;
+  if (selection.kind !== 'invalid' && conditions.length === 0) return true;
 
-  const invalidValue = `CI_RUNS_ON is ${facts.ciRunsOn ?? ''}, which is not JSON, so every workflow that reads it with fromJSON fails`;
+  const invalidValue =
+    selection.kind === 'invalid'
+      ? `CI_RUNS_ON is ${facts.ciRunsOn ?? ''}, which ${selection.problem}, so every workflow that reads it fails`
+      : '';
   // Offer the corrected value only to a repo that can run on the runner; any other repo returns to ubuntu-latest.
   if (conditions.length === 0) {
     return { ok: false, detail: invalidValue, fix: `${SET_CI_RUNS_ON_COMMAND} --repo ${facts.nameWithOwner}` };
   }
 
-  const problems = status.selection === 'invalid' ? [invalidValue, ...conditions] : conditions;
+  const problems = selection.kind === 'invalid' ? [invalidValue, ...conditions] : conditions;
   return {
     ok: false,
     detail: problems.map((problem) => `      ${problem}`).join('\n'),
@@ -261,6 +285,13 @@ export async function selfHostedRunnerCanRunCi(
 }
 
 // region | Helpers
+
+/** Classifies non-empty labels as hosted when each names a GitHub-hosted image, and as self-hosted otherwise. */
+function classifyLabels(labels: string[]): RunnerSelection {
+  return labels.every((label) => HOSTED_LABEL_PATTERN.test(label))
+    ? { kind: 'hosted', labels }
+    : { kind: 'self-hosted', labels };
+}
 
 /** Gathers the facts, the failing conditions, the exemption, and the tool-tier tests. */
 async function gatherSelfHostedRunnerStatus(
@@ -302,6 +333,29 @@ function getSelfHostedRunnerStatus(
     statusByCwd.set(cwd, status);
   }
   return status;
+}
+
+/** Returns the labels of a JSON label or label array, or undefined when it is not one or names an empty label. */
+function readJsonLabels(value: unknown): string[] | undefined {
+  const labels: unknown[] = Array.isArray(value) ? value : [value];
+  if (labels.length === 0) return undefined;
+  return labels.every((label): label is string => typeof label === 'string' && label !== '') ? labels : undefined;
+}
+
+/** Reads a parsed JSON `CI_RUNS_ON` value as a selection, or returns undefined when it does not name one. */
+function readJsonSelection(parsed: unknown): RunnerSelection | undefined {
+  if (!isRecord(parsed)) {
+    const labels = readJsonLabels(parsed);
+    return labels === undefined ? undefined : classifyLabels(labels);
+  }
+
+  const { group } = parsed;
+  if (group !== undefined && (typeof group !== 'string' || group === '')) return undefined;
+  const isEmptyArray = Array.isArray(parsed['labels']) && parsed['labels'].length === 0;
+  const labels = parsed['labels'] === undefined || isEmptyArray ? [] : readJsonLabels(parsed['labels']);
+  if (labels === undefined) return undefined;
+  if (group !== undefined) return { kind: 'self-hosted', labels, group };
+  return labels.length === 0 ? undefined : classifyLabels(labels);
 }
 
 // endregion | Helpers

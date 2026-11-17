@@ -10,6 +10,7 @@ import {
   readGitHubFacts,
   readRunnerSelection,
   recommendSelfHostedRunner,
+  type RunnerSelection,
   selfHostedRunnerCanRunCi,
 } from '../../.readyup/lib/self-hosted-runner.ts';
 import { buildRepo } from '../test-utils/fixture-repo.ts';
@@ -28,15 +29,34 @@ const CODE_QUALITY_V8 = `jobs:
 `;
 
 describe(readRunnerSelection, () => {
+  it.each<[string | undefined, RunnerSelection]>([
+    [undefined, { kind: 'unset' }],
+    [' ', { kind: 'unset' }],
+    ['self-hosted', { kind: 'self-hosted', labels: ['self-hosted'] }],
+    ['thor-x1-370-runners', { kind: 'self-hosted', labels: ['thor-x1-370-runners'] }],
+    ['"thor-x1-370-runners"', { kind: 'self-hosted', labels: ['thor-x1-370-runners'] }],
+    ['["self-hosted", "linux"]', { kind: 'self-hosted', labels: ['self-hosted', 'linux'] }],
+    ['["ubuntu-latest", "self-hosted"]', { kind: 'self-hosted', labels: ['ubuntu-latest', 'self-hosted'] }],
+    ['{"group": "pool"}', { kind: 'self-hosted', labels: [], group: 'pool' }],
+    ['{"group": "pool", "labels": []}', { kind: 'self-hosted', labels: [], group: 'pool' }],
+    ['{"group": "pool", "labels": "linux"}', { kind: 'self-hosted', labels: ['linux'], group: 'pool' }],
+    ['ubuntu-latest', { kind: 'hosted', labels: ['ubuntu-latest'] }],
+    ['"macos-14"', { kind: 'hosted', labels: ['macos-14'] }],
+    ['["ubuntu-24.04", "windows-latest"]', { kind: 'hosted', labels: ['ubuntu-24.04', 'windows-latest'] }],
+  ])('classifies %j', (value, selection) => {
+    expect(readRunnerSelection(value)).toStrictEqual(selection);
+  });
+
   it.each([
-    [undefined, 'unset'],
-    ['', 'unset'],
-    ['"self-hosted"', 'self-hosted'],
-    ['["self-hosted", "linux"]', 'self-hosted'],
-    ['"ubuntu-latest"', 'other'],
-    ['self-hosted', 'invalid'],
-  ])('classifies %j as %s', (value, selection) => {
-    expect(readRunnerSelection(value)).toBe(selection);
+    ['[oops', 'opens with [ but is not JSON'],
+    ['{"x": 1}', 'is JSON but does not name runner labels or a runner group'],
+    ['[1]', 'is JSON but does not name runner labels or a runner group'],
+    ['[]', 'is JSON but does not name runner labels or a runner group'],
+    ['""', 'is JSON but does not name runner labels or a runner group'],
+    ['["", "x"]', 'is JSON but does not name runner labels or a runner group'],
+    ['{"group": ""}', 'is JSON but does not name runner labels or a runner group'],
+  ])('classifies %j as invalid', (value, problem) => {
+    expect(readRunnerSelection(value)).toStrictEqual({ kind: 'invalid', problem });
   });
 });
 
@@ -283,14 +303,20 @@ describe('self-hosted runner checklist', () => {
     expect(outcome).toMatchObject({ fix: expect.stringContaining('gh variable delete CI_RUNS_ON --repo acme/app') });
   });
 
+  it('accepts a bare-string CI_RUNS_ON', async () => {
+    const readFacts = factsReader({ ...READY_FACTS, ciRunsOn: 'self-hosted' });
+
+    await expect(selfHostedRunnerCanRunCi(buildRepo({}), readFacts)).resolves.toBe(true);
+  });
+
   it('passes a set CI_RUNS_ON when every condition holds', async () => {
     const readFacts = factsReader({ ...READY_FACTS, ciRunsOn: '["self-hosted"]' });
 
     await expect(selfHostedRunnerCanRunCi(buildRepo({}), readFacts)).resolves.toBe(true);
   });
 
-  it('warns about a CI_RUNS_ON value that is not JSON', async () => {
-    const readFacts = factsReader({ ...READY_FACTS, ciRunsOn: 'self-hosted' });
+  it('warns about a CI_RUNS_ON value that opens like JSON but does not parse', async () => {
+    const readFacts = factsReader({ ...READY_FACTS, ciRunsOn: '["self-hosted"' });
     const dir = buildRepo({});
 
     await expect(describeReadinessSkip(dir, readFacts)).resolves.toBe(false);
@@ -300,7 +326,7 @@ describe('self-hosted runner checklist', () => {
   });
 
   it('names the other failing conditions with a value that is not JSON, and offers deleting the variable', async () => {
-    const readFacts = factsReader({ ...READY_FACTS, isPrivate: false, ciRunsOn: 'self-hosted' });
+    const readFacts = factsReader({ ...READY_FACTS, isPrivate: false, ciRunsOn: '["self-hosted"' });
 
     const outcome = await selfHostedRunnerCanRunCi(buildRepo({}), readFacts);
     expect(getDetail(outcome)).toContain('not JSON');
@@ -312,7 +338,9 @@ describe('self-hosted runner checklist', () => {
     const readFacts = factsReader({ ...READY_FACTS, isPrivate: false, ciRunsOn: '"ubuntu-latest"' });
     const dir = buildRepo({});
 
-    await expect(describeReadinessSkip(dir, readFacts)).resolves.toBe('CI_RUNS_ON selects "ubuntu-latest"');
+    await expect(describeReadinessSkip(dir, readFacts)).resolves.toBe(
+      'CI_RUNS_ON selects the GitHub-hosted runner "ubuntu-latest"',
+    );
     await expect(describeRecommendationSkip(dir, readFacts)).resolves.toContain('already set');
   });
 
