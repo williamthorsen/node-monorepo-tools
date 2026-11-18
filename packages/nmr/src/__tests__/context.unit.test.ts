@@ -1,8 +1,11 @@
 import path from 'node:path';
 
+import { UserError } from '@williamthorsen/nmr-core';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
 import { describe, expect, it } from 'vitest';
 
-import { findContainingPackageDir } from '../context.ts';
+import { findContainingPackageDir, resolveContext } from '../context.ts';
 
 // The monorepo root is two levels up from packages/nmr
 const MONOREPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
@@ -52,5 +55,49 @@ describe(findContainingPackageDir, () => {
       const outerDir = path.join(NMR_PACKAGE_DIR, 'src');
       expect(findContainingPackageDir(outerDir, nestedWorkspaceDirs)).toBe(NMR_PACKAGE_DIR);
     });
+  });
+});
+
+describe(resolveContext, () => {
+  const treeIt = it.extend(
+    'plainTree',
+    makeFixture(() => createTempTree({ 'src/a.js': '' }, { prefix: 'nmr-context-test-' })),
+  );
+
+  it('resolves a workspace root as it did before, with hasWorkspace set', async () => {
+    const findGitToplevel = () => ({ ok: false as const, error: 'not consulted' });
+    const context = await resolveContext(NMR_PACKAGE_DIR, { findGitToplevel });
+
+    expect(context).toMatchObject({
+      monorepoRoot: MONOREPO_ROOT,
+      hasWorkspace: true,
+      isRoot: false,
+      packageDir: NMR_PACKAGE_DIR,
+    });
+    expect(context.workspacePackageDirs).toContain(NMR_PACKAGE_DIR);
+  });
+
+  treeIt('falls back to the git toplevel when no pnpm-workspace.yaml is found', async ({ plainTree }) => {
+    const findGitToplevel = () => ({ ok: true as const, stdout: `${plainTree.dir}\n` });
+    const context = await resolveContext(path.join(plainTree.dir, 'src'), { findGitToplevel });
+
+    expect(context).toStrictEqual({
+      monorepoRoot: plainTree.dir,
+      hasWorkspace: false,
+      isRoot: true,
+      workspacePackageDirs: [],
+      config: {},
+    });
+  });
+
+  treeIt('names both missing roots when git does not find a repository either', async ({ plainTree }) => {
+    const findGitToplevel = () => ({ ok: false as const, error: 'fatal: not a git repository\n' });
+    const promise = resolveContext(plainTree.dir, { findGitToplevel });
+
+    await expect(promise).rejects.toThrow(UserError);
+    await expect(promise).rejects.toThrow(
+      `nmr needs a pnpm workspace or a git repository: no pnpm-workspace.yaml in ${plainTree.dir} or any parent ` +
+        `directory, and ${plainTree.dir} is not inside a git repository (fatal: not a git repository).`,
+    );
   });
 });
