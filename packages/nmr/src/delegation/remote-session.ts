@@ -7,6 +7,7 @@ import {
   type DelegationHolder,
   type HostSessionParams,
   runHostSession,
+  SESSION_PHASES,
   type SessionRecord,
 } from './remote-host-session.ts';
 
@@ -200,7 +201,7 @@ function isSessionRecord(value: unknown): value is SessionRecord {
       return (
         typeof value['exitCode'] === 'number' &&
         typeof value['output'] === 'string' &&
-        (value['phase'] === 'build' || value['phase'] === 'check out' || value['phase'] === 'install')
+        SESSION_PHASES.some((phase) => phase === value['phase'])
       );
     case 'locked':
     case 'run':

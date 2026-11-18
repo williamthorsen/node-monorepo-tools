@@ -33,8 +33,10 @@ export interface HostSessionParams {
   statusFile: string;
 }
 
-/** A phase of the host session that can fail before the run starts. */
-export type SessionPhase = 'build' | 'check out' | 'install';
+/** The phases of the host session that can fail before the run starts. */
+export const SESSION_PHASES = ['build', 'check out', 'install'] as const;
+
+export type SessionPhase = (typeof SESSION_PHASES)[number];
 
 /**
  * A line in which the host session reports to the local side: its progress before the run starts, and the passes that
@@ -143,6 +145,7 @@ export function runHostSession(params: HostSessionParams): void {
       ...childEnv,
       ...params.remoteEnv,
     });
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- `stop` sets the flag while the build runs.
     if (isStopping) return;
     if (build.exitCode !== 0) {
       fail('build', build);

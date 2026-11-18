@@ -349,16 +349,11 @@ const SNAPSHOT_REF = 'refs/nmr/delegate';
 
 /** Names the phase that the host session reported as failed. */
 function describeFailedPhase(failure: { exitCode: number; phase: SessionPhase }, host: string): string {
-  switch (failure.phase) {
-    case 'build':
-      return `could not build on ${host}`;
-    case 'check out':
-      return `could not check out on ${host}`;
-    case 'install':
-      return failure.exitCode === COMMAND_NOT_FOUND_EXIT_CODE
-        ? `could not install on ${host}: pnpm is not on the PATH that the interactive login shell sets there`
-        : `could not install on ${host}`;
+  if (failure.phase === 'install' && failure.exitCode === COMMAND_NOT_FOUND_EXIT_CODE) {
+    return `could not install on ${host}: pnpm is not on the PATH that the interactive login shell sets there`;
   }
+
+  return `could not ${failure.phase} on ${host}`;
 }
 
 /** Describes a host session that ended before it reported the run's start or a failed phase. */
