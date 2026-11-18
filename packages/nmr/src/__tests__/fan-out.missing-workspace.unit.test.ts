@@ -63,9 +63,11 @@ describe(runDelegation, () => {
 async function runAt(parsedArgs: ParsedArgs) {
   const stderrStream = new PassThrough();
   const chunks: string[] = [];
-  stderrStream.on('data', (chunk: Buffer) => chunks.push(chunk.toString('utf8')));
+  stderrStream.on('data', (chunk: Buffer) => {
+    chunks.push(chunk.toString('utf8'));
+  });
   const readFilterSelection = vi.fn(() => 'multiple' as const);
-  const runSteps = vi.fn(async () => ({ exitCode: 0 }));
+  const runSteps = vi.fn(() => Promise.resolve({ exitCode: 0 }));
 
   const result = await runDelegation({
     context: CONTEXT,
