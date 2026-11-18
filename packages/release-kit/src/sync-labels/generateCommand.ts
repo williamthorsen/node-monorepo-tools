@@ -39,9 +39,8 @@ export type GenerateOutcome =
 export function formatGenerateOutcome(outcome: GenerateOutcome, style: OutputStyle): string {
   const total = formatLabelCount(outcome.labelCount);
   switch (outcome.kind) {
-    case 'created': {
+    case 'created':
       return formatGlyphLine(RELEASE_GLYPHS, style, 'created', `Created ${LABELS_OUTPUT_PATH} with ${total}.`);
-    }
     case 'unchanged': {
       const message = `No change: ${LABELS_OUTPUT_PATH} is already in sync with ${outcome.configFilePath} (${total}).`;
       return formatGlyphLine(RELEASE_GLYPHS, style, 'unchanged', message);
@@ -273,10 +272,11 @@ function parseLabelsFile(content: string): LabelDefinition[] | undefined {
   } catch {
     return undefined;
   }
-  if (!Array.isArray(parsed) || !parsed.every((entry) => isLabelDefinition(entry))) {
+  if (!Array.isArray(parsed)) {
     return undefined;
   }
-  return parsed;
+  const labels = parsed.filter((entry) => isLabelDefinition(entry));
+  return labels.length === parsed.length ? labels : undefined;
 }
 
 /** Reads the labels file, distinguishing a file that does not exist from one that cannot be read. */

@@ -272,7 +272,7 @@ describe(generateCommand, () => {
     const exitCode = await generateCommand({ styles: RICH_STYLES });
 
     expect(exitCode).toBe(0);
-    expect(mockWriteFileSync).toHaveBeenCalledOnce();
+    expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
     expect(stdioCapture.stdout).toBe(
       `📝 Updated ${LABELS_OUTPUT_PATH}: 1 added, 1 removed, 1 renamed, 1 changed (3 labels).\n`,
     );
@@ -302,7 +302,7 @@ describe(generateCommand, () => {
 
     await generateCommand({ styles: RICH_STYLES });
 
-    expect(mockWriteFileSync).toHaveBeenCalledOnce();
+    expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
     expect(stdioCapture.stdout).toBe(
       `📝 Replaced ${LABELS_OUTPUT_PATH}, whose previous content was not a label list (1 label).\n`,
     );
