@@ -121,9 +121,9 @@ interface GenerateOptions {
 /**
  * Runs the `sync-labels generate` command and returns the process exit code.
  *
- * Writes `.github/labels.yaml` from the config's `repoLabels` block and reports whether it created, updated, or left the
- * file unchanged, writing nothing in the last case. With `shouldCheck`, it reports whether the committed file is stale,
- * and how, and writes nothing.
+ * Writes `.github/labels.yaml` from the config's `repoLabels` block and reports whether it created, updated, or left
+ * the file unchanged, writing nothing in the last case. With `shouldCheck`, it reports whether the committed file is
+ * stale, and how, and writes nothing.
  *
  * The header names the config by its POSIX path relative to the working directory, the repo root, so that the file
  * does not depend on the invocation directory or on the machine on which the command ran.
