@@ -72,7 +72,10 @@ describe('nmr outside both a pnpm workspace and a git repository', () => {
 
 // region | Helpers
 
-/** Builds a committed git repository containing one unformatted file, without a workspace manifest or `node_modules`. */
+/**
+ * Builds a committed git repository containing one unformatted file, without a workspace manifest or
+ * `node_modules`.
+ */
 function buildPlainRepo(): TempTree {
   const tree = disposeOnTestFinished(createTempTree({ 'a.js': UNFORMATTED_SOURCE }, { prefix: 'nmr-plain-repo-' }));
   initRepo(tree.dir);
