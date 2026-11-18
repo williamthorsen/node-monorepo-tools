@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { findMonorepoRoot as findMonorepoRootOrNothing, resolveWorkspace } from '@williamthorsen/nmr-core/workspace';
 
 /** The manifest whose presence marks a directory as the monorepo root. */
@@ -20,7 +22,10 @@ export function findMonorepoRoot(startDir?: string): string {
   const monorepoRoot = findMonorepoRootOrNothing(startDir);
 
   if (monorepoRoot === undefined) {
-    throw new UserError(`Could not find monorepo root: no ${WORKSPACE_MANIFEST} found in any parent directory`);
+    const searchedDir = path.resolve(startDir ?? process.cwd());
+    throw new UserError(
+      `This command needs a pnpm workspace: no ${WORKSPACE_MANIFEST} in ${searchedDir} or any parent directory.`,
+    );
   }
 
   return monorepoRoot;

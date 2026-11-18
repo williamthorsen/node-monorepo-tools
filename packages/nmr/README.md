@@ -28,10 +28,13 @@ nmr installs as a workspace bin, so the bare `nmr` command works only when the s
 A git repository that does not install nmr, or that has no `package.json` at all, can still format its files:
 
 ```bash
+pnpm dlx @williamthorsen/nmr fmt:check # or fmt
 pnpm dlx --package @williamthorsen/nmr nmr-fmt --check # or --write
 ```
 
 When the repository doesn't have a Prettier config, the [house config](docs/prettier.md) applies, shell scripts included.
+
+Outside a pnpm workspace, nmr runs from the git repository root, and `fmt` and `fmt:check` are the built-in commands that work there. A command that fans out to workspace packages (`build`, `test`, `typecheck`, and the composites that include them), `-R` or `-F`, and a command that reads the workspace, such as `upgrade` or `lint:workflows`, fail with an error stating that they need a pnpm workspace. `nmr --help` shows what each command resolves to.
 
 ## Quick start
 
@@ -71,13 +74,14 @@ nmr detects the directory from which it is invoked and selects the right scripts
 
 ## Context-aware resolution
 
-nmr's key feature is that the same command runs different scripts depending on where it is invoked. It walks up from the current directory to find `pnpm-workspace.yaml`, then checks whether the current directory is inside a workspace package directory.
+nmr's key feature is that the same command runs different scripts depending on where it is invoked. It walks up from the current directory to find `pnpm-workspace.yaml`, then checks whether the current directory is inside a workspace package directory. When the walk does not find the manifest, nmr uses the git repository root instead, as a root without packages.
 
 | Where `nmr` is invoked            | Registry used     | Working directory | `nmr test` runs                                                |
 | --------------------------------- | ----------------- | ----------------- | -------------------------------------------------------------- |
 | Monorepo root                     | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                    |
 | Inside a workspace package        | Workspace scripts | The package root  | `nmr-vitest --project unit --project tool` (that package only) |
 | Anywhere, with `--workspace-root` | Root scripts      | Monorepo root     | `root:test`, then `-R test`                                    |
+| Git repository without a manifest | Root scripts      | Repository root   | Fails: `test` needs a pnpm workspace                           |
 
 Relative paths in a script resolve against that working directory, not the invocation directory.
 

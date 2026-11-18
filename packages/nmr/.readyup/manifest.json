@@ -358,7 +358,7 @@
           "path": "../src/verbosity.ts"
         },
         {
-          "hash": "770e4f3a",
+          "hash": "f8ea0acc",
           "kind": "module",
           "path": "../src/workspace.ts"
         }
