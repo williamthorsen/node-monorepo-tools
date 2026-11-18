@@ -48,7 +48,7 @@ describe(findMonorepoRoot, () => {
 
   it('throws when pnpm-workspace.yaml is not found in any parent directory', () => {
     expect(() => findMonorepoRoot('/')).toThrow(
-      'Could not find monorepo root: no pnpm-workspace.yaml found in any parent directory',
+      'This command needs a pnpm workspace: no pnpm-workspace.yaml in / or any parent directory.',
     );
   });
 

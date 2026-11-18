@@ -47,6 +47,15 @@ describe('nmr in a git repository without pnpm-workspace.yaml', () => {
       expect(status).not.toBe(0);
     },
   );
+
+  it('refuses a bin that reads the workspace, stating that the command needs one', () => {
+    const tree = buildPlainRepo();
+
+    const { status, output } = runBin(tree, ['upgrade']);
+
+    expect(status).not.toBe(0);
+    expect(output).toContain('needs a pnpm workspace');
+  });
 });
 
 describe('nmr outside both a pnpm workspace and a git repository', () => {
