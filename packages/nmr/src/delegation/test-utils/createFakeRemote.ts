@@ -51,11 +51,11 @@ export interface FakeRemote {
  * arguments, the output style, nmr's own variables, the files in the directory, the bins in its `node_modules/.bin`,
  * and the content of `probe.txt` when there is one, then prints to both streams. These variables steer it:
  * `FAKE_BUILD_STATUS`, `FAKE_INSTALL_STATUS`, and `FAKE_RUN_STATUS` set exit statuses; `FAKE_BUILD_OUTPUT` makes the
- * build print that line; `FAKE_INSTALL_SLEEP` and `FAKE_RUN_SLEEP`
- * make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and sleep;
- * `FAKE_INSTALL_OUTPUT` makes the install print that line; `FAKE_INSTALL_NOISE` makes the install print that many lines
- * and then `last install line`; `FAKE_RUN_MANIFEST`, a JSON array, makes the run write each element as an entry file
- * into the pass manifest; and `FAKE_RUN_TERM_DELAY` makes the run take that many seconds to exit on `SIGTERM`.
+ * build print that line; `FAKE_INSTALL_SLEEP` and `FAKE_RUN_SLEEP` make the install or the run write its pid to
+ * `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and sleep; `FAKE_INSTALL_OUTPUT` makes the install print that line;
+ * `FAKE_INSTALL_NOISE` makes the install print that many lines and then `last install line`; `FAKE_RUN_MANIFEST`, a
+ * JSON array, makes the run write each element as an entry file into the pass manifest; and `FAKE_RUN_TERM_DELAY` makes
+ * the run take that many seconds to exit on `SIGTERM`.
  */
 export function createFakeRemote(tree: TempTree): FakeRemote {
   const binDir = tree.mkdir('fake-bin');
