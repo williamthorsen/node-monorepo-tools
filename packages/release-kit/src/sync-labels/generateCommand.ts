@@ -1,20 +1,59 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { isAnticipatedFailure, type OutputStyle, reportError, type StreamStyles } from '@williamthorsen/nmr-core';
+import {
+  formatGlyphLine,
+  hasErrnoCode,
+  isAnticipatedFailure,
+  isRecord,
+  type OutputStyle,
+  reportError,
+  type StreamStyles,
+} from '@williamthorsen/nmr-core';
 import { describeError } from '@williamthorsen/toolbelt.errors';
-import { stringify } from 'yaml';
+import { parse, stringify } from 'yaml';
 
 import { BIN } from '../bin.ts';
+import { RELEASE_GLYPHS } from '../cli/glyphs.ts';
 import type { RepoLabelsConfig } from '../config/config-schema.ts';
 import { CONFIG_FILE_PATH } from '../config/loadConfig.ts';
 import { loadValidatedConfig, reportConfigProblem } from '../config/loadValidatedConfig.ts';
+import { diffLabels, hasLabelDifferences, type LabelDiff } from './diffLabels.ts';
 import { hashPreset } from './presets.ts';
 import { resolveLabels } from './resolveLabels.ts';
 import type { LabelDefinition } from './types.ts';
 
 /** Output path for the generated labels file. */
 export const LABELS_OUTPUT_PATH = '.github/labels.yaml';
+
+/** What `sync-labels generate` did to the labels file. */
+export type GenerateOutcome =
+  | { kind: 'created'; labelCount: number }
+  | { kind: 'unchanged'; configFilePath: string; labelCount: number }
+  | { kind: 'updated'; diff: LabelDiff | undefined; labelCount: number };
+
+/**
+ * Renders the one-line report of a `generate` outcome. An `updated` outcome without a diff is one whose previous file
+ * was not a label list.
+ */
+export function formatGenerateOutcome(outcome: GenerateOutcome, style: OutputStyle): string {
+  const total = formatLabelCount(outcome.labelCount);
+  switch (outcome.kind) {
+    case 'created':
+      return formatGlyphLine(RELEASE_GLYPHS, style, 'created', `Created ${LABELS_OUTPUT_PATH} with ${total}.`);
+    case 'unchanged': {
+      const message = `No change: ${LABELS_OUTPUT_PATH} is already in sync with ${outcome.configFilePath} (${total}).`;
+      return formatGlyphLine(RELEASE_GLYPHS, style, 'unchanged', message);
+    }
+    case 'updated': {
+      const message =
+        outcome.diff === undefined
+          ? `Replaced ${LABELS_OUTPUT_PATH}, whose previous content was not a label list (${total}).`
+          : `Updated ${LABELS_OUTPUT_PATH}: ${describeDifferences(outcome.diff, 'changed')} (${total}).`;
+      return formatGlyphLine(RELEASE_GLYPHS, style, 'updated', message);
+    }
+  }
+}
 
 /**
  * Formats resolved labels as YAML under a generated header that includes the preset hashes.
@@ -32,21 +71,8 @@ export function formatLabelsYaml(
     headerLines.push(`# ${name} preset hash: ${hash}`);
   }
 
-  // Declare a description for every label, empty if the config does not set one.
-  // `github-label-sync` reads an omitted description as "leave the label's current one alone" and an empty one as
-  // "clear it", so omitting the key would leave a description on GitHub after the config stops declaring it.
-  // Build each entry explicitly to fix the key order: `aliases` and `archived` follow `description` whether or not
-  // one was set.
-  const declaredLabels = labels.map(({ aliases, archived, color, description, name }) => ({
-    name,
-    color,
-    description: description ?? '',
-    ...(aliases !== undefined && { aliases }),
-    ...(archived !== undefined && { archived }),
-  }));
-
   // `lineWidth: 0` disables line wrapping.
-  const yamlBody = stringify(declaredLabels, { singleQuote: true, lineWidth: 0 });
+  const yamlBody = stringify(declareLabels(labels), { singleQuote: true, lineWidth: 0 });
   return headerLines.join('\n') + '\n' + yamlBody;
 }
 
@@ -95,8 +121,9 @@ interface GenerateOptions {
 /**
  * Runs the `sync-labels generate` command and returns the process exit code.
  *
- * Writes `.github/labels.yaml` from the config's `repoLabels` block, or, with `shouldCheck`, reports whether the committed
- * file is stale and writes nothing.
+ * Writes `.github/labels.yaml` from the config's `repoLabels` block and reports whether it created, updated, or left
+ * the file unchanged, writing nothing in the last case. With `shouldCheck`, it reports whether the committed file is
+ * stale, and how, and writes nothing.
  *
  * The header names the config by its POSIX path relative to the working directory, the repo root, so that the file
  * does not depend on the invocation directory or on the machine on which the command ran.
@@ -125,14 +152,24 @@ export async function generateCommand({ shouldCheck = false, configPath, styles 
     presetHashes.set(presetName, hashPreset(presetName));
   }
 
-  const content = formatLabelsYaml(
-    labels,
-    presetHashes,
-    convertToRootRelativePosixPath(configPath ?? CONFIG_FILE_PATH),
-  );
+  const configFilePath = convertToRootRelativePosixPath(configPath ?? CONFIG_FILE_PATH);
+  const content = formatLabelsYaml(labels, presetHashes, configFilePath);
+
+  const existingFile = readExistingLabelsFile();
+  if (existingFile.status === 'failed') {
+    reportError(BIN, `Failed to read ${LABELS_OUTPUT_PATH}: ${existingFile.message}`);
+    return 1;
+  }
 
   if (shouldCheck) {
-    return compareAgainstCommittedFile(content);
+    return reportCheckResult(existingFile, content, labels);
+  }
+
+  if (existingFile.status === 'read' && existingFile.content === content) {
+    console.info(
+      formatGenerateOutcome({ kind: 'unchanged', configFilePath, labelCount: labels.length }, styles.stdout),
+    );
+    return 0;
   }
 
   try {
@@ -144,37 +181,137 @@ export async function generateCommand({ shouldCheck = false, configPath, styles 
     return 1;
   }
 
-  console.info(`Generated ${LABELS_OUTPUT_PATH} with ${String(labels.length)} labels.`);
+  const outcome: GenerateOutcome =
+    existingFile.status === 'missing'
+      ? { kind: 'created', labelCount: labels.length }
+      : { kind: 'updated', diff: diffAgainstFile(existingFile.content, labels), labelCount: labels.length };
+  console.info(formatGenerateOutcome(outcome, styles.stdout));
   return 0;
 }
 
 // region | Helpers
 
-/** Compares regenerated content against the committed labels file; reports and returns an exit code. */
-function compareAgainstCommittedFile(expectedContent: string): number {
-  let existingContent: string;
+/** The labels file as `generate` found it before writing. */
+type ExistingLabelsFile =
+  { status: 'missing' } | { status: 'read'; content: string } | { status: 'failed'; message: string };
+
+/** Converts a path to POSIX form relative to the working directory; a path outside it keeps its `../` segments. */
+function convertToRootRelativePosixPath(filePath: string): string {
+  return path.relative(process.cwd(), path.resolve(filePath)).split(path.sep).join('/');
+}
+
+/**
+ * Returns resolved labels in the shape that the labels file declares them, with a description on every label, empty
+ * if the config does not set one.
+ *
+ * `github-label-sync` reads an omitted description as "leave the label's current one alone" and an empty one as
+ * "clear it", so omitting the key would leave a description on GitHub after the config stops declaring it. Each entry
+ * is built explicitly to fix the key order: `aliases` and `archived` follow `description` whether or not one was set.
+ */
+function declareLabels(labels: readonly LabelDefinition[]): LabelDefinition[] {
+  return labels.map(({ aliases, archived, color, description, name }) => ({
+    name,
+    color,
+    description: description ?? '',
+    ...(aliases !== undefined && { aliases }),
+    ...(archived !== undefined && { archived }),
+  }));
+}
+
+/**
+ * Lists the non-zero counts of each kind of label difference, or, when there is none, says that only the header or
+ * order differs, using `verb` for that difference.
+ */
+function describeDifferences(diff: LabelDiff, verb: 'changed' | 'differs'): string {
+  if (!hasLabelDifferences(diff)) {
+    return `only the header or label order ${verb}`;
+  }
+  const counts: Array<[number, string]> = [
+    [diff.added.length, 'added'],
+    [diff.removed.length, 'removed'],
+    [diff.renamed.length, 'renamed'],
+    [diff.changed.length, 'changed'],
+  ];
+  return counts
+    .filter(([count]) => count > 0)
+    .map(([count, kind]) => `${String(count)} ${kind}`)
+    .join(', ');
+}
+
+/** Diffs the labels in an existing file's content against `labels`; returns `undefined` when it is not a label list. */
+function diffAgainstFile(existingContent: string, labels: readonly LabelDefinition[]): LabelDiff | undefined {
+  const previousLabels = parseLabelsFile(existingContent);
+  return previousLabels === undefined ? undefined : diffLabels(previousLabels, declareLabels(labels));
+}
+
+/** Formats a label count with the noun in agreement with it. */
+function formatLabelCount(count: number): string {
+  return `${String(count)} ${count === 1 ? 'label' : 'labels'}`;
+}
+
+/** Reports whether a value has the shape of a label entry in the labels file. */
+function isLabelDefinition(value: unknown): value is LabelDefinition {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const { aliases, archived, color, description, name } = value;
+  return (
+    typeof name === 'string' &&
+    typeof color === 'string' &&
+    (description === undefined || typeof description === 'string') &&
+    (aliases === undefined || (Array.isArray(aliases) && aliases.every((alias) => typeof alias === 'string'))) &&
+    (archived === undefined || archived === true)
+  );
+}
+
+/** Parses the labels file's YAML; returns `undefined` when it is not a list of label entries. */
+function parseLabelsFile(content: string): LabelDefinition[] | undefined {
+  let parsed: unknown;
   try {
-    existingContent = readFileSync(LABELS_OUTPUT_PATH, 'utf8');
+    parsed = parse(content);
   } catch {
-    reportError(
-      BIN,
-      `${LABELS_OUTPUT_PATH} is missing. Run \`release-kit sync-labels generate\` and commit the result.`,
-    );
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) {
+    return undefined;
+  }
+  const labels = parsed.filter((entry) => isLabelDefinition(entry));
+  return labels.length === parsed.length ? labels : undefined;
+}
+
+/** Reads the labels file, distinguishing a file that does not exist from one that cannot be read. */
+function readExistingLabelsFile(): ExistingLabelsFile {
+  try {
+    return { status: 'read', content: readFileSync(LABELS_OUTPUT_PATH, 'utf8') };
+  } catch (error: unknown) {
+    if (hasErrnoCode(error, 'ENOENT')) {
+      return { status: 'missing' };
+    }
+    return { status: 'failed', message: describeError(error) };
+  }
+}
+
+/** Reports whether the committed labels file matches the regenerated content, and returns the exit code. */
+function reportCheckResult(
+  existingFile: Exclude<ExistingLabelsFile, { status: 'failed' }>,
+  expectedContent: string,
+  labels: readonly LabelDefinition[],
+): number {
+  const remedy = 'Run `release-kit sync-labels generate` and commit the result.';
+  if (existingFile.status === 'missing') {
+    reportError(BIN, `${LABELS_OUTPUT_PATH} is missing. ${remedy}`);
     return 1;
   }
 
-  if (existingContent !== expectedContent) {
-    reportError(BIN, `${LABELS_OUTPUT_PATH} is stale. Run \`release-kit sync-labels generate\` and commit the result.`);
+  if (existingFile.content !== expectedContent) {
+    const diff = diffAgainstFile(existingFile.content, labels);
+    const differences = diff === undefined ? 'its content is not a label list' : describeDifferences(diff, 'differs');
+    reportError(BIN, `${LABELS_OUTPUT_PATH} is stale (${differences}). ${remedy}`);
     return 1;
   }
 
   console.info(`${LABELS_OUTPUT_PATH} is up to date.`);
   return 0;
-}
-
-/** Converts a path to POSIX form relative to the working directory; a path outside it keeps its `../` segments. */
-function convertToRootRelativePosixPath(filePath: string): string {
-  return path.relative(process.cwd(), path.resolve(filePath)).split(path.sep).join('/');
 }
 
 // endregion | Helpers
