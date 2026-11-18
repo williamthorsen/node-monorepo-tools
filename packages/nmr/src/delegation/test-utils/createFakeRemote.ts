@@ -46,10 +46,12 @@ export interface FakeRemote {
  *
  * The fake `pnpm` logs each call. Its `install` logs its `PATH` as `path-install`, and, as `state=present` or
  * `state=absent`, whether pnpm's workspace state file exists, then writes that file as pnpm does; with
- * `FAKE_INSTALL_REAL` naming a pnpm, it runs that pnpm instead. Its `exec` logs the directory, its `PATH` as
- * `path-run`, the arguments, the output style, nmr's own variables, the files in the directory, the bins in its
- * `node_modules/.bin`, and the content of `probe.txt` when there is one, then prints to both streams. These variables
- * steer it: `FAKE_INSTALL_STATUS` and `FAKE_RUN_STATUS` set exit statuses; `FAKE_INSTALL_SLEEP` and `FAKE_RUN_SLEEP`
+ * `FAKE_INSTALL_REAL` naming a pnpm, it runs that pnpm instead. Its `exec nmr --no-delegate build`, the host's build,
+ * logs only its directory, as `build-cwd`. Any other `exec` logs the directory, its `PATH` as `path-run`, the
+ * arguments, the output style, nmr's own variables, the files in the directory, the bins in its `node_modules/.bin`,
+ * and the content of `probe.txt` when there is one, then prints to both streams. These variables steer it:
+ * `FAKE_BUILD_STATUS`, `FAKE_INSTALL_STATUS`, and `FAKE_RUN_STATUS` set exit statuses; `FAKE_BUILD_OUTPUT` makes the
+ * build print that line; `FAKE_INSTALL_SLEEP` and `FAKE_RUN_SLEEP`
  * make the install or the run write its pid to `FAKE_INSTALL_PIDFILE` or `FAKE_RUN_PIDFILE` and sleep;
  * `FAKE_INSTALL_OUTPUT` makes the install print that line; `FAKE_INSTALL_NOISE` makes the install print that many lines
  * and then `last install line`; `FAKE_RUN_MANIFEST`, a JSON array, makes the run write each element as an entry file
@@ -102,6 +104,11 @@ export function createFakeRemote(tree: TempTree): FakeRemote {
     '    if [ -n "$FAKE_INSTALL_SLEEP" ]; then echo $$ > "$FAKE_INSTALL_PIDFILE"; sleep "$FAKE_INSTALL_SLEEP"; fi',
     '    exit "${FAKE_INSTALL_STATUS:-0}" ;;',
     '  exec)',
+    '    if [ "$*" = "exec nmr --no-delegate build" ]; then',
+    '      echo "build-cwd=$(pwd)" >> "$FAKE_PNPM_LOG"',
+    '      if [ -n "$FAKE_BUILD_OUTPUT" ]; then printf "%s\\n" "$FAKE_BUILD_OUTPUT"; fi',
+    '      exit "${FAKE_BUILD_STATUS:-0}"',
+    '    fi',
     '    shift 2',
     '    {',
     '      echo "cwd=$(pwd)"',
