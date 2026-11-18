@@ -215,10 +215,10 @@
       ],
       "name": "default",
       "path": "kits/default.js",
-      "readyupVersion": "0.47.1",
+      "readyupVersion": "0.47.2",
       "source": "kits/default.ts",
       "sourceHash": "026cacdf",
-      "targetHash": "4768a90d"
+      "targetHash": "043b7331"
     },
     {
       "bundledDependencies": {
@@ -367,10 +367,10 @@
       ],
       "name": "npm-auto-publish",
       "path": "kits/npm-auto-publish.js",
-      "readyupVersion": "0.47.1",
+      "readyupVersion": "0.47.2",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "530ed5bd",
-      "targetHash": "b991f859"
+      "targetHash": "13d45421"
     }
   ]
 }

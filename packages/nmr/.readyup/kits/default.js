@@ -1,6 +1,6 @@
 /** @noformat -- @generated. Do not edit. Compiled by rdy. */
 /* eslint-disable */
-export const __readyupVersion = "0.47.1";
+export const __readyupVersion = "0.47.2";
 import { createRequire as __rdyCreateRequire } from 'node:module';
 const require = __rdyCreateRequire(import.meta.url);
 
