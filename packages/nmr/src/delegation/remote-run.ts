@@ -45,7 +45,7 @@ export const SSH_OPTIONS: readonly string[] = ['-T', '-o', 'BatchMode=yes', '-o'
 export type HostList = readonly [string, ...string[]];
 
 /** The phases of a delegation that run on the host, each reported by name when it fails. */
-export type RemotePhase = 'check out' | 'install' | 'prepare' | 'push' | 'run';
+export type RemotePhase = 'build' | 'check out' | 'install' | 'prepare' | 'push' | 'run';
 
 /**
  * The status of a delegated command and the pass-manifest entries that its run reported, unvalidated, or the phase
@@ -126,9 +126,9 @@ export function readLastLine(output: string): string {
  * The host keeps one checkout per worktree on each delegating machine, under `~/.cache/nmr/delegate/`, so concurrent
  * delegations from different worktrees do not share a checkout, and `node_modules` and build output persist
  * between runs. Before the push, the delegation removes the host's other checkouts that have not been used for
- * longer than `removeCheckoutsAfterMs`, unless it is `null`. Check out, install, and run take one connection, whose
- * session holds the checkout's lock, so that two delegations from one worktree run one after the other; what a phase
- * other than `run` prints is returned rather than streamed, because it matters only when the phase fails.
+ * longer than `removeCheckoutsAfterMs`, unless it is `null`. Check out, install, build, and run take one connection,
+ * whose session holds the checkout's lock, so that two delegations from one worktree run one after the other; what a
+ * phase other than `run` prints is returned rather than streamed, because it matters only when the phase fails.
  */
 export async function runRemotely(options: {
   command: string;
@@ -349,13 +349,16 @@ const SNAPSHOT_REF = 'refs/nmr/delegate';
 
 /** Names the phase that the host session reported as failed. */
 function describeFailedPhase(failure: { exitCode: number; phase: SessionPhase }, host: string): string {
-  if (failure.phase === 'check out') {
-    return `could not check out on ${host}`;
+  switch (failure.phase) {
+    case 'build':
+      return `could not build on ${host}`;
+    case 'check out':
+      return `could not check out on ${host}`;
+    case 'install':
+      return failure.exitCode === COMMAND_NOT_FOUND_EXIT_CODE
+        ? `could not install on ${host}: pnpm is not on the PATH that the interactive login shell sets there`
+        : `could not install on ${host}`;
   }
-
-  return failure.exitCode === COMMAND_NOT_FOUND_EXIT_CODE
-    ? `could not install on ${host}: pnpm is not on the PATH that the interactive login shell sets there`
-    : `could not install on ${host}`;
 }
 
 /** Describes a host session that ended before it reported the run's start or a failed phase. */
