@@ -35,6 +35,30 @@ describe('nmr in a git repository without pnpm-workspace.yaml', () => {
     expect(status).toBe(0);
     expect(tree.read('a.js')).toBe('const a = 1;\n');
   });
+
+  it.for([{ command: 'build' }, { command: 'test' }])(
+    'refuses $command, whose chain fans out to workspace packages, rather than passing over none',
+    ({ command }) => {
+      const tree = buildPlainRepo();
+
+      const { status, output } = runBin(tree, [command]);
+
+      expect(output).toContain(`\`${command}\` fans out to workspace packages, which needs a pnpm workspace`);
+      expect(status).not.toBe(0);
+    },
+  );
+});
+
+describe('nmr outside both a pnpm workspace and a git repository', () => {
+  it('fails, naming both what it did not find', () => {
+    const tree = disposeOnTestFinished(createTempTree({ 'a.js': UNFORMATTED_SOURCE }, { prefix: 'nmr-no-repo-' }));
+
+    const { status, output } = runBin(tree, ['fmt:check']);
+
+    expect(status).not.toBe(0);
+    expect(output).toContain(`no pnpm-workspace.yaml in ${tree.dir} or any parent directory`);
+    expect(output).toContain('is not inside a git repository');
+  });
 });
 
 // region | Helpers

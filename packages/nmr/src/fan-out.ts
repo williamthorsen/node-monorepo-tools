@@ -8,6 +8,7 @@ import type { FilterSelection, ReadFilterSelection } from './helpers/filter-sele
 import { findClosestName } from './helpers/findClosestName.ts';
 import { renderQuotedList } from './helpers/renderQuotedList.ts';
 import { RUN_IF_PRESENT_ENV_VAR, type RunCliResult } from './invocation.ts';
+import { formatFilterWithoutWorkspace, formatRecursionWithoutWorkspace } from './missing-workspace.ts';
 import type { ParsedArgs } from './nmr-flags.ts';
 import { buildRootRegistry, buildWorkspaceRegistry, readPackageJsonScripts } from './resolver.ts';
 import type { RunSteps, RunStepsOptions } from './runner.ts';
@@ -115,6 +116,13 @@ export async function runDelegation(options: {
   stderr: Writable;
 }): Promise<RunCliResult> {
   const { context, delegation, parsedArgs, readFilterSelection, runOptions, runSteps, stderr } = options;
+
+  // Ahead of the selection read, which asks pnpm about a workspace that is not there.
+  const missingWorkspaceRefusal = findMissingWorkspaceRefusal(context, parsedArgs);
+  if (missingWorkspaceRefusal !== undefined) {
+    reportError(NMR_BIN, missingWorkspaceRefusal, stderr);
+    return { exitCode: 1 };
+  }
 
   const selection =
     parsedArgs.filter === undefined ? undefined : readFilterSelection(parsedArgs.filter, context.monorepoRoot);
@@ -252,6 +260,17 @@ function findEmptySelectionRefusal(options: {
   }
 
   return isPackageless ? `${RECURSIVE_REJECTION} ${describeEmptyWorkspace(context.monorepoRoot)}` : undefined;
+}
+
+/** Returns the line refusing a delegation at a root without a workspace, or `undefined` at a root with one. */
+function findMissingWorkspaceRefusal(context: ResolvedContext, parsedArgs: ParsedArgs): string | undefined {
+  if (context.hasWorkspace) {
+    return undefined;
+  }
+
+  return parsedArgs.filter === undefined
+    ? formatRecursionWithoutWorkspace(context.monorepoRoot)
+    : formatFilterWithoutWorkspace(parsedArgs.filter, context.monorepoRoot);
 }
 
 /**

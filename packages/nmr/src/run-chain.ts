@@ -11,6 +11,7 @@ import { isHookName } from './helpers/isHookName.ts';
 import { quoteForShell } from './helpers/quoteForShell.ts';
 import { wrapWithHooks } from './hooks.ts';
 import { type Invocation, type PhaseResult, type RunPlan, USAGE_EXIT_CODE } from './invocation.ts';
+import { formatComposedRecursionWithoutWorkspace } from './missing-workspace.ts';
 import { reportVerdict } from './presentation.ts';
 import type { ScriptRegistry } from './resolve-scripts.ts';
 import type { ResolvedScript } from './resolver.ts';
@@ -29,6 +30,13 @@ export function assembleChain(options: {
 }): PhaseResult<Pick<RunPlan, 'commandString' | 'key' | 'ownSteps' | 'steps'>> {
   const { invocation, registry, resolvedScript, snapshot } = options;
   const { anchorDir, command, context, env, parsedArgs, stderr, stdout, styles } = invocation;
+
+  // A `-R` step at a root without a workspace is refused rather than dropped: Dropping it would report a pass for a
+  // command whose packages nmr cannot find.
+  if (!context.hasWorkspace && dropRecursiveSteps(resolvedScript.steps).length < resolvedScript.steps.length) {
+    reportError(NMR_BIN, formatComposedRecursionWithoutWorkspace(command, context.monorepoRoot), stderr);
+    return { settled: true, result: { exitCode: 1 } };
+  }
 
   // Filter the steps before rendering the chain, which feeds both the cache key and the `--log` lookup, so that a
   // run and a reading of its recording agree about what the chain was.
