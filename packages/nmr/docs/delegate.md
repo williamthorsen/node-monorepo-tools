@@ -78,7 +78,7 @@ The user config's `when: 'agent'` is how an agent session's checks reach the hos
 
 Every command whose contribution is its exit status: `ci`, `prepush`, `check`, the `test` commands, `typecheck`, and a custom script such as `test:e2e`. nmr decides on the name that the invocation gives, so `ci` runs on the host as one unit, `build` step included.
 
-These run here, and `--delegate` and `--delegate-to` refuse them: `build`, `clean`, `compile`, `fix`, `fmt`, `lint`, `test:watch`, and `upgrade`, with their `root:` forms, which rewrite the working tree or run until stopped; and `--log`, which reads this machine's recordings. Under `NMR_DELEGATE` or the user config, they run here without comment.
+These run here, and `--delegate` and `--delegate-to` refuse them: `build`, `clean`, `compile`, `fix`, `fmt`, `lint`, `test:watch`, and `upgrade`, with their `root:` forms, which rewrite the working tree or run until stopped; and `--log`, which reads this machine's recordings. Under `NMR_DELEGATE` or the user config, they run here without comment. The build that the host runs before every delegated command, described below, is not a delegation of `build`.
 
 ## Consulting the cache first
 
@@ -101,7 +101,9 @@ $ nmr --delegate-to imac2 ci
 
 nmr records the working tree as it is on disk as a commit: tracked changes, staged or not, and untracked files that git does not ignore. This is the tree that a local run checks. The commit is built in a temporary index, so the repository's index, refs, and stash do not change.
 
-nmr pushes the commit to a checkout on the host under `~/.cache/nmr/delegate/`, without running the repository's `pre-push` hook, then runs `pnpm install --frozen-lockfile` and the command from the directory that corresponds to the local one, with nmr's own flags as they were given. The host keeps one checkout for each worktree on each machine that delegates to it, so concurrent delegations from different worktrees do not share one, and `node_modules` and build output persist between runs. When the workspace packages' `bin` entries differ from those of the checkout's last successful install, nmr first removes pnpm's workspace state, so that the install links the new bins, which an unchanged lockfile would otherwise let pnpm skip; that install reruns the workspace's `prepare` scripts.
+nmr pushes the commit to a checkout on the host under `~/.cache/nmr/delegate/`, without running the repository's `pre-push` hook, then runs `pnpm install --frozen-lockfile`, builds the tree as described below, and runs the command from the directory that corresponds to the local one, with nmr's own flags as they were given. The host keeps one checkout for each worktree on each machine that delegates to it, so concurrent delegations from different worktrees do not share one, and `node_modules` and build output persist between runs. When the workspace packages' `bin` entries differ from those of the checkout's last successful install, nmr first removes pnpm's workspace state, so that the install links the new bins, which an unchanged lockfile would otherwise let pnpm skip; that install reruns the workspace's `prepare` scripts.
+
+After the install, the host runs the repo's `nmr build` from the checkout's root, whatever directory the command runs from, and then the command. The command therefore reads build output built from the delegated tree rather than output that an earlier run left in the checkout, and a delegated verdict depends on the tree alone. `ci` and `prepush`, whose own chains build first, build the tree a second time. The build's own cache keeps the rebuild of an unchanged tree cheap; [Build and CI](scripts.md#build-and-ci) states what `nmr build` runs.
 
 - **Ignored files stay here.** A command that needs a gitignored file, such as a local `.env`, does not find it on the host.
 - **A repository with submodules cannot be delegated**, nor can a tree containing a nested repository, because the snapshot does not include their content. A delegation flag refuses such a tree; under `NMR_DELEGATE` or the user config, the command runs here, and nmr prints one line saying why.
@@ -131,7 +133,7 @@ Ctrl-C ends the delegation on the host as well as here, in every step, including
 
 ## Reporting
 
-The host's nmr prints its output and verdicts, and nmr here adds one verdict for the whole delegation, its transfer and install included, which names the host. `--json` adds a `host` field to that object; see [reporting for a machine](reporting.md#reporting-for-a-machine).
+The host's nmr prints its output and verdicts, and nmr here adds one verdict for the whole delegation, its transfer, install, and build included, which names the host. `--json` adds a `host` field to that object; see [reporting for a machine](reporting.md#reporting-for-a-machine).
 
 A failure of the delegation itself, rather than of the command, exits 255, the status with which `ssh` reports its own failures, and names the step that failed, after what that step printed:
 
@@ -139,7 +141,7 @@ A failure of the delegation itself, rather than of the command, exits 255, the s
 ❌ my-repo: ci: failed on 📡 imac2 in 10.0s (exit 255) — could not prepare imac2
 ```
 
-The steps are `prepare`, which reaches the host, removes its [unused checkouts](#unused-checkouts), and creates the checkout, `push`, `check out`, and `install`. A connection lost while the command runs is reported as `lost connection to <host>`.
+The steps are `prepare`, which reaches the host, removes its [unused checkouts](#unused-checkouts), and creates the checkout, `push`, `check out`, `install`, and `build`. A connection lost while the command runs is reported as `lost connection to <host>`.
 
 A step that fails with `No space left on device` reports which resource the host's filesystem has run out of, because a write fails the same way for both:
 
