@@ -3,7 +3,7 @@ import path from 'node:path';
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
 import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
 import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { LabelDefinition } from '../types.ts';
 
@@ -43,9 +43,19 @@ vi.mock(import('node:fs'), () => ({
 
 import { formatLabelsYaml, generateCommand, LABELS_OUTPUT_PATH } from '../generateCommand.ts';
 
+const bugLabel: LabelDefinition = { name: 'bug', color: 'd73a4a', description: 'Bug' };
+const featureLabel: LabelDefinition = { name: 'feature', color: '0075ca' };
+
+const PLAIN_STYLES: StreamStyles = { stderr: 'plain', stdout: 'plain' };
 const RICH_STYLES: StreamStyles = { stderr: 'rich', stdout: 'rich' };
 
 describe(generateCommand, () => {
+  beforeEach(() => {
+    mockReadFileSync.mockImplementation(() => {
+      throw createErrnoError('ENOENT');
+    });
+  });
+
   afterEach(() => {
     mockExistsSync.mockReset();
     mockLoadConfig.mockReset();
@@ -173,17 +183,27 @@ describe(generateCommand, () => {
     const exitCode = await generateCommand({ shouldCheck: true, styles: RICH_STYLES });
 
     expect(exitCode).toBe(1);
-    expect(stdioCapture.stderr).toContain('stale');
+    expect(stdioCapture.stderr).toContain('is stale (its content is not a label list)');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('with shouldCheck, reports how a stale committed file differs', async () => {
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([bugLabel, featureLabel]);
+    mockReadFileSync.mockReturnValue(formatLabelsYaml([bugLabel], new Map()));
+    using stdioCapture = captureStdio();
+
+    const exitCode = await generateCommand({ shouldCheck: true, styles: RICH_STYLES });
+
+    expect(exitCode).toBe(1);
+    expect(stdioCapture.stderr).toContain(`${LABELS_OUTPUT_PATH} is stale (1 added).`);
   });
 
   it('with shouldCheck, returns 1 when the committed file is missing', async () => {
     mockExistsSync.mockReturnValue(false);
     stubValidConfig({ repoLabels: {} });
     mockResolveLabels.mockReturnValue([]);
-    mockReadFileSync.mockImplementation(() => {
-      throw new Error('ENOENT');
-    });
     using stdioCapture = captureStdio();
 
     const exitCode = await generateCommand({ shouldCheck: true, styles: RICH_STYLES });
@@ -191,6 +211,117 @@ describe(generateCommand, () => {
     expect(exitCode).toBe(1);
     expect(stdioCapture.stderr).toContain('missing');
     expect(mockWriteFileSync).not.toHaveBeenCalled();
+  });
+
+  it('reports a created file with its label count', async () => {
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([bugLabel]);
+    using stdioCapture = captureStdio();
+
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
+
+    expect(exitCode).toBe(0);
+    expect(stdioCapture.stdout).toBe(`🆕 Created ${LABELS_OUTPUT_PATH} with 1 label.\n`);
+  });
+
+  it('reports the outcome in words alone on a plain stream', async () => {
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([bugLabel, featureLabel]);
+    using stdioCapture = captureStdio();
+
+    await generateCommand({ styles: PLAIN_STYLES });
+
+    expect(stdioCapture.stdout).toBe(`Created ${LABELS_OUTPUT_PATH} with 2 labels.\n`);
+  });
+
+  it('leaves an identical file unwritten and reports that it is already in sync', async () => {
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([bugLabel]);
+    mockReadFileSync.mockReturnValue(formatLabelsYaml([bugLabel], new Map()));
+    using stdioCapture = captureStdio();
+
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
+
+    expect(exitCode).toBe(0);
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+    expect(stdioCapture.stdout).toBe(
+      `⚪ No change: ${LABELS_OUTPUT_PATH} is already in sync with .config/release-kit.config.ts (1 label).\n`,
+    );
+  });
+
+  it('reports the counts of added, removed, renamed, and changed labels in an updated file', async () => {
+    const previousLabels: LabelDefinition[] = [
+      bugLabel,
+      { name: 'priority:high', color: 'd93f0b' },
+      { name: 'wontfix', color: 'ffffff' },
+    ];
+    const nextLabels: LabelDefinition[] = [
+      { ...bugLabel, color: '000000' },
+      featureLabel,
+      { name: 'urgency:high', color: 'd93f0b', aliases: ['priority:high'] },
+    ];
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue(nextLabels);
+    mockReadFileSync.mockReturnValue(formatLabelsYaml(previousLabels, new Map()));
+    using stdioCapture = captureStdio();
+
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
+
+    expect(exitCode).toBe(0);
+    expect(mockWriteFileSync).toHaveBeenCalledOnce();
+    expect(stdioCapture.stdout).toBe(
+      `📝 Updated ${LABELS_OUTPUT_PATH}: 1 added, 1 removed, 1 renamed, 1 changed (3 labels).\n`,
+    );
+  });
+
+  it('reports an update that changes only the header', async () => {
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: { extends: ['common'] } });
+    mockResolveLabels.mockReturnValue([bugLabel]);
+    mockHashPreset.mockReturnValue('new-hash');
+    mockReadFileSync.mockReturnValue(formatLabelsYaml([bugLabel], new Map([['common', 'old-hash']])));
+    using stdioCapture = captureStdio();
+
+    await generateCommand({ styles: RICH_STYLES });
+
+    expect(stdioCapture.stdout).toBe(
+      `📝 Updated ${LABELS_OUTPUT_PATH}: only the header or label order changed (1 label).\n`,
+    );
+  });
+
+  it('reports a replaced file whose previous content was not a label list', async () => {
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([bugLabel]);
+    mockReadFileSync.mockReturnValue('labels: not-a-list\n');
+    using stdioCapture = captureStdio();
+
+    await generateCommand({ styles: RICH_STYLES });
+
+    expect(mockWriteFileSync).toHaveBeenCalledOnce();
+    expect(stdioCapture.stdout).toBe(
+      `📝 Replaced ${LABELS_OUTPUT_PATH}, whose previous content was not a label list (1 label).\n`,
+    );
+  });
+
+  it('returns 1 without writing when the existing file cannot be read', async () => {
+    mockExistsSync.mockReturnValue(false);
+    stubValidConfig({ repoLabels: {} });
+    mockResolveLabels.mockReturnValue([bugLabel]);
+    mockReadFileSync.mockImplementation(() => {
+      throw createErrnoError('EACCES');
+    });
+    using stdioCapture = captureStdio();
+
+    const exitCode = await generateCommand({ styles: RICH_STYLES });
+
+    expect(exitCode).toBe(1);
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
+    expect(stdioCapture.stderr).toContain(`Failed to read ${LABELS_OUTPUT_PATH}`);
   });
 
   it('forwards configPath to the loader and names it in the generated header', async () => {
@@ -435,6 +566,11 @@ describe(formatLabelsYaml, () => {
 });
 
 // region | Helpers
+
+/** Creates an error with a Node system error code, as `fs` throws it. */
+function createErrnoError(code: string): Error {
+  return Object.assign(new Error(code), { code });
+}
 
 /** Configures a loadable config whose validation succeeds with the given typed config. */
 function stubValidConfig(config: Record<string, unknown>): void {
