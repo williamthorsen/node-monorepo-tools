@@ -34,7 +34,7 @@ export interface HostSessionParams {
 }
 
 /** A phase of the host session that can fail before the run starts. */
-export type SessionPhase = 'check out' | 'install';
+export type SessionPhase = 'build' | 'check out' | 'install';
 
 /**
  * A line in which the host session reports to the local side: its progress before the run starts, and the passes that
@@ -49,8 +49,8 @@ export type SessionRecord =
 
 /**
  * Runs on the host, from the checkout, as the whole of a delegation after the push: takes the checkout's lock, checks
- * out the snapshot, installs, runs nmr, and reports the passes that nmr wrote to the pass manifest. It is sent as
- * source, so it refers to nothing outside its own body.
+ * out the snapshot, installs, builds, runs nmr, and reports the passes that nmr wrote to the pass manifest. It is sent
+ * as source, so it refers to nothing outside its own body.
  *
  * Every process that the session starts runs on the login shell's `PATH`, which the session script passes as the
  * argument after `params`: A version manager's `node` shim puts the `bin` directory of the Node that it chose before
@@ -136,6 +136,18 @@ export function runHostSession(params: HostSessionParams): void {
       return;
     }
     if (binsFingerprint !== undefined) writeBinsRecord(binsFingerprint);
+
+    // The checkout keeps ignored files between runs, so the build output is rebuilt from the snapshot at the root,
+    // whose packages a command run from any directory may read.
+    const build = await runPhase('pnpm', ['exec', 'nmr', '--no-delegate', 'build'], params.rootDir, {
+      ...childEnv,
+      ...params.remoteEnv,
+    });
+    if (isStopping) return;
+    if (build.exitCode !== 0) {
+      fail('build', build);
+      return;
+    }
 
     emit({ kind: 'run' });
     fs.mkdirSync(params.runDir, { recursive: true });

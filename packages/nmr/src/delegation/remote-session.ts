@@ -200,7 +200,7 @@ function isSessionRecord(value: unknown): value is SessionRecord {
       return (
         typeof value['exitCode'] === 'number' &&
         typeof value['output'] === 'string' &&
-        (value['phase'] === 'check out' || value['phase'] === 'install')
+        (value['phase'] === 'build' || value['phase'] === 'check out' || value['phase'] === 'install')
       );
     case 'locked':
     case 'run':
