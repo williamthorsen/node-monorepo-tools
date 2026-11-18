@@ -131,6 +131,35 @@ describe('a delegated run on a fake host', () => {
     });
   });
 
+  it('builds at the checkout root after the install and before the command, whatever directory it runs from', async () => {
+    const packageDir = workspace.mkdir('repo/packages/core');
+
+    const result = await delegate(['test'], {}, packageDir);
+
+    expect(result.outcome).toMatchObject({ ok: true, exitCode: 0 });
+    const log = remote.readPnpmLog();
+    const phases = log
+      .filter((line) => /^(?:install |build-cwd=|args=)/.test(line))
+      .map((line) => line.split(/[ =]/, 1)[0]);
+    expect(phases).toStrictEqual(['install', 'build-cwd', 'args']);
+    expect(readLogged(log, 'build-cwd')).toMatch(/\/repo$/);
+    expect(readLogged(log, 'cwd')).toMatch(/\/repo\/packages\/core$/);
+  });
+
+  it('reports a failed build with its output, without running the command', async () => {
+    const result = await delegate(['test'], { FAKE_BUILD_OUTPUT: 'build broke', FAKE_BUILD_STATUS: '2' });
+
+    expect(result.outcome).toMatchObject({ ok: false, phase: 'build', message: 'could not build on box' });
+    expect(result.outcome).toMatchObject({ output: expect.stringContaining('build broke') });
+    expect(remote.readPnpmLog().some((line) => line.startsWith('args='))).toBe(false);
+  });
+
+  it('does not build after a failed install', async () => {
+    await delegate(['test'], { FAKE_INSTALL_STATUS: '1' });
+
+    expect(remote.readPnpmLog().some((line) => line.startsWith('build-cwd='))).toBe(false);
+  });
+
   it("checks the host's filesystem after a step that reports it full, and only then", async () => {
     await delegate(['test'], { FAKE_INSTALL_STATUS: '1' });
     const callsWithoutReport = remote.readSshLog().length;

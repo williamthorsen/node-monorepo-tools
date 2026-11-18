@@ -91,7 +91,7 @@ export async function resolveExecutionTarget(invocation: Invocation): Promise<Ph
 }
 
 /**
- * Runs the whole invocation on the host and reports one verdict for it, its connection, transfer, and install
+ * Runs the whole invocation on the host and reports one verdict for it, its connection, transfer, install, and build
  * included. Returns `undefined` when the invocation runs here after all.
  *
  * Serves a `-F` or `-R` invocation, which does not have a gate of its own to consult first: the host fans it out.
@@ -193,8 +193,8 @@ function createTee(stream: Writable, buffer: BoundedBuffer): Writable {
  * A tree that cannot be snapshotted is refused when a flag asked for the host, and runs here, with a line saying
  * why, when the variable or the user config did. A delegation that the user config decided also runs here, with a
  * line saying why, when `ssh` cannot connect to any of its hosts. Any other delegation that fails outside its
- * command, in its connection, transfer, or install, ends with exit 255, and what the failed phase printed goes to
- * stderr.
+ * command, in its connection, transfer, install, or build, ends with exit 255, and what the failed phase printed goes
+ * to stderr.
  */
 async function delegate(options: {
   invocation: Invocation;
