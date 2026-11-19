@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.4.0 — 2026-11-19
+
+### 🎉 Features
+
+- Makes `release-kit sync-labels generate` report whether it created `.github/labels.yaml`, updated it with the counts of labels added, removed, renamed, and changed, or found it already in sync and left it unwritten, in place of the same `Generated` line that it previously printed on every run. (#1370)
+- Makes `release-kit sync-labels generate --check` state how a stale `.github/labels.yaml` differs from the regenerated one, in the same counts of labels added, removed, renamed, and changed. (#1370)
+
 ## 18.3.1 — 2026-11-17
 
 ### ♻️ Refactoring

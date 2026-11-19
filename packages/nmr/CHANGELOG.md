@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2.3.0 — 2026-11-19
+
+### 🎉 Features
+
+- Lets `nmr fmt` and `nmr fmt:check` run in a git repository that does not contain `pnpm-workspace.yaml`, including through `pnpm dlx @williamthorsen/nmr`, by using the git repository root as nmr's root. (#1369)
+- Makes `-R`, `-F`, and the commands that fan out to workspace packages or read the workspace, such as `build`, `test`, and `upgrade`, fail outside a pnpm workspace with an error that states the requirement. (#1369)
+
+### 🐛 Bug fixes
+
+- Fixes the issue that a delegated command that does not build first, such as `nmr test:tool`, ran on the host against build output left in the checkout by an earlier run rather than against output built from the delegated tree. (#1371)
+
 ## 2.2.3 — 2026-11-17
 
 ### 🐛 Bug fixes
