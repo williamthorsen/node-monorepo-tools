@@ -3,8 +3,8 @@ import process from 'node:process';
 
 import { UserError } from '@williamthorsen/nmr-core';
 import { UsageError } from '@williamthorsen/nmr-core/cli';
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { validateOverridesCommand } from '../changelog/validateOverridesCommand.ts';

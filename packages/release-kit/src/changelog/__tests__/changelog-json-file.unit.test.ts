@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it as baseIt } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../../config/defaults.ts';

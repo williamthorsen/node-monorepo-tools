@@ -2,7 +2,7 @@ import path from 'node:path';
 
 import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it } from 'vitest';
 
 import { findContainingPackageDir, resolveContext } from '../context.ts';

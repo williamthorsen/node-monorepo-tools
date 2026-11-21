@@ -1,7 +1,7 @@
 import { PassThrough } from 'node:stream';
 
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { UserError } from '../errors/UserError.ts';

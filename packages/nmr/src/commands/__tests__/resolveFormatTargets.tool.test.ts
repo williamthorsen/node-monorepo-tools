@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { type FormatTargets, resolveFormatTargets } from '../resolveFormatTargets.ts';

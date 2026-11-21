@@ -2,7 +2,7 @@ import { join } from 'node:path';
 
 import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { DEFAULT_CHANGELOG_JSON_CONFIG } from '../../config/defaults.ts';

@@ -4,7 +4,7 @@ import process from 'node:process';
 
 import { hashWorkingTree } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {

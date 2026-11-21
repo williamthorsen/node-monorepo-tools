@@ -3,7 +3,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { readAmbientEnv } from '../test-utils/readAmbientEnv.ts';

@@ -4,7 +4,7 @@ import { PassThrough } from 'node:stream';
 
 import { isRecord } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { NO_CACHE_ENV_VAR, PASS_MANIFEST_DIR_ENV_VAR } from '../../check-cache/check-cache.ts';

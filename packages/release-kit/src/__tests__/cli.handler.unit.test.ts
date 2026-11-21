@@ -1,6 +1,6 @@
 import process from 'node:process';
 
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockRouteCommand = vi.hoisted(() => vi.fn());

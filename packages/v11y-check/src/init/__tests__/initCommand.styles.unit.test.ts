@@ -1,5 +1,5 @@
 import { printError, reportWriteResult, type StreamStyles, type WriteResult } from '@williamthorsen/nmr-core';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { initCommand, type InitDependencies } from '../initCommand.ts';

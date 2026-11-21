@@ -1,6 +1,6 @@
 import { UserError } from '@williamthorsen/nmr-core';
-import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureError } from '@williamthorsen/toolbelt.testing';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {

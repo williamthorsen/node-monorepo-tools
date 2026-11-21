@@ -1,6 +1,7 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
-import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
-import { listConsoleLines, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureError } from '@williamthorsen/toolbelt.testing';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
+import { listConsoleLines } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockIsGitRepo = vi.hoisted(() => vi.fn());

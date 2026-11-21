@@ -1,5 +1,5 @@
-import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 
 import { buildMonorepo } from './fixture-repo.ts';
 

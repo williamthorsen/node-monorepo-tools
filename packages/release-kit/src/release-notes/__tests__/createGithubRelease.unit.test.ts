@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { type FakeGh, makeFakeGh } from '../../test-utils/makeFakeGh.ts';

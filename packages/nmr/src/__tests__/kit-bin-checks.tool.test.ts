@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import { pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { everyBinTargetIsACommittedWrapper } from '../../.readyup/lib/bin-targets.ts';

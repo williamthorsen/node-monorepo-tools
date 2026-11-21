@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it as baseIt } from 'vitest';
 
 import { OUTPUT_STYLE_ENV_VAR } from '../output-style.ts';

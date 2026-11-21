@@ -1,5 +1,5 @@
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it } from 'vitest';
 
 import type { OutputStyle } from '../../terminal.ts';

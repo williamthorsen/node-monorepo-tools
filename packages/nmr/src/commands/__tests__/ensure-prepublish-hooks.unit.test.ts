@@ -1,5 +1,5 @@
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture, silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it as baseIt } from 'vitest';
 
 import { readPackageJson } from '../../helpers/package-json.ts';

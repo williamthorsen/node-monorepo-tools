@@ -1,8 +1,8 @@
 import type { PathLike } from 'node:fs';
 
 import { type ManagedFileResult, type StreamStyles, UserError } from '@williamthorsen/nmr-core';
-import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureError } from '@williamthorsen/toolbelt.testing';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { renderCreateGithubReleaseWorkflow, renderPublishWorkflow, renderReleaseWorkflow } from '../templates.ts';

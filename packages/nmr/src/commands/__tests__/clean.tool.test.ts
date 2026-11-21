@@ -1,7 +1,8 @@
 import path from 'node:path';
 
-import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { OUTPUT_STYLE_ENV_VAR } from '../../output-style.ts';

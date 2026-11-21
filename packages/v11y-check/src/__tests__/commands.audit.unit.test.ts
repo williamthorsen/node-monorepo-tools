@@ -1,4 +1,4 @@
-import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type CapturedStdio, captureStdio } from '@williamthorsen/toolbelt.testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { auditCommand } from '../commands.ts';

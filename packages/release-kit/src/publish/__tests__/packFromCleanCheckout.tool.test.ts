@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 
-import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it } from 'vitest';
 
 import { type GitRepoFixture, scaffoldGitRepo } from '../../test-utils/scaffoldGitRepo.ts';
