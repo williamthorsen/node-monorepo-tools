@@ -1,7 +1,31 @@
 import { describe, expect, it } from 'vitest';
 
 import { makeFakeNpm } from '../../../test-utils/makeFakeNpm.ts';
-import { lookUpNpmPackage, type NpmErrorPayload, readNpmError } from '../npm-registry.ts';
+import {
+  buildNpmViewArgs,
+  lookUpNpmPackage,
+  lookUpNpmPackageVersion,
+  type NpmErrorPayload,
+  readNpmError,
+} from '../npm-registry.ts';
+
+describe(buildNpmViewArgs, () => {
+  it('queries the default registry without revalidating the cache', () => {
+    expect(buildNpmViewArgs('@scope/pkg', undefined, false)).toStrictEqual(['view', '@scope/pkg', 'version', '--json']);
+  });
+
+  it('revalidates the cache and queries the given registry', () => {
+    expect(buildNpmViewArgs('@scope/pkg@1.2.3', 'https://npm.example.com/', true)).toStrictEqual([
+      'view',
+      '@scope/pkg@1.2.3',
+      'version',
+      '--json',
+      '--prefer-online',
+      '--registry',
+      'https://npm.example.com/',
+    ]);
+  });
+});
 
 describe(lookUpNpmPackage, () => {
   it('reports a package that npm can view as published', () => {
@@ -59,6 +83,25 @@ describe(lookUpNpmPackage, () => {
       status: 'unverifiable',
       detail: 'The npm registry query failed without a readable error payload',
     });
+  });
+});
+
+describe(lookUpNpmPackageVersion, () => {
+  it('reports a version that npm can view as published', () => {
+    const npm = makeFakeNpm();
+
+    expect(lookUpNpmPackageVersion('@scope/pkg', '1.2.3', 'https://npm.example.com/', npm)).toStrictEqual({
+      status: 'published',
+    });
+    expect(npm.viewPackageVersion).toHaveBeenCalledExactlyOnceWith('@scope/pkg', '1.2.3', 'https://npm.example.com/');
+  });
+
+  it('reports a version that npm does not list as unpublished', () => {
+    const npm = makeFakeNpm({
+      viewPackageVersion: () => ({ ok: false, error: { code: 'E404', summary: 'No match found for version 1.2.3' } }),
+    });
+
+    expect(lookUpNpmPackageVersion('@scope/pkg', '1.2.3', undefined, npm)).toStrictEqual({ status: 'unpublished' });
   });
 });
 

@@ -13,7 +13,7 @@
 
 `audit`, `create-github-release`, `publish`, and `release` install the Node.js version named by the `nodejs` entry of the consumer's `.tool-versions`, and a job fails when the entry is missing. `create-github-release` and `publish` take a `node-version` input that installs another version in its place.
 
-A `publish` caller grants `id-token: write`, `contents: read`, and `issues: write`. When the publish job fails, the workflow opens an issue labelled `publish-failure` in the caller's repository, or comments on the open one for the same tags.
+A `publish` caller grants `id-token: write`, `contents: read`, and `issues: write`, including a caller that passes `dry-run: true` (see [Dry run](../../packages/release-kit/docs/publishing.md#dry-run)). When a publish that is not a dry run fails, the workflow opens an issue labelled `publish-failure` in the caller's repository, or comments on the open one for the same tags.
 
 `create-github-release` and `publish` additionally require `@williamthorsen/release-kit` as a root dependency. They invoke it through `pnpm exec`, which resolves from the repository root's `node_modules/.bin`, so declaring it in a workspace package alone does not satisfy this.
 

@@ -27,6 +27,34 @@ Skipping basic-v1.0.0 (packages/basic): package.json#private is true.
 
 Before it publishes any package, and in a dry run as well, `publish` packs every publishable package from a clean checkout of HEAD and refuses when a tarball lacks a file that its manifest names. It is the same check that `prepare` runs; see [Packages whose tarball would lack a manifest file](releasing.md#packages-whose-tarball-would-lack-a-manifest-file).
 
+### Registry wait
+
+npm processes a publish asynchronously, so a version can be missing from the registry for a minute or more after `npm publish` reports success. After it publishes, `publish` therefore queries the registry for each published version every 10 seconds, revalidating npm's local cache, and returns once every version appears. When a version is still missing after 5 minutes, `publish` fails and names each missing version, together with the registry's error when the query itself failed. A dry run does not wait.
+
+### Dry run
+
+`release-kit publish --dry-run` runs the tarball check and passes `--dry-run` to the package manager, so nothing is published; it skips the clean-tree check. On a HEAD without release tags, which is the state of a pull request, a dry run does not fail: It previews every publishable workspace at its manifest version, and prints a line that says so. That preview needs pnpm: The manifest version is usually one that the registry already lists, and npm rejects a dry run of such a version, while pnpm skips it with a warning. A publish that is not a dry run still requires release tags on HEAD.
+
+To check the publish setup on each pull request, call `publish.reusable.yaml` with `dry-run: true` from a workflow triggered by `pull_request`:
+
+```yaml
+on:
+  pull_request:
+
+permissions:
+  id-token: write
+  contents: read
+  issues: write
+
+jobs:
+  publish-dry-run:
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v2
+    with:
+      dry-run: true
+```
+
+The caller grants the same permissions as a publish caller, which [the workflows README](../../../.github/workflows/README.md) lists; a pull request from a fork does not receive `id-token: write`, so the dry run cannot run on one. A failed dry run does not open a `publish-failure` issue.
+
 ## `release-kit create-github-release`
 
 Creates GitHub Releases from `changelog.json` for tags on HEAD. Independent of `npm publish`: Invoking this command creates Releases for publishable packages whether or not they were published to a registry. Private workspaces are skipped, and a project tag gets a Release (see [Publishability filter](#publishability-filter)).

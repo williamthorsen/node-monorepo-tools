@@ -20,6 +20,7 @@ import { detectPackageManager } from './detectPackageManager.ts';
 import { formatDirectoryPublishSkip } from './formatDirectoryPublishSkip.ts';
 import { formatProjectPublishSkip } from './formatProjectPublishSkip.ts';
 import { publishPackage } from './publishPackage.ts';
+import { waitForRegistryVersions } from './waitForRegistryVersions.ts';
 
 export interface PublishCommandOptions {
   configPath: string | undefined;
@@ -34,7 +35,8 @@ export interface PublishCommandOptions {
 /**
  * Orchestrates the CLI `publish` command: checks for a clean working tree, resolves the tags on HEAD, checks the
  * tarballs of the publishable ones from a clean checkout, and publishes each one, injecting release notes into its
- * README for the duration of the publish.
+ * README for the duration of the publish. Outside a dry run, it then waits until the registry lists every published
+ * version.
  */
 export async function publishCommand({
   configPath,
@@ -51,7 +53,7 @@ export async function publishCommand({
     assertCleanWorkingTree();
   }
 
-  const resolvedTags = resolveCommandTags(requestedTags, userConfig);
+  const resolvedTags = resolveCommandTags(requestedTags, userConfig, { shouldPreviewUntaggedHead: isDryRun });
 
   if (resolvedTags.length === 0) {
     return;
@@ -80,6 +82,7 @@ export async function publishCommand({
   }
 
   const publishedTags: string[] = [];
+  const publishedWorkspacePaths: string[] = [];
 
   try {
     for (const resolvedTag of publishableTags) {
@@ -103,6 +106,7 @@ export async function publishCommand({
       try {
         publishPackage(resolvedTag, packageManager, { isDryRun, shouldGenerateProvenance });
         publishedTags.push(resolvedTag.tag);
+        publishedWorkspacePaths.push(resolvedTag.workspacePath);
       } finally {
         if (readmePath !== undefined && originalReadme !== undefined) {
           writeFileSync(readmePath, originalReadme, 'utf8');
@@ -117,6 +121,10 @@ export async function publishCommand({
       }
     }
     throw error;
+  }
+
+  if (!isDryRun) {
+    await waitForRegistryVersions(publishedWorkspacePaths);
   }
 }
 

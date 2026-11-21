@@ -17,6 +17,7 @@ const {
   mockResolveReadmePath,
   mockResolveReleaseTags,
   mockValidateConfig,
+  mockWaitForRegistryVersions,
   mockWriteFileSync,
   resetPublishCommandMocks,
 } = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
@@ -53,6 +54,10 @@ vi.mock(import('../detectPackageManager.ts'), () => ({
 
 vi.mock(import('../publishPackage.ts'), () => ({
   publishPackage: mockPublishPackage,
+}));
+
+vi.mock(import('../waitForRegistryVersions.ts'), () => ({
+  waitForRegistryVersions: mockWaitForRegistryVersions,
 }));
 
 vi.mock(import('../../config/loadConfig.ts'), async () => {

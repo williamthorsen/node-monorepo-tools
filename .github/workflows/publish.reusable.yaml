@@ -3,20 +3,21 @@ name: 'Reusable: Publish'
 
 # Reusable publish workflow for projects using @williamthorsen/release-kit.
 #
-# Triggered by tag pushes. Runs `pnpm install` before publishing so that
-# consumer packages with build-time `prepare` hooks have their devDependencies
-# on disk, then invokes release-kit through `pnpm exec`. Because `pnpm exec`
-# resolves release-kit from the repository root, the consumer must declare
-# `@williamthorsen/release-kit` as a root dependency. release-kit shells out to
-# `pnpm publish`, and pnpm performs the npm OIDC token exchange itself, so the
-# workflow does not write an `.npmrc` or configure a registry URL.
-# When running in the `williamthorsen/node-monorepo-tools` repo itself (checked
-# via `github.repository`), release-kit is additionally built from source so
-# that the workspace-linked binary is ready before `pnpm exec` invokes it.
-# When the publish job fails, the `notify-failure` job opens an issue labelled `publish-failure` in the calling
-# repository, or comments on the open one whose title names the same tags, creating the label when it is missing.
-# The calling workflow must grant `id-token: write`, `contents: read`, and `issues: write` permissions; only the
-# notification job holds `issues: write`.
+# Called from a tag push to publish, or with `dry-run: true` from a `pull_request` trigger to check the publish setup
+# without publishing. Runs `pnpm install` before publishing so that consumer packages with build-time `prepare` hooks
+# have their devDependencies on disk, then invokes release-kit through `pnpm exec`. Because `pnpm exec` resolves
+# release-kit from the repository root, the consumer must declare `@williamthorsen/release-kit` as a root dependency.
+# release-kit shells out to `pnpm publish`, and pnpm performs the npm OIDC token exchange itself, so the workflow does
+# not write an `.npmrc` or configure a registry URL. When running in the `williamthorsen/node-monorepo-tools` repo
+# itself (checked via `github.repository`), release-kit is additionally built from source so that the workspace-linked
+# binary is ready before `pnpm exec` invokes it. After publishing, release-kit waits until the registry lists each
+# published version, and fails when one does not appear within its timeout. A dry run previews every publishable package
+# when HEAD does not have any release tags, as on a pull request; both behaviors need a consumer's release-kit to be
+# recent enough to have them. When a publish that is not a dry run fails, the `notify-failure` job opens an issue
+# labelled `publish-failure` in the calling repository, or comments on the open one whose title names the same tags,
+# creating the label when it is missing. The calling workflow must grant `id-token: write`, `contents: read`, and
+# `issues: write` permissions, for a dry run as well; only the notification job holds `issues: write`. A pull request
+# from a fork does not receive `id-token: write`, so a dry run cannot run on one.
 #
 # Consumer prerequisites: a `nodejs` entry in `.tool-versions`, which names the
 # Node.js version to install unless the `node-version` input overrides it, and a
@@ -27,10 +28,22 @@ name: 'Reusable: Publish'
 #   jobs:
 #     publish:
 #       uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v2
+#
+#   # In a workflow triggered by `pull_request`:
+#   jobs:
+#     publish-dry-run:
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v2
+#       with:
+#         dry-run: true
 
 on:
   workflow_call:
     inputs:
+      dry-run:
+        description: 'Run `release-kit publish --dry-run`, which packs every package without publishing it'
+        required: false
+        type: boolean
+        default: false
       node-version:
         description: 'Node.js version to install in place of the one that `.tool-versions` pins'
         required: false
@@ -85,10 +98,14 @@ jobs:
 
       - name: Publish
         env:
+          DRY_RUN: ${{ inputs.dry-run }}
           PROVENANCE: ${{ inputs.provenance }}
           TAGS: ${{ inputs.tags }}
         run: |
           args=()
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=("--dry-run")
+          fi
           if [ "$PROVENANCE" = "true" ]; then
             args+=("--provenance")
           fi
@@ -100,7 +117,7 @@ jobs:
   notify-failure:
     name: Report publish failure
     needs: publish
-    if: ${{ failure() }}
+    if: ${{ failure() && !inputs.dry-run }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
