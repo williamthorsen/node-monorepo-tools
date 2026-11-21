@@ -107,8 +107,9 @@ on:
     tags:
       - '*-v[0-9]*.[0-9]*.[0-9]*'
       - 'v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
 ```
 
 A GitHub tag filter matches from the start of the tag, so `'v[0-9]*.[0-9]*.[0-9]*'` does not match a workspace tag such as `core-v1.0.0`. A custom `tagPrefix` needs its own pattern, such as `'app-v[0-9]*.[0-9]*.[0-9]*'` for `tagPrefix: 'app-v'`. `publish.yaml` does not need the project pattern, because `publish` skips the project tag.
 
-When every workspace sets `private: true`, `init` does not create `create-github-release.yaml` (see [Releasing](releasing.md)). A project-release repo of that shape adds the workflow itself.
+When every workspace sets `private: true`, `init` does not create `create-github-release.yaml` (see [Releasing](releasing.md)). A project-release repo of that shape adds the workflow itself, with the `workflow_dispatch` trigger and the tag guard that [Starting the tag workflows](releasing.md#starting-the-tag-workflows) requires, so that the release workflow can start it.

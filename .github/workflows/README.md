@@ -58,7 +58,7 @@ A tag kept behind main on purpose, such as while external consumers migrate, tak
 [{ "tag": "workflow/publish-v1", "through": "workflow/publish-v2", "reason": "Callers must grant issues: write, so v2 supersedes v1" }]
 ```
 
-A hold accepts the commits touching the workflow up to and including `through`, which names a commit or a ref. A hold through the successor pointer tag, as above, freezes the old major: Each edit that the successor moves to is accepted for the old one as well. A later commit touching the workflow fails the check again, so each new edit is either moved to or held explicitly. A hold that names an unknown tag or a commit that does not resolve also fails the check.
+A hold accepts the commits touching the workflow up to and including `through`, which names a commit or a ref. A hold through the successor pointer tag, as above, freezes the old major: Each edit that the successor moves to is accepted for the old one as well. `workflow/release-v1` is held the same way through `workflow/release-v2`, whose callers grant `actions: write` so that the release workflow can dispatch the tag workflows; the header of `release.reusable.yaml` states what its callers need. A later commit touching the workflow fails the check again, so each new edit is either moved to or held explicitly. A hold that names an unknown tag or a commit that does not resolve also fails the check.
 
 ### Publish trigger contract
 
