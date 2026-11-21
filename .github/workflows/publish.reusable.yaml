@@ -13,7 +13,10 @@ name: 'Reusable: Publish'
 # When running in the `williamthorsen/node-monorepo-tools` repo itself (checked
 # via `github.repository`), release-kit is additionally built from source so
 # that the workspace-linked binary is ready before `pnpm exec` invokes it.
-# The calling workflow must grant `id-token: write` and `contents: read` permissions.
+# When the publish job fails, the `notify-failure` job opens an issue labelled `publish-failure` in the calling
+# repository, or comments on the open one whose title names the same tags, creating the label when it is missing.
+# The calling workflow must grant `id-token: write`, `contents: read`, and `issues: write` permissions; only the
+# notification job holds `issues: write`.
 #
 # Consumer prerequisites: a `nodejs` entry in `.tool-versions`, which names the
 # Node.js version to install unless the `node-version` input overrides it, and a
@@ -23,7 +26,7 @@ name: 'Reusable: Publish'
 # Usage:
 #   jobs:
 #     publish:
-#       uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v2
 
 on:
   workflow_call:
@@ -93,3 +96,75 @@ jobs:
             args+=("--tags=$TAGS")
           fi
           pnpm exec release-kit publish "${args[@]}"
+
+  notify-failure:
+    name: Report publish failure
+    needs: publish
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+
+    steps:
+      - name: Open or update the publish-failure issue
+        uses: actions/github-script@v9
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+          SHA: ${{ github.sha }}
+          TAGS: ${{ inputs.tags }}
+        with:
+          script: |
+            const label = 'publish-failure';
+            const { RUN_URL: runUrl, SHA: sha, TAGS: tagsInput } = process.env;
+            const tags = (tagsInput ?? '').split(',').map((tag) => tag.trim()).filter((tag) => tag !== '');
+            const title =
+              tags.length > 0 ? `Publish failed: ${tags.join(', ')}` : `Publish failed: release tags on ${sha.slice(0, 7)}`;
+
+            try {
+              await github.rest.issues.getLabel({ ...context.repo, name: label });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              try {
+                await github.rest.issues.createLabel({
+                  ...context.repo,
+                  name: label,
+                  color: 'b60205',
+                  description: "A release's publish run failed",
+                });
+              } catch (createError) {
+                // A concurrent run that created the label first leaves it in place.
+                if (createError.status !== 422) throw createError;
+              }
+            }
+
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo,
+              state: 'open',
+              labels: label,
+              per_page: 100,
+            });
+            const existing = openIssues.find((issue) => issue.pull_request === undefined && issue.title === title);
+
+            if (existing === undefined) {
+              const { data } = await github.rest.issues.create({
+                ...context.repo,
+                title,
+                labels: [label],
+                body: [
+                  'The Publish workflow failed, so these packages may not be on npm.',
+                  '',
+                  `Run: ${runUrl}`,
+                  '',
+                  'Close this issue once the packages are published.',
+                ].join('\n'),
+              });
+              core.info(`Opened #${data.number}: ${title}`);
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: existing.number,
+                body: `Publish failed again: ${runUrl}`,
+              });
+              core.info(`Commented on #${existing.number}: ${title}`);
+            }
