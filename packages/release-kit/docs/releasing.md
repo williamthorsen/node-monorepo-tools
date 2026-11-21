@@ -137,7 +137,9 @@ The `init` command scaffolds a release workflow at `.github/workflows/release.ya
 | `bump`  | choice  | Bump type: `auto` (default, detects it from commits), `patch`, `minor`, or `major`                                                              |
 | `force` | boolean | Release even when the window doesn't have any commits or any bump-worthy commits (defaults to patch; combine with `bump` for a different level) |
 
-For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), run `release-kit prepare` with optional `--only`, `--bump`, and `--force` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push, and dispatch the tag workflows at each tag.
+The reusable workflow installs the repo's dependencies and runs the repo's own release-kit, so every `release-kit` call in it, a custom `prepare-command` included, runs the installed version, and the release config can import `@williamthorsen/release-kit/config`. The repo therefore declares `@williamthorsen/release-kit` as a root devDependency, pins pnpm 11 or newer, and commits its lockfile; [Consumer requirements](https://github.com/williamthorsen/node-monorepo-tools/blob/main/.github/workflows/README.md#consumer-requirements) states the full set.
+
+For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), install dependencies, run `release-kit prepare` with optional `--only`, `--bump`, and `--force` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push, and dispatch the tag workflows at each tag.
 
 ### Starting the tag workflows
 
