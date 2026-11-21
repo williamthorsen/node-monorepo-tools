@@ -9,13 +9,13 @@
 
 ## Consumer requirements
 
-`audit`, `create-github-release`, and `publish` install pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the consumer's `devEngines.packageManager` or `packageManager` field. A repo pinned below that cannot run them. `release` does not require pnpm 11 or newer: Its consumer path installs release-kit from npm and never invokes pnpm.
+`audit`, `create-github-release`, `publish`, and `release` install pnpm with [`pnpm/setup`](https://github.com/pnpm/setup), which installs pnpm 11 or newer only and reads the version from the consumer's `devEngines.packageManager` or `packageManager` field. A repo pinned below that cannot run them. `create-github-release`, `publish`, and `release` install the consumer's dependencies with `pnpm install --frozen-lockfile`, which requires a committed `pnpm-lock.yaml`.
 
 `audit`, `create-github-release`, `publish`, and `release` install the Node.js version named by the `nodejs` entry of the consumer's `.tool-versions`, and a job fails when the entry is missing. `create-github-release` and `publish` take a `node-version` input that installs another version in its place.
 
 A `publish` caller grants `id-token: write`, `contents: read`, and `issues: write`, including a caller that passes `dry-run: true` (see [Dry run](../../packages/release-kit/docs/publishing.md#dry-run)). When a publish that is not a dry run fails, the workflow opens an issue labelled `publish-failure` in the caller's repository, or comments on the open one for the same tags.
 
-`create-github-release` and `publish` additionally require `@williamthorsen/release-kit` as a root dependency. They invoke it through `pnpm exec`, which resolves from the repository root's `node_modules/.bin`, so declaring it in a workspace package alone does not satisfy this.
+`create-github-release`, `publish`, and `release` additionally require `@williamthorsen/release-kit` as a root dependency. They run it from the repository root's `node_modules/.bin`, through `pnpm exec` or, in `release`, through `PATH`, so declaring it in a workspace package alone does not satisfy this.
 
 ## Runner selection
 

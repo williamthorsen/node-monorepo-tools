@@ -20,10 +20,10 @@ pnpm add -D @williamthorsen/release-kit
 
 ```bash
 # 1. Scaffold the release workflows
-npx @williamthorsen/release-kit init
+pnpm exec release-kit init
 
 # 2. Preview what a release would do
-npx @williamthorsen/release-kit prepare --dry-run
+pnpm exec release-kit prepare --dry-run
 ```
 
 Example output from `prepare --dry-run` in a monorepo whose `arrays` workspace has two commits since its last release:
@@ -148,7 +148,7 @@ rdy run --sources
 1. Add `@williamthorsen/release-kit` as a dev dependency.
 2. Remove `@changesets/cli` from dev dependencies. The [default readyup kit](#readiness-checks) reports a repo that still declares it.
 3. Delete the `.changeset/` directory.
-4. Run `npx @williamthorsen/release-kit init` to scaffold the release workflows.
+4. Run `pnpm exec release-kit init` to scaffold the release workflows.
 5. Remove `changeset:*` scripts from `package.json` (they don't need a replacement, because the CLI handles everything).
 6. Create an initial version tag for each package (e.g., `git tag v1.0.0` or `git tag arrays-v1.0.0`).
 

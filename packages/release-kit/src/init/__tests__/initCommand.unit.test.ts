@@ -254,8 +254,9 @@ describe(initCommand, () => {
     expect(listConsoleLines(silencedConsole.info).join('\n')).toContain(
       [
         '  1. (Optional) Run again with --with-config to scaffold config files.',
-        '  2. Test by running: npx @williamthorsen/release-kit prepare --dry-run',
-        '  3. Commit the generated files.',
+        '  2. From the repo root, add release-kit as a devDependency: pnpm add --save-dev @williamthorsen/release-kit',
+        '  3. Test by running: pnpm exec release-kit prepare --dry-run',
+        '  4. Commit the generated files.',
       ].join('\n'),
     );
     expect(listConsoleLines(silencedConsole.info).join('\n')).not.toContain('provenance');

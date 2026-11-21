@@ -121,7 +121,7 @@ describe('release.reusable.yaml takes its runtime from actions/setup-node', () =
   it('retains the step that supplies npm and npx', () => {
     expect(
       findSteps(releaseSteps, 'actions/setup-node'),
-      '`release-kit prepare` spawns `npx prettier`, and the consumer path runs `npm install --global`',
+      '`release-kit prepare` spawns `npx prettier`, which `pnpm/setup` does not install',
     ).not.toHaveLength(0);
   });
 
@@ -151,6 +151,32 @@ describe('release.reusable.yaml takes its runtime from actions/setup-node', () =
       collectRunCommands(listStepsBefore(releaseSteps, (step) => step.name === 'Run release preparation')),
       '`release-kit commit` stages every change, so a rewritten `package.json` lands in the release commit',
     ).not.toMatch(/package\.json/);
+  });
+});
+
+describe("release.reusable.yaml runs the project's own release-kit", () => {
+  const releaseSteps = listSteps(readJob(readReusableWorkflow('release'), 'release'));
+  const stepsBeforePreparation = listStepsBefore(releaseSteps, (step) => step.name === 'Run release preparation');
+
+  it("installs the project's dependencies on every repo before release preparation", () => {
+    const installStep = stepsBeforePreparation.find((step) => step.run?.includes('pnpm install --frozen-lockfile'));
+
+    expect(installStep, 'the release config imports `@williamthorsen/release-kit/config`').toBeDefined();
+    expect(installStep?.['if'], 'a consumer needs the install as much as this repo does').toBeUndefined();
+  });
+
+  it('puts node_modules/.bin on PATH before release preparation', () => {
+    expect(
+      collectRunCommands(stepsBeforePreparation),
+      'a bare `release-kit` call, a custom `prepare-command` included, must resolve to the installed copy',
+    ).toMatch(/\$GITHUB_WORKSPACE\/node_modules\/\.bin"? >> "?\$GITHUB_PATH/);
+  });
+
+  it('does not install or link release-kit globally', () => {
+    expect(
+      collectRunCommands(releaseSteps),
+      "Node does not resolve the release config's import against a global install",
+    ).not.toMatch(/npm (?:install --global|link)\b/);
   });
 });
 
