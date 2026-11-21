@@ -84,7 +84,7 @@ describe('sync-labels.reusable.yaml pins the label-sync action', () => {
 /** Returns every active `uses:` ref in the workflow files, with the file that contains it and its trailing comment. */
 function collectUsesRefs(): Array<{ comment: string | undefined; file: string; ref: string }> {
   return readdirSync(workflowsDir)
-    .filter((file) => file.endsWith('.yaml'))
+    .filter((file) => /\.ya?ml$/.test(file))
     .toSorted()
     .flatMap((file) =>
       readFileSync(join(workflowsDir, file), 'utf8')
