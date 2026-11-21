@@ -6,7 +6,7 @@ import { PassThrough } from 'node:stream';
 
 import { GIT_OUTPUT_LIMIT_BYTES } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { quoteForShell } from '../../helpers/quoteForShell.ts';

@@ -1,7 +1,7 @@
 import os from 'node:os';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { globSync } from 'tinyglobby';
 import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 

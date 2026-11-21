@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ensureTool, type EnsureToolOptions, TOOL_PINS, type ToolPins } from '../workflow-tools.ts';

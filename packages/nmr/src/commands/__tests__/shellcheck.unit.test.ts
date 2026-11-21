@@ -1,7 +1,7 @@
 import path from 'node:path';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished, silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runShellcheck } from '../shellcheck.ts';

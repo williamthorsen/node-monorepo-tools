@@ -1,5 +1,5 @@
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { type CheckCacheEntry, recordTranscript, writeCheckCacheEntry } from '../check-cache-entries.ts';

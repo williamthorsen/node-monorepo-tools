@@ -1,5 +1,5 @@
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { it as baseIt } from 'vitest';
 
 import { createRunCliHarness } from './run-cli-harness.ts';

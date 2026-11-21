@@ -1,6 +1,6 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
-import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());

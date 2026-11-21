@@ -1,6 +1,6 @@
-// The repo's only importer of `@williamthorsen/toolbelt.datetime`, whose `/proposed` API is experimental.
+// The repo's only importer of `@williamthorsen/toolbelt.datetime`, whose `/draft` API is experimental.
 
-import { startTimer as startMonotonicTimer } from '@williamthorsen/toolbelt.datetime/proposed';
+import { startTimer as startMonotonicTimer } from '@williamthorsen/toolbelt.datetime/draft';
 
 /**
  * Starts a timer on the monotonic clock and returns a function reporting the whole milliseconds elapsed since this

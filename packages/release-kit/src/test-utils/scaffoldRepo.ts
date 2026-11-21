@@ -1,5 +1,6 @@
-import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 
 /** The `packages:` block that a monorepo fixture declares, which puts `discoverWorkspaces` into monorepo mode. */
 export const PNPM_WORKSPACE = 'packages:\n  - packages/*\n';

@@ -3,8 +3,9 @@ import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { stripVTControlCharacters } from 'node:util';
 
-import { captureStdio, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
+import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { runFmt } from '../fmt.ts';

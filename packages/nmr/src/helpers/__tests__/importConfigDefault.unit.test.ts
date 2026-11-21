@@ -1,7 +1,7 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { isError } from '@williamthorsen/toolbelt.errors';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { assert, describe, expect, it as baseIt } from 'vitest';
 
 import { importConfigDefault } from '../importConfigDefault.ts';

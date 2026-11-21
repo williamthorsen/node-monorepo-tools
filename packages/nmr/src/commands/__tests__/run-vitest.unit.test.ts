@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 
-import { captureStdio, createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';

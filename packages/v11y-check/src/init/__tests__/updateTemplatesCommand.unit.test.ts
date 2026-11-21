@@ -1,5 +1,5 @@
 import type { ManagedFileResult, StreamStyles } from '@williamthorsen/nmr-core';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockUpdateManagedFile = vi.hoisted(() =>

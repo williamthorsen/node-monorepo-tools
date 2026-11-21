@@ -4,7 +4,7 @@ import process from 'node:process';
 import { PassThrough } from 'node:stream';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { acquireMachineLock, LOCK_DIR_ENV_VAR, LOCK_TOKEN_ENV_VAR, NO_LOCK_ENV_VAR } from '../machine-lock.ts';

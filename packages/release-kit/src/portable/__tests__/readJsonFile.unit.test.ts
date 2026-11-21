@@ -1,8 +1,9 @@
 import { join } from 'node:path';
 
 import { UserError } from '@williamthorsen/nmr-core';
-import { captureError, createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureError } from '@williamthorsen/toolbelt.testing';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it } from 'vitest';
 
 import { readJsonFile } from '../readJsonFile.ts';

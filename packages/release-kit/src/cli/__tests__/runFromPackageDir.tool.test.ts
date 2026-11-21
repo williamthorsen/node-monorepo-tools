@@ -1,5 +1,5 @@
 import type { StreamStyles } from '@williamthorsen/nmr-core';
-import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio, pointCwdAt } from '@williamthorsen/toolbelt.testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { prepareCommand } from '../../prepare/prepareCommand.ts';

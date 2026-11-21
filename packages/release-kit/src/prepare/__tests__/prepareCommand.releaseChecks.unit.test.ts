@@ -1,6 +1,6 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
-import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { throwOnProcessExit } from '@williamthorsen/toolbelt.vitest/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing';
+import { throwOnProcessExit } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {

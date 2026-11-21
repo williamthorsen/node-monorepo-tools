@@ -1,5 +1,5 @@
-import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureError, captureStdio } from '@williamthorsen/toolbelt.testing';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoadConfig = vi.hoisted(() => vi.fn());

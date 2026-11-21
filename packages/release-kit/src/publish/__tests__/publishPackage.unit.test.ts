@@ -1,6 +1,6 @@
 import { UserError } from '@williamthorsen/nmr-core';
-import { captureError } from '@williamthorsen/toolbelt.testing/candidate';
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureError } from '@williamthorsen/toolbelt.testing';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { ResolvedTag } from '../../tags/resolveReleaseTags.ts';

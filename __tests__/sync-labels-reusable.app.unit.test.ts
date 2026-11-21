@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { runInThisContext } from 'node:vm';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { listSteps, readJob, readReusableWorkflow } from '../test-utils/workflows.ts';

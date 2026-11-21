@@ -3,17 +3,17 @@
   "kits": [
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.arrays": "6.5.6",
-        "@williamthorsen/toolbelt.cli": "0.13.0",
-        "@williamthorsen/toolbelt.datetime": "4.1.9",
-        "@williamthorsen/toolbelt.errors": "0.11.3",
-        "@williamthorsen/toolbelt.filesystem": "0.11.4",
-        "@williamthorsen/toolbelt.guards": "4.2.6",
-        "@williamthorsen/toolbelt.numbers": "8.1.3",
-        "@williamthorsen/toolbelt.objects": "4.4.6",
-        "@williamthorsen/toolbelt.packaging": "0.9.3",
+        "@williamthorsen/toolbelt.arrays": "7.0.0",
+        "@williamthorsen/toolbelt.cli": "0.14.0",
+        "@williamthorsen/toolbelt.datetime": "5.0.0",
+        "@williamthorsen/toolbelt.errors": "0.11.4",
+        "@williamthorsen/toolbelt.filesystem": "0.12.0",
+        "@williamthorsen/toolbelt.guards": "4.2.7",
+        "@williamthorsen/toolbelt.numbers": "9.0.0",
+        "@williamthorsen/toolbelt.objects": "5.0.0",
+        "@williamthorsen/toolbelt.packaging": "0.10.0",
         "@williamthorsen/toolbelt.sets": "3.1.1",
-        "@williamthorsen/toolbelt.strings": "10.0.1",
+        "@williamthorsen/toolbelt.strings": "11.0.0",
         "@williamthorsen/toolbelt.terminal": "0.3.2",
         "ansi-regex": "6.6.0",
         "ansi-styles": "6.2.3, 7.0.0",
@@ -145,7 +145,7 @@
           "path": "../../nmr-core/dist/esm/git/runGit.js"
         },
         {
-          "hash": "fe9fd44c",
+          "hash": "4a34cedd",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/index.js"
         },
@@ -160,7 +160,7 @@
           "path": "../../nmr-core/dist/esm/terminal.js"
         },
         {
-          "hash": "85afaf3e",
+          "hash": "c4b24785",
           "kind": "module",
           "path": "../../nmr-core/dist/esm/timer.js"
         },
@@ -368,7 +368,7 @@
       "readyupVersion": "0.47.2",
       "source": "kits/default.ts",
       "sourceHash": "9fd61bf4",
-      "targetHash": "56f83d4d"
+      "targetHash": "61205c2a"
     }
   ]
 }

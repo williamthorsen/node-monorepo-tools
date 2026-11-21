@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import process from 'node:process';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, describe, expect, it as baseIt, vi } from 'vitest';
 
 import { CHECKOUT_LOCK_PATH } from '../remote-host-session.ts';

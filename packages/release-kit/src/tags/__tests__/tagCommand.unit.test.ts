@@ -1,5 +1,5 @@
 import { type StreamStyles, UserError } from '@williamthorsen/nmr-core';
-import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { type CapturedStdio, captureError, captureStdio } from '@williamthorsen/toolbelt.testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateTags = vi.hoisted(() => vi.fn());

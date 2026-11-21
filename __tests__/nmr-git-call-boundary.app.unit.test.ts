@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { findMonorepoRoot } from '@williamthorsen/nmr/workspace';
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it as baseIt } from 'vitest';
 
 import { listFiles } from '../test-utils/listFiles.ts';

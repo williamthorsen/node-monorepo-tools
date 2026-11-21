@@ -1,6 +1,6 @@
 import { UserError } from '@williamthorsen/nmr-core';
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import * as ts from 'typescript';
 import { afterEach, assert, describe, expect, it as baseIt, vi } from 'vitest';
 

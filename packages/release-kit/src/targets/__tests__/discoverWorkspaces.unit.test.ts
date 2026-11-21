@@ -1,5 +1,6 @@
-import { captureWarnings, createTempTree, pointCwdAt, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing';
+import { captureWarnings, createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { makeEmptyWorkspace } from '../../test-utils/workspace-resolutions.ts';

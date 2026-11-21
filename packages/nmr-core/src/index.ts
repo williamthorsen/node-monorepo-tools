@@ -56,4 +56,4 @@ export {
   wrapToWidth,
 } from './terminal.ts';
 export { startTimer } from './timer.ts';
-export { findPackageRoot, resolveSelfVersion } from '@williamthorsen/toolbelt.packaging/candidate';
+export { findPackageRoot, resolveSelfVersion } from '@williamthorsen/toolbelt.packaging';

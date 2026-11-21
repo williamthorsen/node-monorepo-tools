@@ -1,4 +1,4 @@
-import { silenceConsole } from '@williamthorsen/toolbelt.vitest/candidate';
+import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockExistsSync = vi.hoisted(() => vi.fn());

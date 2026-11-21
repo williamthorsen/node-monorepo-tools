@@ -1,7 +1,7 @@
 import { PassThrough } from 'node:stream';
 
 import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { describe, expect, it, vi } from 'vitest';
 
 import {

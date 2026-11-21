@@ -3,7 +3,7 @@ import path from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { it as baseIt } from 'vitest';
 
 import { type CheckCacheEntry, readCheckCacheEntry } from '../check-cache/check-cache-entries.ts';

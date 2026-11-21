@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 
 import { createTempTree, type TempTree } from '@williamthorsen/toolbelt.testing/candidate';
-import { makeFixture } from '@williamthorsen/toolbelt.vitest/candidate';
+import { makeFixture } from '@williamthorsen/toolbelt.vitest';
 import { beforeAll, describe, expect, it as baseIt } from 'vitest';
 
 import { OUTCOME_FILE_ENV_VAR } from '../../stated-outcome.ts';

@@ -1,7 +1,7 @@
 import os from 'node:os';
 import process from 'node:process';
 
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { runFmt, runPrettier, type RunPrettierOptions } from '../fmt.ts';

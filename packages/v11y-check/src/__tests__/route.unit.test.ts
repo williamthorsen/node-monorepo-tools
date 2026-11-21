@@ -2,8 +2,8 @@ import path from 'node:path';
 import process from 'node:process';
 
 import { UserError } from '@williamthorsen/nmr-core';
-import { captureStdio } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { captureStdio } from '@williamthorsen/toolbelt.testing';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { routeCommand, type RouteCommands } from '../route.ts';

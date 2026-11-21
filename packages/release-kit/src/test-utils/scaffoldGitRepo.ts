@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 
-import { createTempTree, pointCwdAt } from '@williamthorsen/toolbelt.testing/candidate';
-import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest/candidate';
+import { pointCwdAt } from '@williamthorsen/toolbelt.testing';
+import { createTempTree } from '@williamthorsen/toolbelt.testing/candidate';
+import { disposeOnTestFinished } from '@williamthorsen/toolbelt.vitest';
 
 /** When a commit is dated, which decides the order in which a date-ordered walk reports it. */
 export interface CommitDate {
