@@ -1,5 +1,22 @@
 [
   {
+    "version": "1.0.4",
+    "date": "2026-11-21",
+    "sections": [
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade toolbelt packages (#1374)",
+            "body": "Upgrades the `@williamthorsen/toolbelt.*` catalog entries to their latest versions and moves the repo's imports of the toolbelt symbols that those releases promote from the experimental `/candidate` and `/proposed` subpaths to their new ones. Removes `@williamthorsen/toolbelt.packaging` from the boundaries that the candidate-boundary guard enforces, because nmr-core no longer imports that package's `/candidate` API.",
+            "hash": "b632572c3bddde533968d72a9e1d93db9b50c5f8"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "1.0.3",
     "date": "2026-11-17",
     "sections": [

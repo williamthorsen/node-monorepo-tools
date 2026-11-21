@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.5.0 — 2026-11-21
+
+### 🎉 Features
+
+- Changes the `publish.yaml` that `release-kit init` renders to reference `workflow/publish-v2` and grant `issues: write`, which lets the workflow open an issue when a publish fails. (#1375)
+- Adds the `publish-failure` label to release-kit's `common` label preset, so that a repository that syncs the preset declares the label used by the issue that a failed publish opens. (#1375)
+
+### 📦 Dependencies
+
+- Upgrade toolbelt packages (#1374)
+
+  Upgrades the `@williamthorsen/toolbelt.*` catalog entries to their latest versions and moves the repo's imports of the toolbelt symbols that those releases promote from the experimental `/candidate` and `/proposed` subpaths to their new ones. Removes `@williamthorsen/toolbelt.packaging` from the boundaries that the candidate-boundary guard enforces, because nmr-core no longer imports that package's `/candidate` API.
+
 ## 18.4.0 — 2026-11-19
 
 ### 🎉 Features

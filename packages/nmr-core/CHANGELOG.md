@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 0.16.4 — 2026-11-21
+
+### 📦 Dependencies
+
+- Upgrades the `@williamthorsen/toolbelt.*` catalog entries to their latest versions, among them `toolbelt.datetime` 5.0.0, and imports each symbol that those releases promote from its package root rather than `/candidate`, and `startTimer` from `toolbelt.datetime/draft` rather than `/proposed`. (#1374)
+
 ## 0.16.3 — 2026-11-17
 
 ### ♻️ Refactoring

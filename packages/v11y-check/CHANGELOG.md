@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## 1.0.4 — 2026-11-21
+
+### 📦 Dependencies
+
+- Upgrade toolbelt packages (#1374)
+
+  Upgrades the `@williamthorsen/toolbelt.*` catalog entries to their latest versions and moves the repo's imports of the toolbelt symbols that those releases promote from the experimental `/candidate` and `/proposed` subpaths to their new ones. Removes `@williamthorsen/toolbelt.packaging` from the boundaries that the candidate-boundary guard enforces, because nmr-core no longer imports that package's `/candidate` API.
+
 ## 1.0.3 — 2026-11-17
 
 ### ♻️ Refactoring

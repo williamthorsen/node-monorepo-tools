@@ -66,7 +66,7 @@ function hasNoLegacyAuditCiDirectory() {
   return !existsSync(join(process.cwd(), ".audit-ci"));
 }
 function getMinVersion() {
-  const pickedFields = { "version": "1.0.3" };
+  const pickedFields = { "version": "1.0.4" };
   if (typeof pickedFields["version"] !== "string") {
     throw new TypeError("v11y-check/package.json: 'version' must be a string");
   }

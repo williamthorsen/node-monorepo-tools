@@ -1,5 +1,38 @@
 [
   {
+    "version": "18.5.0",
+    "date": "2026-11-21",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Changes the `publish.yaml` that `release-kit init` renders to reference `workflow/publish-v2` and grant `issues: write`, which lets the workflow open an issue when a publish fails. (#1375)",
+            "hash": "b06e00ae8b97a45b468989b9af474fa871ea8468",
+            "entry": 2
+          },
+          {
+            "description": "Adds the `publish-failure` label to release-kit's `common` label preset, so that a repository that syncs the preset declares the label used by the issue that a failed publish opens. (#1375)",
+            "hash": "b06e00ae8b97a45b468989b9af474fa871ea8468",
+            "entry": 3
+          }
+        ]
+      },
+      {
+        "title": "📦 Dependencies",
+        "audience": "dev",
+        "items": [
+          {
+            "description": "Upgrade toolbelt packages (#1374)",
+            "body": "Upgrades the `@williamthorsen/toolbelt.*` catalog entries to their latest versions and moves the repo's imports of the toolbelt symbols that those releases promote from the experimental `/candidate` and `/proposed` subpaths to their new ones. Removes `@williamthorsen/toolbelt.packaging` from the boundaries that the candidate-boundary guard enforces, because nmr-core no longer imports that package's `/candidate` API.",
+            "hash": "b632572c3bddde533968d72a9e1d93db9b50c5f8"
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "18.4.0",
     "date": "2026-11-19",
     "sections": [
