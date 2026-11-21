@@ -489,6 +489,7 @@ on:
   push:
     tags:
       - ${tagPattern}
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -497,6 +498,7 @@ permissions:
 
 jobs:
   publish:
+    if: github.ref_type == 'tag'
     uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v2
     with:
 ${shouldGenerateProvenance ? "      provenance: true\n" : ""}      tags: \${{ github.ref_name }}
@@ -511,12 +513,14 @@ on:
   push:
     tags:
       - ${tagPattern}
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   create-github-release:
+    if: github.ref_type == 'tag'
     uses: williamthorsen/node-monorepo-tools/.github/workflows/create-github-release.reusable.yaml@workflow/create-github-release-v1
     with:
       tag: \${{ github.ref_name }}
@@ -551,12 +555,13 @@ on:
         default: false
 
 permissions:
+  actions: write
   contents: write
   packages: read
 
 jobs:
   release:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v2
     with:
       only: \${{ inputs.only }}
       bump: \${{ inputs.bump != 'auto' && inputs.bump || '' }}
@@ -586,12 +591,13 @@ on:
         default: false
 
 permissions:
+  actions: write
   contents: write
   packages: read
 
 jobs:
   release:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v2
     with:
       bump: \${{ inputs.bump != 'auto' && inputs.bump || '' }}
       force: \${{ inputs.force }}

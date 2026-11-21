@@ -10,7 +10,7 @@ Initializes release-kit in the current repository. By default, scaffolds only th
 
 Scaffolded files:
 
-- `.github/workflows/create-github-release.yaml`: Workflow that creates a GitHub Release on tag push, independent of npm publish
+- `.github/workflows/create-github-release.yaml`: Workflow that creates a GitHub Release for each release tag, independent of npm publish
 - `.github/workflows/publish.yaml`: Workflow that delegates to a reusable publish workflow
 - `.github/workflows/release.yaml`: Workflow that delegates to a reusable release workflow
 - `.config/release-kit.config.ts`: Starter config with commented-out customization examples (with `--with-config`)
@@ -137,7 +137,17 @@ The `init` command scaffolds a release workflow at `.github/workflows/release.ya
 | `bump`  | choice  | Bump type: `auto` (default, detects it from commits), `patch`, `minor`, or `major`                                                              |
 | `force` | boolean | Release even when the window doesn't have any commits or any bump-worthy commits (defaults to patch; combine with `bump` for a different level) |
 
-For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), run `release-kit prepare` with optional `--only`, `--bump`, and `--force` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push.
+For repos that need a self-contained workflow instead of the reusable one, the scaffolded file can be expanded. The key steps are: checkout with full history (`fetch-depth: 0`), run `release-kit prepare` with optional `--only`, `--bump`, and `--force` flags, check for changes, read tags from `tmp/.release-tags`, then commit, tag, and push, and dispatch the tag workflows at each tag.
+
+### Starting the tag workflows
+
+A tag that the release workflow pushes with `GITHUB_TOKEN` does not start any workflow, because GitHub does not start a run for an event that `GITHUB_TOKEN` causes, other than a dispatch. After pushing, the reusable workflow therefore dispatches `publish.yaml` and `create-github-release.yaml` at each new tag, and skips either one that the repo does not contain. This needs three things from the repo, all of which the workflows that `init` scaffolds provide:
+
+- `release.yaml` grants `actions: write` and references `workflow/release-v2`.
+- `publish.yaml` and `create-github-release.yaml` declare a `workflow_dispatch` trigger beside their tag-push trigger.
+- Their job runs only when the ref is a tag (`if: github.ref_type == 'tag'`), so that a dispatch from a branch does not publish.
+
+A repo whose workflows came from an older release-kit gets all three from `release-kit update-templates`. Until it runs, its `release.yaml` stays on `workflow/release-v1`, which does not dispatch the tag workflows; when a repo moves to v2 without the triggers, the release run fails after pushing and names the workflow that GitHub refused to dispatch.
 
 The reusable `release`, `create-github-release`, and `sync-labels` workflows run on `ubuntu-latest` unless the repository's `CI_RUNS_ON` variable names another runner; `publish` always runs on `ubuntu-latest`. See [Runner selection](https://github.com/williamthorsen/node-monorepo-tools/blob/main/.github/workflows/README.md#runner-selection).
 

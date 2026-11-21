@@ -58,20 +58,27 @@ A tag kept behind main on purpose, such as while external consumers migrate, tak
 [{ "tag": "workflow/publish-v1", "through": "workflow/publish-v2", "reason": "Callers must grant issues: write, so v2 supersedes v1" }]
 ```
 
-A hold accepts the commits touching the workflow up to and including `through`, which names a commit or a ref. A hold through the successor pointer tag, as above, freezes the old major: Each edit that the successor moves to is accepted for the old one as well. A later commit touching the workflow fails the check again, so each new edit is either moved to or held explicitly. A hold that names an unknown tag or a commit that does not resolve also fails the check.
+A hold accepts the commits touching the workflow up to and including `through`, which names a commit or a ref. A hold through the successor pointer tag, as above, freezes the old major: Each edit that the successor moves to is accepted for the old one as well. `workflow/release-v1` is held the same way through `workflow/release-v2`, whose callers grant `actions: write` so that the release workflow can dispatch the tag workflows; the header of `release.reusable.yaml` states what its callers need. A later commit touching the workflow fails the check again, so each new edit is either moved to or held explicitly. A hold that names an unknown tag or a commit that does not resolve also fails the check.
 
 ### Publish trigger contract
 
-The Publish caller (`publish.yaml`) triggers only on full-semver tags:
+The Publish caller (`publish.yaml`) starts on a push of a full-semver tag or on a dispatch, and its job runs only at a tag ref:
 
 ```yaml
 on:
   push:
     tags:
       - '*-v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    if: github.ref_type == 'tag'
 ```
 
-This pattern matches package release tags but deliberately excludes any major-only or major.minor pointer tag, present or future. Pointer tags under `workflow/` are additionally excluded because GitHub Actions tag globs do not match `/`.
+The push pattern matches package release tags but deliberately excludes any major-only or major.minor pointer tag, present or future. Pointer tags under `workflow/` are additionally excluded because GitHub Actions tag globs do not match `/`.
+
+The release workflow dispatches `publish.yaml` at each tag that it pushes, because its own tag push does not start any workflow. The `if` guard keeps a dispatch from a branch from publishing, but only the push pattern excludes pointer tags: A manual dispatch at a pointer tag passes the guard.
 
 ### Rationale for the asymmetry
 

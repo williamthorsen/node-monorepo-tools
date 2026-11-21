@@ -3,5 +3,10 @@
     "tag": "workflow/publish-v1",
     "through": "workflow/publish-v2",
     "reason": "Callers must grant issues: write, so v2 supersedes v1"
+  },
+  {
+    "tag": "workflow/release-v1",
+    "through": "workflow/release-v2",
+    "reason": "Callers must grant actions: write, so v2 supersedes v1"
   }
 ]
