@@ -159,7 +159,7 @@
           "path": "lib/template-checks.ts"
         },
         {
-          "hash": "3c6fd66a",
+          "hash": "dc90c74f",
           "kind": "module",
           "path": "lib/workflow-hashes.ts"
         },
@@ -217,7 +217,7 @@
       "readyupVersion": "0.47.2",
       "source": "kits/default.ts",
       "sourceHash": "53a14b51",
-      "targetHash": "073a592e"
+      "targetHash": "558ba89f"
     },
     {
       "bundledDependencies": {
