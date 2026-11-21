@@ -3,12 +3,11 @@ name: 'Reusable: Release'
 
 # Reusable release workflow for projects using @williamthorsen/release-kit.
 #
-# Installs `@williamthorsen/release-kit` globally and runs `release-kit prepare` to bump versions and generate
-# changelogs. The CLI writes computed tag names to `tmp/.release-tags` (relative to the project root).
-# This workflow reads that file, so `tagPrefix` in the release config is the single source of truth for tag names.
-#
-# On the consumer path, project dependencies are not installed: release-kit runs git-cliff and prettier via `npx`,
-# so the job does not need a local node_modules. The source-build path installs them.
+# Installs the project's dependencies, puts `node_modules/.bin` on PATH, and runs `release-kit prepare` to bump
+# versions and generate changelogs. Every `release-kit` call, a custom `prepare-command` included, therefore runs the
+# project's own release-kit, which can resolve the `@williamthorsen/release-kit/config` import of the release config.
+# The CLI writes computed tag names to `tmp/.release-tags` (relative to the project root). This workflow reads that
+# file, so `tagPrefix` in the release config is the single source of truth for tag names.
 #
 # When running in the `williamthorsen/node-monorepo-tools` repo, the workflow builds release-kit from source.
 #
@@ -17,8 +16,10 @@ name: 'Reusable: Release'
 # contain at the tag, and fails when GitHub refuses a dispatch, as it does for a workflow without a `workflow_dispatch`
 # trigger.
 #
-# Consumer prerequisites: a `nodejs` entry in `.tool-versions`, which names the Node.js version to install; a caller
-# that grants `actions: write` alongside `contents: write` and `packages: read`; and a `workflow_dispatch` trigger in
+# Consumer prerequisites: a `nodejs` entry in `.tool-versions`, which names the Node.js version to install;
+# `@williamthorsen/release-kit` as a root dependency; a `devEngines.packageManager` or `packageManager` field pinning
+# pnpm 11 or newer, which is the range that `pnpm/setup` installs; a committed `pnpm-lock.yaml`; a caller that grants
+# `actions: write` alongside `contents: write` and `packages: read`; and a `workflow_dispatch` trigger in
 # `publish.yaml` and `create-github-release.yaml`. The workflows that `release-kit init` scaffolds meet the last two.
 #
 # Runner: the caller's `CI_RUNS_ON` variable selects the runner of every job,
@@ -82,44 +83,34 @@ jobs:
 
       # Installs pnpm and leaves the runtime to the Node.js step below: `runtime` is omitted, and `node-version-file:
       # false` keeps `pnpm/setup` from installing the Node.js version declared in `.tool-versions`. Because this step
-      # runs ahead of that one, the Node.js step still owns the runtime if this repo ever declares `devEngines.runtime`.
+      # runs ahead of that one, the Node.js step still owns the runtime if the repo ever declares `devEngines.runtime`.
       - name: Set up pnpm
-        if: ${{ env.BUILD_LOCAL == 'true' }}
         uses: pnpm/setup@v3
         with:
           cache: true
           install: false
           node-version-file: false
 
-      # `release-kit prepare` spawns `npx git-cliff` and `npx prettier`, and the consumer path installs release-kit with
-      # `npm install --global`. `pnpm/setup` omits `npm` and `npx` from the runtime that it installs, so this step
-      # supplies them at a version paired with the Node.js that they run under. `package-manager-cache: false` keeps the
-      # step from acting on the caller's `packageManager` field, which stays untouched because `release-kit commit`
-      # stages every change in the working tree.
+      # `release-kit prepare` spawns `npx prettier`, and `pnpm/setup` omits `npm` and `npx` from the runtime that it
+      # installs, so this step supplies them at a version paired with the Node.js that they run under.
+      # `package-manager-cache: false` keeps the step from acting on the caller's `packageManager` field, which stays
+      # untouched because `release-kit commit` stages every change in the working tree.
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version-file: .tool-versions
           package-manager-cache: false
 
-      # npm 11 resolves the binaries of scoped packages unreliably through `npm exec` and `npx`. Install globally to put
-      # the binary on PATH.
-      - name: Install release-kit from npm
-        if: ${{ env.BUILD_LOCAL != 'true' }}
-        run: npm install --global @williamthorsen/release-kit
-
-      # Run the release-kit being released, because its CLI may have flags that the published version lacks.
       - name: Install dependencies
-        if: ${{ env.BUILD_LOCAL == 'true' }}
         run: pnpm install --frozen-lockfile
 
+      # Run the release-kit being released, because its CLI may have flags that the published version lacks.
       - name: Build release-kit from source
         if: ${{ env.BUILD_LOCAL == 'true' }}
         run: pnpm --filter @williamthorsen/release-kit... run prepare
 
-      - name: Link release-kit onto PATH
-        if: ${{ env.BUILD_LOCAL == 'true' }}
-        run: npm link --workspace packages/release-kit
+      - name: Put the project's binaries on PATH
+        run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
 
       # `inputs.prepare-command` is a command by design, so it alone is substituted into the script.
       - name: Run release preparation
