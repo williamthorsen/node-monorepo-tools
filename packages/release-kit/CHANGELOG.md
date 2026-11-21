@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.6.1 — 2026-11-21
+
+### 🐛 Bug fixes
+
+- Fixes the issue that a release made by the reusable release workflow was neither published nor given a GitHub Release, by having `workflow/release-v2` dispatch `publish.yaml` and `create-github-release.yaml` at each tag that it pushes and by adding the `actions: write` grant and the `workflow_dispatch` trigger to the workflows that `release-kit init` and `release-kit update-templates` write. (#1379)
+- Fixes the issue that the next steps printed by `release-kit init` left out installing release-kit at the repo root and tested with `npx @williamthorsen/release-kit`, which does not guarantee that the installed copy runs, by listing `pnpm add --save-dev @williamthorsen/release-kit` as a step and changing that test command and the README quick start to `pnpm exec release-kit`. (#1380)
+
 ## 18.6.0 — 2026-11-21
 
 ### 🎉 Features
