@@ -1,5 +1,27 @@
 [
   {
+    "version": "18.6.0",
+    "date": "2026-11-21",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Makes `release-kit publish --dry-run` preview every publishable workspace at its `package.json` version when HEAD does not have any release tags, a case in which it previously failed with \"HEAD does not have any release tags\"; the preview needs pnpm, and a publish that is not a dry run still requires the tags. (#1377)",
+            "hash": "66b044e4989542b3ab1dde917799753b161a0dc8",
+            "entry": 2
+          },
+          {
+            "description": "Makes `release-kit publish` wait up to 5 minutes after publishing, checking every 10 seconds, until the registry lists each published version, and fail with the missing versions when one does not appear. (#1377)",
+            "hash": "66b044e4989542b3ab1dde917799753b161a0dc8",
+            "entry": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "18.5.0",
     "date": "2026-11-21",
     "sections": [

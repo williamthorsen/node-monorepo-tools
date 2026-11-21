@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.6.0 — 2026-11-21
+
+### 🎉 Features
+
+- Makes `release-kit publish --dry-run` preview every publishable workspace at its `package.json` version when HEAD does not have any release tags, a case in which it previously failed with "HEAD does not have any release tags"; the preview needs pnpm, and a publish that is not a dry run still requires the tags. (#1377)
+- Makes `release-kit publish` wait up to 5 minutes after publishing, checking every 10 seconds, until the registry lists each published version, and fail with the missing versions when one does not appear. (#1377)
+
 ## 18.5.0 — 2026-11-21
 
 ### 🎉 Features
