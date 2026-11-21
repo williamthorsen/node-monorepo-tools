@@ -85,25 +85,24 @@ describe('sync-labels.reusable.yaml pins the label-sync action', () => {
 function collectUsesRefs(): Array<{ comment: string | undefined; file: string; ref: string }> {
   return readdirSync(workflowsDir)
     .filter((file) => file.endsWith('.yaml'))
-    .sort()
+    .toSorted()
     .flatMap((file) =>
-      [...readFileSync(join(workflowsDir, file), 'utf8').matchAll(USES_LINE_PATTERN)].map((match) => ({
-        comment: match[2],
-        file,
-        ref: match[1] ?? '',
-      })),
+      readFileSync(join(workflowsDir, file), 'utf8')
+        .matchAll(USES_LINE_PATTERN)
+        .map((match) => ({ comment: match[2], file, ref: match[1] ?? '' }))
+        .toArray(),
     );
 }
 
 /** Returns the reason that an external ref breaks the pinning policy, or `undefined` when it complies. */
 function findPinViolation(ref: string, comment: string | undefined): string | undefined {
-  if (!/^[\w.-]+\/[\w.-]+(?:\/[^@\s]+)?@[0-9a-f]{40}$/.test(ref)) {
-    return `pin ${ref} by its full commit SHA; a tag can move to code that was never reviewed`;
-  }
-  if (comment === undefined || !/^v\d+\.\d+\.\d+$/.test(comment)) {
-    return `follow ${ref} with a trailing \`# vX.Y.Z\` comment holding nothing else, which Dependabot rotates with the SHA`;
-  }
-  return undefined;
+  const isShaPinned = /^[\w.-]+\/[\w.-]+(?:\/[^@\s]+)?@[0-9a-f]{40}$/.test(ref);
+  const isReleaseComment = /^v\d+\.\d+\.\d+$/.test(comment ?? '');
+  return !isShaPinned
+    ? `pin ${ref} by its full commit SHA; a tag can move to code that was never reviewed`
+    : !isReleaseComment
+      ? `follow ${ref} with a trailing \`# vX.Y.Z\` comment holding nothing else, which Dependabot rotates with the SHA`
+      : undefined;
 }
 
 /** Reports whether a ref is exempt from SHA pinning: first-party refs keep their tags, and local refs take none. */
