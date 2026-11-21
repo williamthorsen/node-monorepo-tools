@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { isRecord, UserError } from '@williamthorsen/nmr-core';
 
+import { readChangelogEntries } from '../changelog/changelog-entries.ts';
 import { readJsonFile } from '../portable/readJsonFile.ts';
 import { resolveNpmReadme, resolveReadmePath } from '../release-notes/injectReleaseNotesIntoReadme.ts';
 import { isPublishableManifest } from '../targets/isPublishableManifest.ts';
@@ -54,8 +55,28 @@ export function buildNpmReadme(
   return { workspacePath, readmePath, content: resolveNpmReadme(readme, entries, tag, sectionOrder) };
 }
 
+/**
+ * Builds the npm-bound README of each tagged workspace, injecting the tag's release notes from the `changelog.json`
+ * at `changelogJsonOutputPath` under the workspace, or none when the path is `undefined`. A workspace without a README
+ * is left out.
+ */
+export function buildTaggedNpmReadmes(
+  tags: ReadonlyArray<{ tag: string; workspacePath: string }>,
+  changelogJsonOutputPath: string | undefined,
+  sectionOrder?: string[],
+): NpmReadme[] {
+  return tags.flatMap(({ tag, workspacePath }) => {
+    const entries =
+      changelogJsonOutputPath === undefined
+        ? undefined
+        : readChangelogEntries(join(workspacePath, changelogJsonOutputPath));
+    return buildNpmReadme(workspacePath, entries, tag, sectionOrder) ?? [];
+  });
+}
+
 /** Counts the code points of a string, which npm measures, rather than the UTF-16 units that `length` counts. */
 export function countCodePoints(text: string): number {
+  // eslint-disable-next-line @typescript-eslint/no-misused-spread -- npm counts code points, which the spread yields.
   return [...text].length;
 }
 

@@ -23,6 +23,12 @@ const {
 } = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
 
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
+// Reading READMEs needs the file system, which these tests mock; the check is covered on its own.
+vi.mock(import('../assertReadmesFitNpm.ts'), () => ({
+  assertReadmesFitNpm: vi.fn(),
+  buildTaggedNpmReadmes: vi.fn(() => []),
+}));
+
 vi.mock(import('../assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: vi.fn(),
 }));

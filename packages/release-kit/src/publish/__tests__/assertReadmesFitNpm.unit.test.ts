@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   assertReadmesFitNpm,
   buildNpmReadme,
+  buildTaggedNpmReadmes,
   countCodePoints,
   NPM_README_MAX_CODE_POINTS,
 } from '../assertReadmesFitNpm.ts';
@@ -21,6 +22,13 @@ const FILES: Record<string, string> = {
   'packages/internal/package.json': JSON.stringify({ name: '@scope/internal', private: true }),
   'packages/large/package.json': JSON.stringify({ name: '@scope/large' }),
   'packages/small/package.json': JSON.stringify({ name: '@scope/small' }),
+  'packages/small/.meta/changelog.json': JSON.stringify([
+    {
+      version: '1.0.0',
+      date: '2024-01-01',
+      sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
+    },
+  ]),
   'packages/small/README.md': '# Small\n',
 };
 
@@ -75,7 +83,7 @@ describe(assertReadmesFitNpm, () => {
 
 describe(buildNpmReadme, () => {
   beforeEach(() => {
-    mockExistsSync.mockImplementation((filePath: string) => filePath in FILES);
+    mockExistsSync.mockImplementation((filePath: string) => Object.hasOwn(FILES, filePath));
     mockReadFileSync.mockImplementation(readFixture);
   });
 
@@ -94,6 +102,41 @@ describe(buildNpmReadme, () => {
 
   it('returns undefined when the workspace does not have a README', () => {
     expect(buildNpmReadme('packages/large', undefined, 'large-v1.0.0')).toBeUndefined();
+  });
+});
+
+describe(buildTaggedNpmReadmes, () => {
+  const tags = [
+    { tag: 'small-v1.0.0', workspacePath: 'packages/small' },
+    { tag: 'large-v1.0.0', workspacePath: 'packages/large' },
+  ];
+
+  beforeEach(() => {
+    mockExistsSync.mockImplementation((filePath: string) => Object.hasOwn(FILES, filePath));
+    mockReadFileSync.mockImplementation(readFixture);
+  });
+
+  afterEach(() => {
+    mockExistsSync.mockReset();
+    mockReadFileSync.mockReset();
+  });
+
+  it('injects the release notes from changelog.json and leaves out a workspace without a README', () => {
+    const readmes = buildTaggedNpmReadmes(tags, '.meta/changelog.json');
+
+    expect(readmes).toStrictEqual([
+      {
+        workspacePath: 'packages/small',
+        readmePath: 'packages/small/README.md',
+        content: expect.stringContaining('## Release notes — v1.0.0 (2024-01-01)'),
+      },
+    ]);
+  });
+
+  it('returns the plain README when the changelog path is undefined', () => {
+    expect(buildTaggedNpmReadmes(tags, undefined)).toStrictEqual([
+      { workspacePath: 'packages/small', readmePath: 'packages/small/README.md', content: '# Small\n' },
+    ]);
   });
 });
 
