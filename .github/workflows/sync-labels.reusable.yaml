@@ -40,7 +40,7 @@ jobs:
     runs-on: ${{ fromJSON((startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '[') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '{') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '"')) && (vars.CI_RUNS_ON || 'ubuntu-latest') || toJSON(vars.CI_RUNS_ON || 'ubuntu-latest')) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # The engine's label schema rejects keys that it does not know, so it reads a copy without the archived mark.
       - name: Prepare label files
         run: |
@@ -62,7 +62,7 @@ jobs:
       # Runs after the engine, so that a marked label which the engine has just created exists to be archived.
       # The engine reads archived labels like any other, so it does not recreate a declared one.
       - name: Reconcile archive state
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           DRY_RUN: ${{ inputs.dry-run }}
           LABELS_FILE: ${{ runner.temp }}/labels.json
@@ -117,7 +117,7 @@ jobs:
             core.endGroup();
       # The engine leaves a label that the file does not declare in place and omits it from its diff.
       - name: Report undeclared labels
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           LABELS_FILE: ${{ runner.temp }}/labels.json
         with:

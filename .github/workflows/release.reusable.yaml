@@ -76,7 +76,7 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           token: ${{ github.token }}
@@ -85,7 +85,7 @@ jobs:
       # false` keeps `pnpm/setup` from installing the Node.js version declared in `.tool-versions`. Because this step
       # runs ahead of that one, the Node.js step still owns the runtime if the repo ever declares `devEngines.runtime`.
       - name: Set up pnpm
-        uses: pnpm/setup@v3
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           cache: true
           install: false
@@ -96,7 +96,7 @@ jobs:
       # `package-manager-cache: false` keeps the step from acting on the caller's `packageManager` field, which stays
       # untouched because `release-kit commit` stages every change in the working tree.
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .tool-versions
           package-manager-cache: false

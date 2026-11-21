@@ -47,9 +47,9 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ${{ fromJSON((startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '[') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '{') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '"')) && (vars.CI_RUNS_ON || 'ubuntu-latest') || toJSON(vars.CI_RUNS_ON || 'ubuntu-latest')) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@v3
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           runtime: node
           node-version-file: .tool-versions
@@ -94,7 +94,7 @@ jobs:
           fi
 
       - name: Find existing comment
-        uses: peter-evans/find-comment@v4
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad # v4.0.0
         id: find-comment
         with:
           issue-number: ${{ github.event.pull_request.number }}
@@ -102,7 +102,7 @@ jobs:
           body-includes: '## Dependency audit'
 
       - name: Create or update PR comment
-        uses: peter-evans/create-or-update-comment@v5
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5.0.0
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
@@ -128,9 +128,9 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ fromJSON((startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '[') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '{') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '"')) && (vars.CI_RUNS_ON || 'ubuntu-latest') || toJSON(vars.CI_RUNS_ON || 'ubuntu-latest')) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/setup@v3
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           runtime: node
           node-version-file: .tool-versions
