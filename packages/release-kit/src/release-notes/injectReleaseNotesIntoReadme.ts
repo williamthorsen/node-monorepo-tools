@@ -134,6 +134,24 @@ export function injectReleaseNotesIntoReadme(
   return { status: 'injected', originalReadme };
 }
 
+/**
+ * Returns the README that npm receives: with the tag's release notes injected when `entries` is defined and they
+ * render, and the README unchanged otherwise. A caller passes `undefined` when injection is off or the changelog could
+ * not be loaded.
+ */
+export function resolveNpmReadme(
+  readme: string,
+  entries: readonly ChangelogEntry[] | undefined,
+  tag: string,
+  sectionOrder?: string[],
+): string {
+  if (entries === undefined) {
+    return readme;
+  }
+  const result = renderInjectedReadmeFromEntries(readme, entries, tag, sectionOrder);
+  return result.status === 'rendered' ? result.renderedReadme.injectedReadme : readme;
+}
+
 /** Returns the path of a workspace's `README.md`, or `undefined` when it has none. */
 export function resolveReadmePath(workspacePath: string): string | undefined {
   const readmePath = join(workspacePath, 'README.md');

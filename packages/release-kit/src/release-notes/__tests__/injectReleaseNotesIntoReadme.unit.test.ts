@@ -30,6 +30,7 @@ import {
   injectReleaseNotesIntoReadme,
   renderInjectedReadme,
   renderInjectedReadmeFromEntries,
+  resolveNpmReadme,
   resolveReadmePath,
 } from '../injectReleaseNotesIntoReadme.ts';
 
@@ -323,6 +324,42 @@ describe(renderInjectedReadmeFromEntries, () => {
     renderInjectedReadmeFromEntries('# Pkg\n', entries, 'pkg-v9.9.9');
 
     expect(silencedConsole.warn).not.toHaveBeenCalled();
+  });
+});
+
+describe(resolveNpmReadme, () => {
+  const entries: readonly ChangelogEntry[] = [
+    {
+      version: '1.2.3',
+      date: '2024-01-01',
+      sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
+    },
+  ];
+
+  beforeEach(() => {
+    mockExtractVersion.mockReturnValue('1.2.3');
+    mockMatchesAudience.mockReturnValue(() => true);
+    mockRenderReleaseNotesSingle.mockReturnValue('### Features\n\n- Add widget\n');
+  });
+
+  afterEach(() => {
+    mockExtractVersion.mockReset();
+    mockMatchesAudience.mockReset();
+    mockRenderReleaseNotesSingle.mockReset();
+  });
+
+  it('returns the README with the release notes injected when the entries render', () => {
+    expect(resolveNpmReadme('# Pkg\n', entries, 'pkg-v1.2.3')).toContain('## Release notes — v1.2.3 (2024-01-01)');
+  });
+
+  it('returns the README unchanged when the entries are undefined', () => {
+    expect(resolveNpmReadme('# Pkg\n', undefined, 'pkg-v1.2.3')).toBe('# Pkg\n');
+  });
+
+  it('returns the README unchanged when the release notes do not render', () => {
+    mockExtractVersion.mockReturnValue('9.9.9');
+
+    expect(resolveNpmReadme('# Pkg\n', entries, 'pkg-v9.9.9')).toBe('# Pkg\n');
   });
 });
 

@@ -10,6 +10,7 @@ import {
   extractVersion,
   isChangelogEntry,
   loadChangelogEntries,
+  parseChangelogEntries,
   readChangelogEntries,
 } from '../changelog-entries.ts';
 
@@ -111,6 +112,25 @@ describe(loadChangelogEntries, () => {
     expect(loadChangelogEntries(join(directoryPath, '..'))).toStrictEqual({
       status: 'unreadable',
       reason: expect.stringContaining('EISDIR'),
+    });
+  });
+});
+
+describe(parseChangelogEntries, () => {
+  it('returns the valid entries of changelog JSON content and counts the rejected ones', () => {
+    const entries: ChangelogEntry[] = [{ version: '1.0.0', date: '2024-01-01', sections: [] }];
+
+    expect(parseChangelogEntries(JSON.stringify([...entries, { invalid: true }]))).toStrictEqual({
+      status: 'loaded',
+      entries,
+      rejectedCount: 1,
+    });
+  });
+
+  it('reports content that is not a JSON array as unreadable', () => {
+    expect(parseChangelogEntries('{"not": "array"}')).toStrictEqual({
+      status: 'unreadable',
+      reason: 'the top-level value is not an array',
     });
   });
 });
