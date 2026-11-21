@@ -53,7 +53,7 @@ export async function publishCommand({
     assertCleanWorkingTree();
   }
 
-  const resolvedTags = resolveCommandTags(requestedTags, userConfig);
+  const resolvedTags = resolveCommandTags(requestedTags, userConfig, { shouldPreviewUntaggedHead: isDryRun });
 
   if (resolvedTags.length === 0) {
     return;

@@ -24,6 +24,7 @@ const {
 } = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
 
 const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
+const mockReadJsonFile = vi.hoisted(() => vi.fn());
 
 vi.mock(import('../assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: mockAssertTarballsComplete,
@@ -59,6 +60,13 @@ vi.mock(import('../publishPackage.ts'), () => ({
 vi.mock(import('../waitForRegistryVersions.ts'), () => ({
   waitForRegistryVersions: mockWaitForRegistryVersions,
 }));
+
+// Partial, so that every other manifest read stays real: Only the preview of an untagged HEAD stubs the version.
+vi.mock(import('../../portable/readJsonFile.ts'), async (importOriginal) => {
+  const actualModule = await importOriginal();
+  mockReadJsonFile.mockImplementation(actualModule.readJsonFile);
+  return { readJsonFile: mockReadJsonFile };
+});
 
 vi.mock(import('../../config/loadConfig.ts'), async () => {
   const actualModule = await vi.importActual<typeof import('../../config/loadConfig.ts')>('../../config/loadConfig.ts');
@@ -158,6 +166,32 @@ describe(publishCommand, () => {
       expect.anything(),
       'npm',
       expect.objectContaining({ isDryRun: false, shouldGenerateProvenance: true }),
+    );
+  });
+
+  it('previews every publishable package on an untagged HEAD in a dry run', async () => {
+    using silent = silenceConsole(['info']);
+    mockResolveReleaseTags.mockReturnValue([]);
+    mockDeriveWorkspaceConfig.mockReturnValue({
+      dir: 'root',
+      name: '@test/root',
+      tagPrefix: 'v',
+      workspacePath: '.',
+      isPublishable: true,
+      packageFiles: ['package.json'],
+      paths: ['**'],
+    });
+    mockReadJsonFile.mockReturnValueOnce({ name: '@test/root', version: '2.0.0' });
+
+    await publishCommand(makePublishOptions({ isDryRun: true, styles: RICH_STYLES }));
+
+    expect(mockPublishPackage).toHaveBeenCalledWith(
+      { tag: 'v2.0.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
+      'npm',
+      expect.objectContaining({ isDryRun: true }),
+    );
+    expect(listConsoleLines(silent.info)).toContain(
+      'HEAD does not have any release tags; previewing every publishable package at its manifest version.',
     );
   });
 

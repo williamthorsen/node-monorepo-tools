@@ -9,6 +9,7 @@ const mockDiscoverWorkspaces = vi.hoisted(() => vi.fn());
 const mockResolveReleaseTags = vi.hoisted(() => vi.fn());
 const mockDeriveWorkspaceConfig = vi.hoisted(() => vi.fn());
 const mockReadRootPackageVersion = vi.hoisted(() => vi.fn());
+const mockReadJsonFile = vi.hoisted(() => vi.fn());
 
 // Partial, so that `describeEmptyWorkspace` stays the real composer: What a caller does with an empty
 // resolution is the subject here, and its wording is covered against the composer itself.
@@ -34,6 +35,10 @@ vi.mock(import('../../config/deriveDirectoryConfig.ts'), () => ({
     paths: [`${declaredDirectory.path}/**`],
     tagPrefix: 'app-v',
   }),
+}));
+
+vi.mock(import('../../portable/readJsonFile.ts'), () => ({
+  readJsonFile: mockReadJsonFile,
 }));
 
 vi.mock(import('../../config/loadConfig.ts'), async (importOriginal) => ({
@@ -94,6 +99,7 @@ describe(resolveCommandTags, () => {
     mockResolveReleaseTags.mockReset();
     mockDeriveWorkspaceConfig.mockReset();
     mockReadRootPackageVersion.mockReset();
+    mockReadJsonFile.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -372,6 +378,81 @@ describe(resolveCommandTags, () => {
 
       expect(result).toStrictEqual(singleTags);
       expect(silent.warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('when HEAD does not have any release tags and the caller asks for a preview', () => {
+    const PREVIEW_LINE =
+      'HEAD does not have any release tags; previewing every publishable package at its manifest version.';
+
+    beforeEach(() => {
+      mockResolveReleaseTags.mockReturnValue([]);
+      mockReadJsonFile.mockImplementation((manifestPath: string) => ({
+        version: manifestPath === 'packages/cli/package.json' ? '0.6.0' : '1.4.0',
+      }));
+    });
+
+    it('returns the tag of each publishable workspace at its manifest version, and says so', () => {
+      using silent = silenceConsole(['info']);
+      const workspaces: Record<string, WorkspaceConfig> = {
+        'packages/core': makeWorkspace('core', 'nmr-core-v', 'packages/core', false),
+        'packages/cli': makeWorkspace('cli', 'cli-v', 'packages/cli'),
+        'packages/release-kit': makeWorkspace('release-kit', 'release-kit-v', 'packages/release-kit'),
+      };
+      mockDeriveWorkspaceConfig.mockImplementation((workspacePath: string) => workspaces[workspacePath]);
+
+      const result = resolveCommandTags(undefined, undefined, { shouldPreviewUntaggedHead: true });
+
+      expect(result).toStrictEqual([
+        { tag: 'cli-v0.6.0', kind: 'package', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
+        {
+          tag: 'release-kit-v1.4.0',
+          kind: 'package',
+          dir: 'release-kit',
+          workspacePath: 'packages/release-kit',
+          isPublishable: true,
+        },
+      ]);
+      expect(listConsoleLines(silent.info)).toStrictEqual([PREVIEW_LINE]);
+    });
+
+    it('leaves out an excluded workspace without warning about it', () => {
+      using silent = silenceConsole(['info', 'warn']);
+
+      const result = resolveCommandTags(undefined, EXCLUDE_CLI_CONFIG, { shouldPreviewUntaggedHead: true });
+
+      expect(result.map(({ tag }) => tag)).toStrictEqual(['nmr-core-v1.4.0', 'release-kit-v1.4.0']);
+      expect(listConsoleLines(silent.warn)).toStrictEqual([]);
+    });
+
+    it('validates --tags against the previewed tags', () => {
+      using _silent = silenceConsole(['info']);
+
+      expect(resolveCommandTags(['cli-v0.6.0'], undefined, { shouldPreviewUntaggedHead: true })).toStrictEqual([
+        { tag: 'cli-v0.6.0', kind: 'package', dir: 'cli', workspacePath: 'packages/cli', isPublishable: true },
+      ]);
+      expect(() => resolveCommandTags(['cli-v0.5.0'], undefined, { shouldPreviewUntaggedHead: true })).toThrow(
+        UsageError,
+      );
+    });
+
+    it('names the single package by `.` in single-package mode', () => {
+      using _silent = silenceConsole(['info']);
+      mockDiscoverWorkspaces.mockReturnValue(makeSinglePackage());
+      mockDeriveWorkspaceConfig.mockReturnValue(makeWorkspace('root', 'v', '.'));
+
+      expect(resolveCommandTags(undefined, undefined, { shouldPreviewUntaggedHead: true })).toStrictEqual([
+        { tag: 'v1.4.0', kind: 'package', dir: '.', workspacePath: '.', isPublishable: true },
+      ]);
+    });
+
+    it('throws a UserError naming the manifest when a publishable workspace does not set a version', () => {
+      using _silent = silenceConsole(['info']);
+      mockReadJsonFile.mockReturnValue({ name: '@test/core' });
+
+      expect(() => resolveCommandTags(undefined, undefined, { shouldPreviewUntaggedHead: true })).toThrow(
+        new UserError('Cannot preview packages/core: packages/core/package.json does not set a version.'),
+      );
     });
   });
 });
