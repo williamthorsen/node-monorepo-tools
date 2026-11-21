@@ -18,6 +18,7 @@ const {
   mockResolveReadmePath,
   mockResolveReleaseTags,
   mockValidateConfig,
+  mockWaitForRegistryVersions,
   mockWriteFileSync,
   resetPublishCommandMocks,
 } = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
@@ -53,6 +54,10 @@ vi.mock(import('../detectPackageManager.ts'), () => ({
 
 vi.mock(import('../publishPackage.ts'), () => ({
   publishPackage: mockPublishPackage,
+}));
+
+vi.mock(import('../waitForRegistryVersions.ts'), () => ({
+  waitForRegistryVersions: mockWaitForRegistryVersions,
 }));
 
 vi.mock(import('../../config/loadConfig.ts'), async () => {
@@ -121,6 +126,18 @@ describe(publishCommand, () => {
       'npm',
       expect.objectContaining({ isDryRun: true, shouldGenerateProvenance: false }),
     );
+  });
+
+  it('waits for the version of each published workspace to appear on the registry', async () => {
+    await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
+
+    expect(mockWaitForRegistryVersions).toHaveBeenCalledExactlyOnceWith(['.']);
+  });
+
+  it('does not wait for the registry in a dry run', async () => {
+    await publishCommand(makePublishOptions({ isDryRun: true, styles: RICH_STYLES }));
+
+    expect(mockWaitForRegistryVersions).not.toHaveBeenCalled();
   });
 
   it('does not pass --no-git-checks into publishPackage options', async () => {
@@ -306,6 +323,7 @@ describe(publishCommand, () => {
 
     await captureError(UserError, () => publishCommand(makePublishOptions({ styles: RICH_STYLES })));
     expect(listConsoleLines(silent.warn)).toContain('Packages published before failure:');
+    expect(mockWaitForRegistryVersions).not.toHaveBeenCalled();
     expect(listConsoleLines(silent.warn)).toContain('  core-v1.3.0');
   });
 

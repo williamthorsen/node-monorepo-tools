@@ -130,7 +130,7 @@ export const push = defineCommand({
 export const publish = defineCommand({
   summary: 'Publish packages with release tags on HEAD',
   description:
-    'Publish packages that have release tags on HEAD. Operates only on workspaces whose package.json#private is absent or false. Without --tags, unpublishable workspaces are silently filtered out. With --tags, an unpublishable tag is skipped with a warning while any publishable tags are still published. A project tag is never published.',
+    'Publish packages that have release tags on HEAD. Operates only on workspaces whose package.json#private is absent or false. Without --tags, unpublishable workspaces are silently filtered out. With --tags, an unpublishable tag is skipped with a warning while any publishable tags are still published. A project tag is never published. After publishing, waits up to 5 minutes for the registry to list each published version, and fails if one does not appear; a dry run does not wait.',
   flags: {
     ...CONFIG_FLAG,
     isDryRun: { type: 'boolean', long: 'dry-run', description: 'Preview without publishing' },

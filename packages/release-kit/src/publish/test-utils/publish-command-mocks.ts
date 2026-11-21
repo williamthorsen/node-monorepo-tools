@@ -13,6 +13,7 @@ export const mockPublishPackage = vi.fn();
 export const mockResolveReadmePath = vi.fn();
 export const mockResolveReleaseTags = vi.fn();
 export const mockValidateConfig = vi.fn();
+export const mockWaitForRegistryVersions = vi.fn();
 export const mockWriteFileSync = vi.fn();
 
 /**
@@ -56,6 +57,7 @@ export function resetPublishCommandMocks(): void {
     mockResolveReadmePath,
     mockResolveReleaseTags,
     mockValidateConfig,
+    mockWaitForRegistryVersions,
     mockWriteFileSync,
   ]) {
     mock.mockReset();

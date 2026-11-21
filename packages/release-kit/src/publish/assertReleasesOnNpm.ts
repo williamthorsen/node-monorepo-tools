@@ -1,10 +1,7 @@
-import { join } from 'node:path';
-
-import { isRecord, UserError } from '@williamthorsen/nmr-core';
+import { UserError } from '@williamthorsen/nmr-core';
 
 import { lookUpNpmPackage, type Npm, realNpm } from '../clients/npm/npm-registry.ts';
-import { readJsonFile } from '../portable/readJsonFile.ts';
-import { isPublishableManifest } from '../targets/isPublishableManifest.ts';
+import { type NpmCandidate, readNpmCandidate } from './readNpmCandidate.ts';
 
 /**
  * Throws when npm doesn't list, or can't confirm, a publishable package among the given workspaces.
@@ -17,7 +14,7 @@ export function assertReleasesOnNpm(workspacePaths: readonly string[], npm: Npm 
   const unverifiableCandidates: Array<{ candidate: NpmCandidate; detail: string }> = [];
 
   for (const workspacePath of workspacePaths) {
-    const candidate = buildNpmCandidate(workspacePath);
+    const candidate = readNpmCandidate(workspacePath);
     if (candidate === undefined) {
       continue;
     }
@@ -38,29 +35,6 @@ export function assertReleasesOnNpm(workspacePaths: readonly string[], npm: Npm 
 }
 
 // region | Helpers
-interface NpmCandidate {
-  name: string;
-  workspacePath: string;
-  registry?: string;
-}
-
-/** Reads a workspace's `package.json` into a candidate for the npm lookup, or returns undefined when it is private. */
-function buildNpmCandidate(workspacePath: string): NpmCandidate | undefined {
-  const manifestPath = join(workspacePath, 'package.json');
-  const manifest = readJsonFile(manifestPath);
-  if (!isRecord(manifest) || !isPublishableManifest(manifest) || typeof manifest['name'] !== 'string') {
-    return undefined;
-  }
-
-  const publishConfig = manifest['publishConfig'];
-  const registry = isRecord(publishConfig) ? publishConfig['registry'] : undefined;
-  return {
-    name: manifest['name'],
-    workspacePath,
-    ...(typeof registry === 'string' && { registry }),
-  };
-}
-
 /** Composes the refusal message, listing each package that npm doesn't list and each that it couldn't confirm. */
 function describeRefusal(
   unpublishedCandidates: readonly NpmCandidate[],
