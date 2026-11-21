@@ -293,6 +293,7 @@ function makeSkippedResult(name: string): SkippedPackageResult {
     skipReason: 'No commits',
   };
 }
+
 /** Serves the given files, and each workspace's own `package.json`, to the mocked `readFileSync`. */
 function stubFiles(files: Record<string, string>): void {
   const allFiles: Record<string, string> = {
