@@ -13,6 +13,8 @@
 
 `audit`, `create-github-release`, `publish`, and `release` install the Node.js version named by the `nodejs` entry of the consumer's `.tool-versions`, and a job fails when the entry is missing. `create-github-release` and `publish` take a `node-version` input that installs another version in its place.
 
+A `publish` caller grants `id-token: write`, `contents: read`, and `issues: write`. When the publish job fails, the workflow opens an issue labelled `publish-failure` in the caller's repository, or comments on the open one for the same tags.
+
 `create-github-release` and `publish` additionally require `@williamthorsen/release-kit` as a root dependency. They invoke it through `pnpm exec`, which resolves from the repository root's `node_modules/.bin`, so declaring it in a workspace package alone does not satisfy this.
 
 ## Runner selection
@@ -53,10 +55,10 @@ This repo's own callers use that same external ref rather than a relative path, 
 A tag kept behind main on purpose, such as while external consumers migrate, takes a hold in `.config/workflow-pointer-holds.json`:
 
 ```json
-[{ "tag": "workflow/publish-v1", "through": "<commit on main>", "reason": "Consumers are migrating to v2" }]
+[{ "tag": "workflow/publish-v1", "through": "workflow/publish-v2", "reason": "Callers must grant issues: write, so v2 supersedes v1" }]
 ```
 
-A hold accepts the commits touching the workflow up to and including `through`. A later commit touching the workflow fails the check again, so each new edit is either moved to or held explicitly. A hold that names an unknown tag or a commit that does not resolve also fails the check.
+A hold accepts the commits touching the workflow up to and including `through`, which names a commit or a ref. A hold through the successor pointer tag, as above, freezes the old major: Each edit that the successor moves to is accepted for the old one as well. A later commit touching the workflow fails the check again, so each new edit is either moved to or held explicitly. A hold that names an unknown tag or a commit that does not resolve also fails the check.
 
 ### Publish trigger contract
 
