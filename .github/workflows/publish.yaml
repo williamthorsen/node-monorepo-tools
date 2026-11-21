@@ -9,10 +9,11 @@ on:
 permissions:
   id-token: write
   contents: read
+  issues: write
 
 jobs:
   publish:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v2
     with:
       provenance: true
       tags: ${{ github.ref_name }}

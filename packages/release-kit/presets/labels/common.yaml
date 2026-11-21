@@ -91,6 +91,9 @@
 - name: duplicate
   color: cfd3d7
   description: Duplicates another issue or pull request
+- name: publish-failure
+  color: b60205
+  description: "A release's publish run failed"
 - name: wontfix
   color: ffffff
   description: This will not be worked on

@@ -114,7 +114,7 @@ export default defineRdyKit({
               severity: 'error',
               quiet: true,
               check: () => fileDoesNotContain('.github/workflows/publish.yaml', /@(release|publish)-workflow-v[0-9]/),
-              fix: 'Update publish.yaml to use @workflow/publish-v1 (run `release-kit update-templates` to regenerate, or replace the ref manually)',
+              fix: 'Update publish.yaml to use @workflow/publish-v2 (run `release-kit update-templates` to regenerate, or replace the ref manually)',
             },
           ],
         },

@@ -56,8 +56,9 @@ describe(renderPublishWorkflow, () => {
 
     expect(workflow).toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
     expect(workflow).not.toContain("- 'v[0-9]*.[0-9]*.[0-9]*'");
-    expect(workflow).toContain('publish.reusable.yaml@workflow/publish-v1');
+    expect(workflow).toContain('publish.reusable.yaml@workflow/publish-v2');
     expect(workflow).toContain('id-token: write');
+    expect(workflow).toContain('issues: write');
     expect(workflow).toContain('contents: read');
     expect(workflow).not.toContain('secrets:');
   });
@@ -67,8 +68,9 @@ describe(renderPublishWorkflow, () => {
 
     expect(workflow).toContain("'v[0-9]*.[0-9]*.[0-9]*'");
     expect(workflow).not.toContain("'*-v[0-9]*.[0-9]*.[0-9]*'");
-    expect(workflow).toContain('publish.reusable.yaml@workflow/publish-v1');
+    expect(workflow).toContain('publish.reusable.yaml@workflow/publish-v2');
     expect(workflow).toContain('id-token: write');
+    expect(workflow).toContain('issues: write');
     expect(workflow).toContain('contents: read');
     expect(workflow).not.toContain('secrets:');
   });

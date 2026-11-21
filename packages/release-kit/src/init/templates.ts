@@ -48,7 +48,8 @@ export default defineConfig({
  * Renders the publish.yaml GitHub Actions entry-point workflow.
  *
  * The caller's `permissions` block caps what the reusable workflow receives, so it must grant the `id-token: write`
- * that OIDC publishing needs. `shouldGenerateProvenance: false` omits the provenance input, which a private repo cannot use.
+ * that OIDC publishing needs and the `issues: write` with which a failed publish opens an issue.
+ * `shouldGenerateProvenance: false` omits the provenance input, which a private repo cannot use.
  */
 export function renderPublishWorkflow(
   repoType: RepoType,
@@ -67,10 +68,11 @@ on:
 permissions:
   id-token: write
   contents: read
+  issues: write
 
 jobs:
   publish:
-    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v1
+    uses: williamthorsen/node-monorepo-tools/.github/workflows/publish.reusable.yaml@workflow/publish-v2
     with:
 ${shouldGenerateProvenance ? '      provenance: true\n' : ''}      tags: \${{ github.ref_name }}
 `;
