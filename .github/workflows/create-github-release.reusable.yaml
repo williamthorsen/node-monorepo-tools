@@ -59,13 +59,13 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ inputs.tag }}
 
       - name: Set up pnpm and Node.js
-        uses: pnpm/setup@v3
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           runtime: node${{ inputs.node-version != '' && format('@{0}', inputs.node-version) || '' }}
           node-version-file: .tool-versions
