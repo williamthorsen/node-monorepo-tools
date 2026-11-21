@@ -1,7 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { runInThisContext } from 'node:vm';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { parse } from 'yaml';
 
+import { isRecord } from '../packages/nmr-core/src/portable/isRecord.ts';
 import { listSteps, readJob, readReusableWorkflow } from '../test-utils/workflows.ts';
 
 const RUN_URL = 'https://github.com/acme/widgets/actions/runs/42/attempts/1';
@@ -103,12 +107,13 @@ describe('publish.reusable.yaml reports a failed publish as an issue', () => {
 
     await runNotify({ tags: 'nmr-v2.4.0' });
 
+    const { color, description } = readPresetLabel('publish-failure');
     expect(github.rest.issues.createLabel).toHaveBeenCalledWith({
       owner: 'acme',
       repo: 'widgets',
       name: 'publish-failure',
-      color: 'b60205',
-      description: "A release's publish run failed",
+      color,
+      description,
     });
   });
 
@@ -175,6 +180,17 @@ function loadScript(): GithubScript {
   // The compiled source is the step's script wrapped as `actions/github-script` wraps it; its type is not inferable.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- `runInThisContext` returns `any`.
   return runInThisContext(`(async (github, context, core) => {\n${script}\n})`);
+}
+
+/** Returns the colour and description that release-kit's `common` label preset declares for `name`. */
+function readPresetLabel(name: string): { color: string; description: string } {
+  const presetPath = join(import.meta.dirname, '..', 'packages', 'release-kit', 'presets', 'labels', 'common.yaml');
+  const labels: unknown = parse(readFileSync(presetPath, 'utf8'));
+  const label = Array.isArray(labels) ? labels.find((entry) => isRecord(entry) && entry['name'] === name) : undefined;
+  if (!isRecord(label) || typeof label['color'] !== 'string' || typeof label['description'] !== 'string') {
+    throw new TypeError(`The common label preset does not declare \`${name}\` with a colour and description`);
+  }
+  return { color: label['color'], description: label['description'] };
 }
 
 // endregion | Helpers
