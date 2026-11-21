@@ -8,13 +8,17 @@ import {
 import { UsageError } from '@williamthorsen/nmr-core/cli';
 import { describeError } from '@williamthorsen/toolbelt.errors';
 
+import { parseChangelogEntries } from '../changelog/changelog-entries.ts';
+import { resolveChangelogJsonPath } from '../changelog/changelog-json-file.ts';
 import { dim } from '../cli/format.ts';
 import { RELEASE_GLYPHS } from '../cli/glyphs.ts';
 import { realGit } from '../clients/git/git.ts';
 import { realShell, type Shell } from '../clients/shell/shell.ts';
 import type { ReleaseKitConfig } from '../config/config-schema.ts';
+import { deriveReleaseNotesConfig } from '../config/deriveReleaseNotesConfig.ts';
 import { ConfigProblemError, loadValidatedConfig, reportConfigWarnings } from '../config/loadValidatedConfig.ts';
 import { prefixUserError } from '../portable/user-error-chaining.ts';
+import { assertReadmesFitNpm, buildNpmReadme, type NpmReadme } from '../publish/assertReadmesFitNpm.ts';
 import { assertReleasesOnNpm } from '../publish/assertReleasesOnNpm.ts';
 import { assertTarballsComplete } from '../publish/assertTarballsComplete.ts';
 import { describeEmptyWorkspace, discoverWorkspaces, type WorkspaceDiscovery } from '../targets/discoverWorkspaces.ts';
@@ -25,13 +29,19 @@ import {
   resolveReleaseTargets,
   SINGLE_PACKAGE_TARGET_ID,
 } from '../targets/resolveReleaseTargets.ts';
-import type { ReleaseTarget, ReleaseType } from '../types.ts';
+import type { ChangelogEntry, PackageTarget, ReleaseTarget, ReleaseType } from '../types.ts';
 import { assertCleanWorkingTree } from './assertCleanWorkingTree.ts';
 import { CANONICAL_SEMVER_PATTERN, parseSetVersions } from './prepare-args.ts';
-import { prepareReleaseTargets, type TargetPrepareOptions } from './prepareReleaseTargets.ts';
+import { prepareReleaseTargets, type TargetPrepareConfig, type TargetPrepareOptions } from './prepareReleaseTargets.ts';
 import { RELEASE_SUMMARY_FILE, RELEASE_TAGS_FILE } from './release-files.ts';
 import { applyReleasePlan, type ReleasePlan } from './release-plan.ts';
 import { reportPrepare } from './reportPrepare.ts';
+
+/** A package target that a plan releases, with its release tag. */
+interface ReleasedPackage {
+  target: PackageTarget;
+  tag: string;
+}
 
 /** Follows a failure to compute the release plan, which happens before `prepare` writes anything. */
 const UNCHANGED_TREE_NOTE = 'The command did not write any files; the working tree is unchanged.';
@@ -115,8 +125,10 @@ export async function prepareCommand(
   runAndReport(
     () => {
       const plan = prepareReleaseTargets(config, targetOptions, realGit);
-      const releasedPackagePaths = findReleasedPackagePaths(plan, config.targets);
+      const releasedPackages = findReleasedPackages(plan, config.targets);
+      const releasedPackagePaths = releasedPackages.map(({ target }) => target.packagePath);
       assertReleasesOnNpm(releasedPackagePaths);
+      assertReadmesFitNpm(buildPlannedNpmReadmes(plan, releasedPackages, config.settings, userConfig));
       assertTarballsComplete(releasedPackagePaths, userConfig?.devExportConditions ?? []);
       return plan;
     },
@@ -128,16 +140,48 @@ export async function prepareCommand(
 
 // region | Helpers
 
-/** Returns the repo-relative paths of the package targets that a plan releases, in target order. */
-function findReleasedPackagePaths(plan: ReleasePlan, targets: readonly ReleaseTarget[]): string[] {
-  const releasedIds = new Set(
-    plan.targets.flatMap((result) =>
-      result.status === 'released' && result.kind === 'package' ? result.targetId : [],
-    ),
-  );
-  return targets.flatMap((target) =>
-    target.kind === 'package' && releasedIds.has(target.id) ? target.packagePath : [],
-  );
+/**
+ * Builds the README that npm will receive for each released package, injecting the release's notes from the
+ * `changelog.json` that the plan writes when injection is on: the file that `publish` reads once the release is
+ * tagged.
+ */
+function buildPlannedNpmReadmes(
+  plan: ReleasePlan,
+  releasedPackages: readonly ReleasedPackage[],
+  settings: TargetPrepareConfig['settings'],
+  userConfig: ReleaseKitConfig | undefined,
+): NpmReadme[] {
+  const { releaseNotes, sectionOrder } = deriveReleaseNotesConfig(userConfig);
+  return releasedPackages.flatMap(({ target, tag }) => {
+    const entries = releaseNotes.shouldInjectIntoReadme
+      ? findPlannedEntries(plan, resolveChangelogJsonPath(settings, target.changelogDir))
+      : undefined;
+    return buildNpmReadme(target.packagePath, entries, tag, sectionOrder) ?? [];
+  });
+}
+
+/** Returns the changelog entries that the plan writes to a path, or `undefined` when it writes none readable there. */
+function findPlannedEntries(plan: ReleasePlan, changelogJsonPath: string): ChangelogEntry[] | undefined {
+  const write = plan.writes.find(({ path }) => path === changelogJsonPath);
+  if (write === undefined) {
+    return undefined;
+  }
+  const parsed = parseChangelogEntries(write.content);
+  return parsed.status === 'loaded' ? parsed.entries : undefined;
+}
+
+/** Returns the package targets that a plan releases, each with its release tag, in target order. */
+function findReleasedPackages(plan: ReleasePlan, targets: readonly ReleaseTarget[]): ReleasedPackage[] {
+  const tagsById = new Map<string, string>();
+  for (const result of plan.targets) {
+    if (result.status === 'released' && result.kind === 'package') {
+      tagsById.set(result.targetId, result.tag);
+    }
+  }
+  return targets.flatMap((target) => {
+    const tag = target.kind === 'package' ? tagsById.get(target.id) : undefined;
+    return target.kind === 'package' && tag !== undefined ? { target, tag } : [];
+  });
 }
 
 /** Returns the ids of the package and directory targets, which `--set-version` can name, in target order. */
