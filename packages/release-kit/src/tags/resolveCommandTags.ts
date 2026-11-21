@@ -19,7 +19,8 @@ import { type ResolvedTag, resolveReleaseTags } from './resolveReleaseTags.ts';
  * names (e.g., `nmr-core-v1.3.0`), and returns the filtered tag list. Throws a `UserError` when workspace discovery
  * fails, when a workspace's `package.json` does not have a `name` field, when `mergeMonorepoConfig` rejects the
  * config, when the workspace does not resolve to any package (which is not single-package mode), and when HEAD does
- * not have any release tags; throws a `UsageError` for a `--tags` name that HEAD lacks.
+ * not have any release tags and `shouldPreviewUntaggedHead` is not set; throws a `UsageError` for a `--tags` name
+ * that HEAD lacks.
  *
  * In monorepo mode the workspace list is `userConfig` merged over the discovered workspaces, as `prepare` builds it,
  * and each directory target and a declared composite (a `project` block or a `releases` composite) contribute their
