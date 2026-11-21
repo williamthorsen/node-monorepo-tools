@@ -82,6 +82,15 @@ describe('the start-tag-workflows dispatch step', () => {
 
 // region | Helpers
 
+/** Lists the dispatches that the stub recorded, each as `<workflow> <ref>`. */
+function readDispatches(tree: TempTree): string[] {
+  return readFileSync(tree.resolve('gh.log'), 'utf8')
+    .split('\n')
+    .map((line) => /^workflow run (\S+) --repo \S+ --ref (\S+)$/.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => `${match[1]} ${match[2]}`);
+}
+
 /** Returns the run text of the dispatch step. */
 function readDispatchScript(): string {
   const [step] = listSteps(readJob(readReusableWorkflow('release'), 'start-tag-workflows'));
@@ -90,17 +99,6 @@ function readDispatchScript(): string {
   }
 
   return step.run;
-}
-
-/** Lists the dispatches that the stub recorded, each as `<workflow> <ref>`. */
-function readDispatches(tree: TempTree): string[] {
-  return readFileSync(tree.resolve('gh.log'), 'utf8')
-    .split('\n')
-    .filter((line) => line.startsWith('workflow run '))
-    .map((line) => {
-      const [, , workflow, , , , ref] = line.split(' ');
-      return `${workflow} ${ref}`;
-    });
 }
 
 /** Runs the dispatch step under `bash` with the stub `gh` first on PATH and piped stdio. */

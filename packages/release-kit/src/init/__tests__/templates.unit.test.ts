@@ -108,7 +108,7 @@ describe.each([
     (repoType) => {
       const workflow = render(repoType);
 
-      expect(workflow).toMatch(/^  workflow_dispatch:$/m);
+      expect(workflow).toMatch(/^ {2}workflow_dispatch:$/m);
       expect(workflow).toContain("    if: github.ref_type == 'tag'\n");
     },
   );
