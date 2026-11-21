@@ -139,7 +139,7 @@
           "path": "../../nmr-core/dist/esm/timer.js"
         },
         {
-          "hash": "026cacdf",
+          "hash": "53a14b51",
           "kind": "module",
           "path": "kits/default.ts"
         },
@@ -202,7 +202,7 @@
           "path": "../src/init/scaffold.ts"
         },
         {
-          "hash": "4d4b66bc",
+          "hash": "0c2b138b",
           "kind": "module",
           "path": "../src/init/templates.ts"
         },
@@ -216,8 +216,8 @@
       "path": "kits/default.js",
       "readyupVersion": "0.47.2",
       "source": "kits/default.ts",
-      "sourceHash": "026cacdf",
-      "targetHash": "60287cc6"
+      "sourceHash": "53a14b51",
+      "targetHash": "073a592e"
     },
     {
       "bundledDependencies": {
