@@ -12,7 +12,14 @@ name: 'Reusable: Release'
 #
 # When running in the `williamthorsen/node-monorepo-tools` repo, the workflow builds release-kit from source.
 #
-# Consumer prerequisite: a `nodejs` entry in `.tool-versions`, which names the Node.js version to install.
+# A tag push made with `GITHUB_TOKEN` does not start any workflow, so after pushing, the `start-tag-workflows` job
+# dispatches `publish.yaml` and `create-github-release.yaml` at each new tag. It skips a workflow that the repo does not
+# contain at the tag, and fails when GitHub refuses a dispatch, as it does for a workflow without a `workflow_dispatch`
+# trigger.
+#
+# Consumer prerequisites: a `nodejs` entry in `.tool-versions`, which names the Node.js version to install; a caller
+# that grants `actions: write` alongside `contents: write` and `packages: read`; and a `workflow_dispatch` trigger in
+# `publish.yaml` and `create-github-release.yaml`. The workflows that `release-kit init` scaffolds meet the last two.
 #
 # Runner: the caller's `CI_RUNS_ON` variable selects the runner of every job,
 # defaulting to `ubuntu-latest`; see "Runner selection" in the workflows README.
@@ -20,7 +27,7 @@ name: 'Reusable: Release'
 # Usage:
 #   jobs:
 #     release:
-#       uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v1
+#       uses: williamthorsen/node-monorepo-tools/.github/workflows/release.reusable.yaml@workflow/release-v2
 
 on:
   workflow_call:
@@ -57,6 +64,8 @@ jobs:
     name: Release
     runs-on: ${{ fromJSON((startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '[') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '{') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '"')) && (vars.CI_RUNS_ON || 'ubuntu-latest') || toJSON(vars.CI_RUNS_ON || 'ubuntu-latest')) }}
     timeout-minutes: 15
+    outputs:
+      tags: ${{ steps.tags.outputs.tags }}
 
     env:
       BUILD_LOCAL: ${{ github.repository == 'williamthorsen/node-monorepo-tools' }}
@@ -170,3 +179,47 @@ jobs:
           for tag in "${tags[@]}"; do
             git push --no-follow-tags origin "$tag"
           done
+
+  start-tag-workflows:
+    name: Start tag workflows
+    needs: release
+    if: ${{ needs.release.outputs.tags != '' }}
+    runs-on: ${{ fromJSON((startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '[') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '{') || startsWith(vars.CI_RUNS_ON || 'ubuntu-latest', '"')) && (vars.CI_RUNS_ON || 'ubuntu-latest') || toJSON(vars.CI_RUNS_ON || 'ubuntu-latest')) }}
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      # A push made with `GITHUB_TOKEN` does not start any workflow, but a dispatch does, so each tag workflow is
+      # dispatched at the tag. A 404 means that the repo does not contain the workflow at the tag; any other failure of
+      # the lookup or the dispatch fails the job after every other dispatch is attempted.
+      - name: Dispatch the tag workflows at each tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAGS: ${{ needs.release.outputs.tags }}
+        run: |
+          workflows=(publish.yaml create-github-release.yaml)
+          failed=0
+          read -ra tags <<<"$TAGS"
+          for tag in "${tags[@]}"; do
+            for workflow in "${workflows[@]}"; do
+              if ! lookup_error=$(gh api --silent "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$workflow?ref=$tag" 2>&1); then
+                if [[ "$lookup_error" == *"HTTP 404"* ]]; then
+                  echo "::notice::Skipping $workflow at $tag: the repo does not contain it at that tag."
+                else
+                  echo "::error::Could not look up $workflow at $tag: $lookup_error"
+                  failed=1
+                fi
+                continue
+              fi
+
+              if gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$tag"; then
+                echo "Dispatched $workflow at $tag."
+              else
+                echo "::error::GitHub refused to dispatch $workflow at $tag. A workflow scaffolded by an older release-kit lacks a workflow_dispatch trigger; run \`release-kit update-templates\` and commit the result."
+                failed=1
+              fi
+            done
+          done
+          exit "$failed"
