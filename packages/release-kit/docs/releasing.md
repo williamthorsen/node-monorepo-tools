@@ -10,7 +10,7 @@ Initializes release-kit in the current repository. By default, scaffolds only th
 
 Scaffolded files:
 
-- `.github/workflows/create-github-release.yaml`: Workflow that creates a GitHub Release on tag push, independent of npm publish
+- `.github/workflows/create-github-release.yaml`: Workflow that creates a GitHub Release for each release tag, independent of npm publish
 - `.github/workflows/publish.yaml`: Workflow that delegates to a reusable publish workflow
 - `.github/workflows/release.yaml`: Workflow that delegates to a reusable release workflow
 - `.config/release-kit.config.ts`: Starter config with commented-out customization examples (with `--with-config`)
