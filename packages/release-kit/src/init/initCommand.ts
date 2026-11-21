@@ -73,7 +73,8 @@ function formatNextSteps({
       ? '(Optional) Customize .config/release-kit.config.ts.'
       : '(Optional) Run again with --with-config to scaffold config files.',
     ...(publishable ? ['If this is a private repo, remove provenance: true from .github/workflows/publish.yaml.'] : []),
-    'Test by running: npx @williamthorsen/release-kit prepare --dry-run',
+    'From the repo root, add release-kit as a devDependency: pnpm add --save-dev @williamthorsen/release-kit',
+    'Test by running: pnpm exec release-kit prepare --dry-run',
     'Commit the generated files.',
     ...(publishable ? ['Register each package as a trusted publisher on npmjs.com.'] : []),
   ];

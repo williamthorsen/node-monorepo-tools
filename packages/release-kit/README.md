@@ -20,10 +20,10 @@ pnpm add -D @williamthorsen/release-kit
 
 ```bash
 # 1. Scaffold the release workflows
-npx @williamthorsen/release-kit init
+pnpm exec release-kit init
 
 # 2. Preview what a release would do
-npx @williamthorsen/release-kit prepare --dry-run
+pnpm exec release-kit prepare --dry-run
 ```
 
 Example output from `prepare --dry-run` in a monorepo whose `arrays` workspace has two commits since its last release:
