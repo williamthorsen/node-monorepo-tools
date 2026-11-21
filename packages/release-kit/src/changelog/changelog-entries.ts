@@ -53,9 +53,20 @@ export function loadChangelogEntries(filePath: string): ChangelogLoadResult {
   if (!existsSync(filePath)) {
     return { status: 'missing' };
   }
+  let content: string;
+  try {
+    content = readFileSync(filePath, 'utf8');
+  } catch (error: unknown) {
+    return { status: 'unreadable', reason: describeError(error) };
+  }
+  return parseChangelogEntries(content);
+}
+
+/** Parses the content of a changelog JSON file into its entries; content that is not a JSON array is `unreadable`. */
+export function parseChangelogEntries(content: string): Exclude<ChangelogLoadResult, { status: 'missing' }> {
   let parsedJson: unknown;
   try {
-    parsedJson = JSON.parse(readFileSync(filePath, 'utf8'));
+    parsedJson = JSON.parse(content);
   } catch (error: unknown) {
     return { status: 'unreadable', reason: describeError(error) };
   }

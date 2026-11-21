@@ -5,6 +5,8 @@ import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { listConsoleLines } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { NpmReadme } from '../assertReadmesFitNpm.ts';
+
 const {
   applyPublishCommandDefaults,
   mockAssertCleanWorkingTree,
@@ -23,8 +25,16 @@ const {
   resetPublishCommandMocks,
 } = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
 
+const mockAssertReadmesFitNpm = vi.hoisted(() => vi.fn());
 const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
+const mockBuildTaggedNpmReadmes = vi.hoisted(() => vi.fn<() => NpmReadme[]>(() => []));
 const mockReadJsonFile = vi.hoisted(() => vi.fn());
+
+// Reading READMEs needs the file system, which these tests mock; the check is covered on its own.
+vi.mock(import('../assertReadmesFitNpm.ts'), () => ({
+  assertReadmesFitNpm: mockAssertReadmesFitNpm,
+  buildTaggedNpmReadmes: mockBuildTaggedNpmReadmes,
+}));
 
 vi.mock(import('../assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: mockAssertTarballsComplete,
@@ -112,7 +122,9 @@ describe(publishCommand, () => {
   afterEach(() => {
     stdioCapture[Symbol.dispose]();
     resetPublishCommandMocks();
+    mockAssertReadmesFitNpm.mockReset();
     mockAssertTarballsComplete.mockReset();
+    mockBuildTaggedNpmReadmes.mockClear();
     vi.restoreAllMocks();
   });
 
@@ -254,6 +266,36 @@ describe(publishCommand, () => {
 
     expect(error.message).toBe('Unknown tag "missing-v9.9.9" in --tags. Available: core-v1.3.0');
   });
+
+  it('checks the README that npm will receive for each publishable tag', async () => {
+    const readme = { workspacePath: '.', readmePath: 'README.md', content: '# Pkg\n' };
+    mockBuildTaggedNpmReadmes.mockReturnValue([readme]);
+
+    await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
+
+    expect(mockBuildTaggedNpmReadmes).toHaveBeenCalledWith(
+      [expect.objectContaining({ tag: 'v1.0.0', workspacePath: '.' })],
+      undefined,
+      expect.any(Array),
+    );
+    expect(mockAssertReadmesFitNpm).toHaveBeenCalledWith([readme]);
+  });
+
+  it.each([false, true])(
+    "throws without publishing when a README exceeds npm's cap (dry run: %s)",
+    async (isDryRun) => {
+      mockAssertReadmesFitNpm.mockImplementation(() => {
+        throw new UserError('Cannot release: npm truncates a README longer than 65,536 code points.');
+      });
+
+      const error = await captureError(UserError, () =>
+        publishCommand(makePublishOptions({ isDryRun, styles: RICH_STYLES })),
+      );
+      expect(error.message).toContain('npm truncates a README');
+      expect(mockAssertTarballsComplete).not.toHaveBeenCalled();
+      expect(mockPublishPackage).not.toHaveBeenCalled();
+    },
+  );
 
   it('checks the tarballs of the publishable tags', async () => {
     await publishCommand(makePublishOptions({ styles: RICH_STYLES }));

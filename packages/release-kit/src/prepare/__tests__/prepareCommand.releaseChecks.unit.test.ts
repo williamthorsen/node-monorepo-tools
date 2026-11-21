@@ -66,6 +66,7 @@ vi.mock(import('@williamthorsen/nmr-core'), async (importOriginal) => {
 });
 
 import { realNpm } from '../../clients/npm/npm-registry.ts';
+import { NPM_README_MAX_CODE_POINTS } from '../../publish/assertReadmesFitNpm.ts';
 import { makePrepareOptions } from '../../test-utils/command-options.ts';
 import { makeSinglePackage } from '../../test-utils/workspace-resolutions.ts';
 import type { ReleasedPackageResult, SkippedPackageResult } from '../../types.ts';
@@ -163,6 +164,68 @@ describe(prepareCommand, () => {
     });
   });
 
+  describe('README check', () => {
+    // The README fits the cap on its own, and the injected release notes push it over.
+    const nearCapReadme = `# Arrays\n${'a'.repeat(NPM_README_MAX_CODE_POINTS - 20)}\n`;
+    const plannedRelease = makePrepareResult({
+      targets: [makeReleasedResult('arrays')],
+      tags: ['arrays-v1.0.0'],
+      writes: [
+        {
+          path: 'packages/arrays/.meta/changelog.json',
+          content: JSON.stringify([
+            {
+              version: '1.0.0',
+              date: '2024-01-01',
+              sections: [{ title: 'Features', audience: 'all', items: [{ description: 'Add widget' }] }],
+            },
+          ]),
+        },
+      ],
+    });
+
+    beforeEach(() => {
+      mockExistsSync.mockImplementation((filePath: string) => filePath === 'packages/arrays/README.md');
+      stubFiles({ 'packages/arrays/README.md': nearCapReadme });
+      mockPrepareReleaseTargets.mockReturnValue(plannedRelease);
+    });
+
+    it.each([false, true])(
+      'refuses without writing any file when the README with the planned notes exceeds the cap (dry run: %s)',
+      async (isDryRun) => {
+        mockLoadConfig.mockResolvedValue({ releaseNotes: { shouldInjectIntoReadme: true } });
+
+        const error = await captureError(UserError, () =>
+          prepareCommand(makePrepareOptions({ isDryRun, styles: RICH_STYLES })),
+        );
+
+        expect(error.message).toContain('@scope/arrays (packages/arrays/README.md)');
+        expect(mockWriteFileWithCheck).not.toHaveBeenCalled();
+        expect(mockAssertTarballsComplete).not.toHaveBeenCalled();
+      },
+    );
+
+    it('measures the README without the planned notes when injection is off', async () => {
+      await prepareCommand(makePrepareOptions({ isDryRun: true, styles: RICH_STYLES }));
+
+      expect(mockAssertTarballsComplete).toHaveBeenCalled();
+    });
+
+    it('reads the notes from the planned changelog.json rather than the file on disk', async () => {
+      mockExistsSync.mockImplementation((filePath: string) =>
+        ['packages/arrays/README.md', 'packages/arrays/.meta/changelog.json'].includes(filePath),
+      );
+      stubFiles({ 'packages/arrays/README.md': nearCapReadme, 'packages/arrays/.meta/changelog.json': '[]' });
+      mockLoadConfig.mockResolvedValue({ releaseNotes: { shouldInjectIntoReadme: true } });
+
+      const error = await captureError(UserError, () =>
+        prepareCommand(makePrepareOptions({ isDryRun: true, styles: RICH_STYLES })),
+      );
+
+      expect(error.message).toContain('npm truncates a README');
+    });
+  });
+
   describe('tarball check', () => {
     it('checks the released workspaces with the configured development conditions', async () => {
       mockLoadConfig.mockResolvedValue({ devExportConditions: ['nmr-source'] });
@@ -230,4 +293,21 @@ function makeSkippedResult(name: string): SkippedPackageResult {
     skipReason: 'No commits',
   };
 }
+
+/** Serves the given files, and each workspace's own `package.json`, to the mocked `readFileSync`. */
+function stubFiles(files: Record<string, string>): void {
+  const allFiles: Record<string, string> = {
+    'packages/arrays/package.json': JSON.stringify({ name: '@scope/arrays' }),
+    'packages/strings/package.json': JSON.stringify({ name: '@scope/strings' }),
+    ...files,
+  };
+  mockReadFileSync.mockImplementation((filePath: string) => {
+    const content = allFiles[filePath];
+    if (content === undefined) {
+      throw new Error(`Unexpected readFileSync call for path: ${filePath}`);
+    }
+    return content;
+  });
+}
+
 // endregion | Helpers

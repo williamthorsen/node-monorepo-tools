@@ -15,6 +15,7 @@ import {
 import { formatPrivateSkip } from '../tags/formatPrivateSkip.ts';
 import { resolveCommandTags } from '../tags/resolveCommandTags.ts';
 import type { ResolvedTag } from '../tags/resolveReleaseTags.ts';
+import { assertReadmesFitNpm, buildTaggedNpmReadmes } from './assertReadmesFitNpm.ts';
 import { assertTarballsComplete } from './assertTarballsComplete.ts';
 import { detectPackageManager } from './detectPackageManager.ts';
 import { formatDirectoryPublishSkip } from './formatDirectoryPublishSkip.ts';
@@ -34,9 +35,9 @@ export interface PublishCommandOptions {
 
 /**
  * Orchestrates the CLI `publish` command: checks for a clean working tree, resolves the tags on HEAD, checks the
- * tarballs of the publishable ones from a clean checkout, and publishes each one, injecting release notes into its
- * README for the duration of the publish. Outside a dry run, it then waits until the registry lists every published
- * version.
+ * README that npm will receive for each publishable one and its tarball from a clean checkout, and publishes each one,
+ * injecting release notes into its README for the duration of the publish. Outside a dry run, it then waits until the
+ * registry lists every published version.
  */
 export async function publishCommand({
   configPath,
@@ -66,15 +67,19 @@ export async function publishCommand({
     return;
   }
 
+  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = deriveReleaseNotesConfig(userConfig);
+  const shouldInject = releaseNotes.shouldInjectIntoReadme;
+
+  assertReadmesFitNpm(
+    buildTaggedNpmReadmes(publishableTags, shouldInject ? changelogJsonOutputPath : undefined, sectionOrder),
+  );
+
   assertTarballsComplete(
     publishableTags.map(({ workspacePath }) => workspacePath),
     userConfig?.devExportConditions ?? [],
   );
 
   const packageManager = detectPackageManager();
-  const { releaseNotes, changelogJsonOutputPath, sectionOrder } = deriveReleaseNotesConfig(userConfig);
-
-  const shouldInject = releaseNotes.shouldInjectIntoReadme;
 
   console.info(isDryRun ? '[dry-run] Would publish:' : 'Publishing:');
   for (const { tag, workspacePath } of publishableTags) {

@@ -4,6 +4,8 @@ import { silenceConsole } from '@williamthorsen/toolbelt.vitest';
 import { listConsoleLines } from '@williamthorsen/toolbelt.vitest/candidate';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { NpmReadme } from '../assertReadmesFitNpm.ts';
+
 const {
   applyPublishCommandDefaults,
   mockAssertCleanWorkingTree,
@@ -23,8 +25,15 @@ const {
 } = await vi.hoisted(() => import('../test-utils/publish-command-mocks.ts'));
 
 const mockAssertTarballsComplete = vi.hoisted(() => vi.fn());
+const mockBuildTaggedNpmReadmes = vi.hoisted(() => vi.fn<() => NpmReadme[]>(() => []));
 
 // Packing from a clean checkout needs an installable repo, which these fixtures are not; the check is covered on its own.
+// Reading READMEs needs the file system, which these tests mock; the check is covered on its own.
+vi.mock(import('../assertReadmesFitNpm.ts'), () => ({
+  assertReadmesFitNpm: vi.fn(),
+  buildTaggedNpmReadmes: mockBuildTaggedNpmReadmes,
+}));
+
 vi.mock(import('../assertTarballsComplete.ts'), () => ({
   assertTarballsComplete: mockAssertTarballsComplete,
 }));
@@ -107,6 +116,7 @@ describe(publishCommand, () => {
     stdioCapture[Symbol.dispose]();
     resetPublishCommandMocks();
     mockAssertTarballsComplete.mockReset();
+    mockBuildTaggedNpmReadmes.mockClear();
     vi.restoreAllMocks();
   });
 
@@ -119,6 +129,26 @@ describe(publishCommand, () => {
       await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
 
       expect(mockAssertTarballsComplete).toHaveBeenCalledWith(expect.any(Array), ['nmr-source']);
+    });
+
+    it('measures the READMEs with release notes from changelog.json when injection is on', async () => {
+      const config = { releaseNotes: { shouldInjectIntoReadme: true } };
+      mockLoadConfig.mockResolvedValue(config);
+      mockValidateConfig.mockReturnValue({ config, errors: [], warnings: [] });
+
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
+
+      expect(mockBuildTaggedNpmReadmes).toHaveBeenCalledWith(
+        [expect.objectContaining({ tag: 'v1.0.0' })],
+        '.meta/changelog.json',
+        expect.any(Array),
+      );
+    });
+
+    it('measures the plain READMEs when injection is off', async () => {
+      await publishCommand(makePublishOptions({ styles: RICH_STYLES }));
+
+      expect(mockBuildTaggedNpmReadmes).toHaveBeenCalledWith(expect.any(Array), undefined, expect.any(Array));
     });
 
     it('forwards --config to the loader', async () => {

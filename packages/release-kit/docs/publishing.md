@@ -23,6 +23,10 @@ Example warning when an explicit tag is unpublishable:
 Skipping basic-v1.0.0 (packages/basic): package.json#private is true.
 ```
 
+### README check
+
+Before it publishes any package, and in a dry run as well, `publish` measures each publishable package's README as npm will receive it, with release notes injected from the tagged `changelog.json` when injection is on, and refuses when one exceeds npm's cap. It is the same check that `prepare` runs; see [Packages whose README exceeds npm's cap](releasing.md#packages-whose-readme-exceeds-npms-cap).
+
 ### Tarball check
 
 Before it publishes any package, and in a dry run as well, `publish` packs every publishable package from a clean checkout of HEAD and refuses when a tarball lacks a file that its manifest names. It is the same check that `prepare` runs; see [Packages whose tarball would lack a manifest file](releasing.md#packages-whose-tarball-would-lack-a-manifest-file).
