@@ -62,16 +62,23 @@ A hold accepts the commits touching the workflow up to and including `through`, 
 
 ### Publish trigger contract
 
-The Publish caller (`publish.yaml`) triggers only on full-semver tags:
+The Publish caller (`publish.yaml`) starts on a push of a full-semver tag or on a dispatch, and its job runs only at a tag ref:
 
 ```yaml
 on:
   push:
     tags:
       - '*-v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    if: github.ref_type == 'tag'
 ```
 
-This pattern matches package release tags but deliberately excludes any major-only or major.minor pointer tag, present or future. Pointer tags under `workflow/` are additionally excluded because GitHub Actions tag globs do not match `/`.
+The push pattern matches package release tags but deliberately excludes any major-only or major.minor pointer tag, present or future. Pointer tags under `workflow/` are additionally excluded because GitHub Actions tag globs do not match `/`.
+
+The release workflow dispatches `publish.yaml` at each tag that it pushes, because its own tag push does not start any workflow. The `if` guard keeps a dispatch from a branch from publishing, but only the push pattern excludes pointer tags: A manual dispatch at a pointer tag passes the guard.
 
 ### Rationale for the asymmetry
 
