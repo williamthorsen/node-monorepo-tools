@@ -28,15 +28,28 @@ const workflow = readReusableWorkflow('publish');
 const notifyJob = readJob(workflow, 'notify-failure');
 
 describe('publish.reusable.yaml wires the failure notification', () => {
-  it('runs only after the publish job fails', () => {
+  it('runs only after the publish job fails outside a dry run', () => {
     expect(notifyJob['needs']).toBe('publish');
-    expect(notifyJob['if']).toBe('${{ failure() }}');
+    expect(notifyJob['if']).toBe('${{ failure() && !inputs.dry-run }}');
   });
 
   it('grants `issues: write` to the notification job alone', () => {
     expect(notifyJob['permissions']).toStrictEqual({ issues: 'write' });
     expect(readJob(workflow, 'publish')['permissions']).toBeUndefined();
     expect(workflow['permissions']).toStrictEqual({ 'id-token': 'write', contents: 'read' });
+  });
+});
+
+describe('publish.reusable.yaml offers a dry run', () => {
+  const publishStep = listSteps(readJob(workflow, 'publish')).find((step) => step.name === 'Publish');
+
+  it('declares a `dry-run` input that defaults to false', () => {
+    expect(readWorkflowCallInputs()['dry-run']).toMatchObject({ type: 'boolean', required: false, default: false });
+  });
+
+  it('passes `--dry-run` to release-kit only when the input is true', () => {
+    expect(publishStep?.env?.['DRY_RUN']).toBe('${{ inputs.dry-run }}');
+    expect(publishStep?.run).toContain('if [ "$DRY_RUN" = "true" ]; then\n  args+=("--dry-run")\nfi');
   });
 });
 
@@ -191,6 +204,17 @@ function readPresetLabel(name: string): { color: string; description: string } {
     throw new TypeError(`The common label preset does not declare \`${name}\` with a colour and description`);
   }
   return { color: label['color'], description: label['description'] };
+}
+
+/** Reads the inputs that the workflow's `workflow_call` trigger declares. */
+function readWorkflowCallInputs(): Record<string, unknown> {
+  const on = workflow['on'];
+  const workflowCall = isRecord(on) ? on['workflow_call'] : undefined;
+  const inputs = isRecord(workflowCall) ? workflowCall['inputs'] : undefined;
+  if (!isRecord(inputs)) {
+    throw new Error('publish.reusable.yaml does not declare any workflow_call inputs');
+  }
+  return inputs;
 }
 
 // endregion | Helpers

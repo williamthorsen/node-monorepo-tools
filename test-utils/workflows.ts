@@ -10,6 +10,7 @@ const workflowsDir = join(import.meta.dirname, '..', '.github', 'workflows');
 /** A workflow step, with the keys that the guards read typed and every other key left `unknown`. */
 export interface WorkflowStep {
   [key: string]: unknown;
+  env?: Record<string, unknown>;
   name?: string;
   run?: string;
   shell?: string;
@@ -26,7 +27,8 @@ export function isWorkflowStep(value: unknown): value is WorkflowStep {
   const hasStringKeys = ['name', 'run', 'shell', 'uses'].every(
     (key) => value[key] === undefined || typeof value[key] === 'string',
   );
-  return hasStringKeys && (value['with'] === undefined || isRecord(value['with']));
+  const hasRecordKeys = ['env', 'with'].every((key) => value[key] === undefined || isRecord(value[key]));
+  return hasStringKeys && hasRecordKeys;
 }
 
 /** Lists the jobs of a parsed workflow. */
