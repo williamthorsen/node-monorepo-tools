@@ -33,6 +33,20 @@ A self-hosted runner must provide the tools that the workflows take from the Git
 
 Set the variable only in a private repo. `audit` runs on `pull_request`, so a self-hosted runner serving a public repo runs code from any fork's pull request. This repo is public and never sets it.
 
+## Action pinning
+
+An action from outside the `williamthorsen` account is pinned by its full 40-hex commit SHA, followed by a trailing comment that contains the release alone:
+
+```yaml
+uses: actions/checkout@0123456789abcdef0123456789abcdef01234567 # v7.0.1
+```
+
+A ref into a `williamthorsen/*` repository keeps its tag, because the same owner controls the tag and the code, and a local `./` ref does not take a version. `__tests__/workflow-pins.app.unit.test.ts` fails on any other form.
+
+A major tag can move to a regression or be retargeted to code that its author never wrote, and a commit SHA cannot. The reusable workflows run in consumer repositories at whatever their pointer tags resolve to, and no pull request exercises them, so a moved tag would first surface partway through someone else's release. `publish` holds `id-token: write` and publishes with provenance, which makes a hijacked action in it a hijacked package.
+
+The price is a delay. Dependabot rotates each SHA and its comment together, on the schedule set in `.github/dependabot.yml`, so an upstream patch waits for the next rotation unless it is bumped by hand. A rotation that touches a `*.reusable.yaml` takes effect only once its pointer tag moves, and until then the [pointer drift check](#pointer-drift-check) fails.
+
 ## Versioning
 
 Two kinds of tags live in this repo, and they are deliberately shaped differently:
