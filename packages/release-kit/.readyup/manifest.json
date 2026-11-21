@@ -353,7 +353,7 @@
           "path": "lib/npm-trust.ts"
         },
         {
-          "hash": "853a2b05",
+          "hash": "73871524",
           "kind": "module",
           "path": "../src/clients/npm/npm-registry.ts"
         },
@@ -368,7 +368,7 @@
       "readyupVersion": "0.47.2",
       "source": "kits/npm-auto-publish.ts",
       "sourceHash": "530ed5bd",
-      "targetHash": "13d45421"
+      "targetHash": "fc687175"
     }
   ]
 }

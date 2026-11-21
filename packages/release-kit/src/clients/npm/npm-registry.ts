@@ -46,13 +46,50 @@ export function classifyNpmPackageLookup(result: NpmViewResult): NpmPackageLooku
   return { status: 'unverifiable', detail: `The npm registry query failed (${error.code}): ${error.summary}` };
 }
 
+/**
+ * Builds the arguments of `npm view <spec> version --json`, querying `registry` when one is given.
+ *
+ * `shouldRevalidate` adds `--prefer-online`, which revalidates npm's local packument cache, so that a version
+ * published moments ago is not hidden behind a cached copy.
+ */
+export function buildNpmViewArgs(
+  packageSpec: string,
+  registry: string | undefined,
+  shouldRevalidate: boolean,
+): string[] {
+  return [
+    'view',
+    packageSpec,
+    'version',
+    '--json',
+    ...(shouldRevalidate ? ['--prefer-online'] : []),
+    ...(registry === undefined ? [] : ['--registry', registry]),
+  ];
+}
+
 /** Looks up whether a package exists on the npm registry, querying `registry` when one is given. */
 export function lookUpNpmPackage(packageName: string, registry: string | undefined, npm: Npm): NpmPackageLookup {
   return classifyNpmPackageLookup(npm.viewVersion(packageName, registry));
 }
 
+/**
+ * Looks up whether one version of a package exists on the npm registry, querying `registry` when one is given.
+ *
+ * npm answers a version that it does not list with `E404`, so the lookup reports it as unpublished.
+ */
+export function lookUpNpmPackageVersion(
+  packageName: string,
+  version: string,
+  registry: string | undefined,
+  npm: Npm,
+): NpmPackageLookup {
+  return classifyNpmPackageLookup(npm.viewPackageVersion(packageName, version, registry));
+}
+
 /** The npm operations that release-kit runs. */
 export interface Npm {
+  /** Runs `npm view <package>@<version> version --json --prefer-online`, querying `registry` if given; never throws. */
+  viewPackageVersion(packageName: string, version: string, registry?: string): NpmViewResult;
   /** Runs `npm view <package> version --json`, querying `registry` when one is given; never throws. */
   viewVersion(packageName: string, registry?: string): NpmViewResult;
 }
@@ -92,17 +129,9 @@ export function readNpmError(stdout: string): NpmErrorPayload | undefined {
 
 /** The `Npm` that runs the `npm` CLI in the process's working directory. */
 export const realNpm: Npm = {
-  viewVersion: (packageName, registry) => {
-    const args = [
-      'view',
-      packageName,
-      'version',
-      '--json',
-      ...(registry === undefined ? [] : ['--registry', registry]),
-    ];
-    const result = runNpmJson(args);
-    return result.exitOk ? { ok: true } : { ok: false, error: readNpmError(result.stdout) };
-  },
+  viewPackageVersion: (packageName, version, registry) =>
+    runNpmView(buildNpmViewArgs(`${packageName}@${version}`, registry, true)),
+  viewVersion: (packageName, registry) => runNpmView(buildNpmViewArgs(packageName, registry, false)),
 };
 
 /**
@@ -119,3 +148,13 @@ export function runNpmJson(args: readonly string[]): NpmCommandResult {
     return { exitOk: false, stdout };
   }
 }
+
+// region | Helpers
+
+/** Runs an `npm view` query and reduces it to its outcome. */
+function runNpmView(args: readonly string[]): NpmViewResult {
+  const result = runNpmJson(args);
+  return result.exitOk ? { ok: true } : { ok: false, error: readNpmError(result.stdout) };
+}
+
+// endregion | Helpers

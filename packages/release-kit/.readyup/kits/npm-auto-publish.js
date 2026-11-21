@@ -55,6 +55,16 @@ function classifyNpmPackageLookup(result) {
   }
   return { status: "unverifiable", detail: `The npm registry query failed (${error.code}): ${error.summary}` };
 }
+function buildNpmViewArgs(packageSpec, registry, shouldRevalidate) {
+  return [
+    "view",
+    packageSpec,
+    "version",
+    "--json",
+    ...shouldRevalidate ? ["--prefer-online"] : [],
+    ...registry === void 0 ? [] : ["--registry", registry]
+  ];
+}
 function lookUpNpmPackage(packageName, registry, npm) {
   return classifyNpmPackageLookup(npm.viewVersion(packageName, registry));
 }
@@ -72,17 +82,8 @@ function readNpmError(stdout) {
   return { code, summary: typeof summary === "string" ? summary : "" };
 }
 var realNpm = {
-  viewVersion: (packageName, registry) => {
-    const args = [
-      "view",
-      packageName,
-      "version",
-      "--json",
-      ...registry === void 0 ? [] : ["--registry", registry]
-    ];
-    const result = runNpmJson(args);
-    return result.exitOk ? { ok: true } : { ok: false, error: readNpmError(result.stdout) };
-  }
+  viewPackageVersion: (packageName, version, registry) => runNpmView(buildNpmViewArgs(`${packageName}@${version}`, registry, true)),
+  viewVersion: (packageName, registry) => runNpmView(buildNpmViewArgs(packageName, registry, false))
 };
 function runNpmJson(args) {
   try {
@@ -91,6 +92,10 @@ function runNpmJson(args) {
     const stdout = isRecord(error) && typeof error["stdout"] === "string" ? error["stdout"] : "";
     return { exitOk: false, stdout };
   }
+}
+function runNpmView(args) {
+  const result = runNpmJson(args);
+  return result.exitOk ? { ok: true } : { ok: false, error: readNpmError(result.stdout) };
 }
 
 // .readyup/lib/npm-trust.ts
