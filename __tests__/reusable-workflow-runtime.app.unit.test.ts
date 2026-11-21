@@ -162,7 +162,7 @@ describe("release.reusable.yaml runs the project's own release-kit", () => {
     const installStep = stepsBeforePreparation.find((step) => step.run?.includes('pnpm install --frozen-lockfile'));
 
     expect(installStep, 'the release config imports `@williamthorsen/release-kit/config`').toBeDefined();
-    expect(installStep?.if, 'a consumer needs the install as much as this repo does').toBeUndefined();
+    expect(installStep?.['if'], 'a consumer needs the install as much as this repo does').toBeUndefined();
   });
 
   it('puts node_modules/.bin on PATH before release preparation', () => {
