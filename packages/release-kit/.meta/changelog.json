@@ -1,5 +1,22 @@
 [
   {
+    "version": "18.7.0",
+    "date": "2026-11-21",
+    "sections": [
+      {
+        "title": "🎉 Features",
+        "audience": "all",
+        "items": [
+          {
+            "description": "Adds a README length check to `release-kit prepare` and `release-kit publish`, which refuse a release, in a dry run as well, when a publishable package's README, measured with the release notes that `releaseNotes.shouldInjectIntoReadme` injects, exceeds the 65,536 code points at which npm truncates it. (#1382)",
+            "hash": "e4683728596da84f3f2574aba016c6b2c246780a",
+            "entry": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
     "version": "18.6.1",
     "date": "2026-11-21",
     "sections": [

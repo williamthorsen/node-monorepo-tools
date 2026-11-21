@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.7.0 — 2026-11-21
+
+### 🎉 Features
+
+- Adds a README length check to `release-kit prepare` and `release-kit publish`, which refuse a release, in a dry run as well, when a publishable package's README, measured with the release notes that `releaseNotes.shouldInjectIntoReadme` injects, exceeds the 65,536 code points at which npm truncates it. (#1382)
+
 ## 18.6.1 — 2026-11-21
 
 ### 🐛 Bug fixes
