@@ -33,7 +33,7 @@ npm processes a publish asynchronously, so a version can be missing from the reg
 
 ### Dry run
 
-`release-kit publish --dry-run` runs the tarball check and passes `--dry-run` to the package manager, so nothing is published; it skips the clean-tree check. On a HEAD without release tags, which is the state of a pull request, a dry run does not fail: It previews every publishable workspace at its manifest version, and prints a line that says so. A publish that is not a dry run still requires release tags on HEAD.
+`release-kit publish --dry-run` runs the tarball check and passes `--dry-run` to the package manager, so nothing is published; it skips the clean-tree check. On a HEAD without release tags, which is the state of a pull request, a dry run does not fail: It previews every publishable workspace at its manifest version, and prints a line that says so. That preview needs pnpm: The manifest version is usually one that the registry already lists, and npm rejects a dry run of such a version, while pnpm skips it with a warning. A publish that is not a dry run still requires release tags on HEAD.
 
 To check the publish setup on each pull request, call `publish.reusable.yaml` with `dry-run: true` from a workflow triggered by `pull_request`:
 
