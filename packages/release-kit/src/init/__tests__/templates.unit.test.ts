@@ -99,6 +99,21 @@ describe(renderPublishWorkflow, () => {
   );
 });
 
+describe.each([
+  ['publish', renderPublishWorkflow],
+  ['create-github-release', renderCreateGithubReleaseWorkflow],
+] as const)('the %s workflow', (_name, render) => {
+  it.each(['monorepo', 'single-package'] as const)(
+    'accepts a dispatch and runs its job only at a tag (%s)',
+    (repoType) => {
+      const workflow = render(repoType);
+
+      expect(workflow).toMatch(/^  workflow_dispatch:$/m);
+      expect(workflow).toContain("    if: github.ref_type == 'tag'\n");
+    },
+  );
+});
+
 describe(renderCreateGithubReleaseWorkflow, () => {
   it('generates a monorepo workflow with the monorepo tag pattern', () => {
     const workflow = renderCreateGithubReleaseWorkflow('monorepo');
@@ -132,10 +147,17 @@ describe(renderCreateGithubReleaseWorkflow, () => {
 });
 
 describe(renderReleaseWorkflow, () => {
+  it.each(['monorepo', 'single-package'] as const)(
+    'grants the actions: write that the tag-workflow dispatch needs (%s)',
+    (repoType) => {
+      expect(renderReleaseWorkflow(repoType)).toContain('permissions:\n  actions: write\n  contents: write\n');
+    },
+  );
+
   it('generates a monorepo workflow with an only input and without a monorepo flag', () => {
     const workflow = renderReleaseWorkflow('monorepo');
 
-    expect(workflow).toContain('release.reusable.yaml@workflow/release-v1');
+    expect(workflow).toContain('release.reusable.yaml@workflow/release-v2');
     expect(workflow).not.toContain('monorepo:');
     expect(workflow).toContain('only:');
     expect(workflow).toContain('inputs.only');
@@ -144,7 +166,7 @@ describe(renderReleaseWorkflow, () => {
   it('generates a single-package workflow without only input', () => {
     const workflow = renderReleaseWorkflow('single-package');
 
-    expect(workflow).toContain('release.reusable.yaml@workflow/release-v1');
+    expect(workflow).toContain('release.reusable.yaml@workflow/release-v2');
     expect(workflow).not.toContain('monorepo:');
     expect(workflow).not.toContain('inputs.only');
   });

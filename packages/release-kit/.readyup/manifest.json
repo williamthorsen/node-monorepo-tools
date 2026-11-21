@@ -202,7 +202,7 @@
           "path": "../src/init/scaffold.ts"
         },
         {
-          "hash": "0c2b138b",
+          "hash": "307caae6",
           "kind": "module",
           "path": "../src/init/templates.ts"
         },
@@ -217,7 +217,7 @@
       "readyupVersion": "0.47.2",
       "source": "kits/default.ts",
       "sourceHash": "53a14b51",
-      "targetHash": "1f361402"
+      "targetHash": "730b5c2e"
     },
     {
       "bundledDependencies": {
