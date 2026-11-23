@@ -3,7 +3,7 @@
   "kits": [
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.datetime": "5.0.0",
+        "@williamthorsen/toolbelt.datetime": "5.1.0",
         "@williamthorsen/toolbelt.errors": "0.11.4",
         "@williamthorsen/toolbelt.filesystem": "0.12.0",
         "@williamthorsen/toolbelt.objects": "5.0.0",
@@ -221,7 +221,7 @@
     },
     {
       "bundledDependencies": {
-        "@williamthorsen/toolbelt.datetime": "5.0.0",
+        "@williamthorsen/toolbelt.datetime": "5.1.0",
         "@williamthorsen/toolbelt.errors": "0.11.4",
         "@williamthorsen/toolbelt.filesystem": "0.12.0",
         "@williamthorsen/toolbelt.objects": "5.0.0",
