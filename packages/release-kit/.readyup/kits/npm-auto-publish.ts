@@ -35,6 +35,7 @@ import {
   describeNpmPackageLookup,
   describeTrustedPublisher,
   formatTrustCommand,
+  NPM_SESSION_FIX,
   type NpmAuthStatus,
   type OwnerRepo,
   parseGitHubOwnerRepo,
@@ -274,7 +275,7 @@ function buildSessionCheck(): RdyCheck {
   return {
     name: 'npm session can answer trust queries',
     check: () => getCachedTrustCapability(),
-    fix: 'Restore a usable npm session: Log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly',
+    fix: NPM_SESSION_FIX,
   };
 }
 

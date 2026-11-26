@@ -17,6 +17,9 @@ const OTP_ERROR_CODE = 'EOTP';
 const OTP_FIX =
   'Rerun with a current one-time password from the authenticator app: npm_config_otp=<code> rdy run …; an account without an authenticator app can check each package with "npm trust list <package>"';
 
+export const NPM_SESSION_FIX =
+  'Restore a usable npm session: Log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly';
+
 export const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
 
 const NO_GITHUB_REMOTE_FIX = 'Add an origin remote that points to the GitHub repo, then run this check again';
@@ -231,8 +234,9 @@ export function describeNpmPackageLookup(lookup: NpmPackageLookup): CheckOutcome
 /**
  * Converts a package's trust-query result into the outcome of the `trusted publisher configured` check.
  *
- * A failure names the `npm trust` command for this repo, or, when the repo is unidentified, appends that cause to the
- * detail and advises adding the remote that the command needs.
+ * A query that the session could not answer says nothing about the publisher, so it keeps its own fix or the session
+ * fix. Any other failure names the `npm trust` command for this repo, or, when the repo is unidentified, appends that
+ * cause to the detail and advises adding the remote that the command needs.
  */
 export function describeTrustedPublisher(
   result: TrustQueryResult,
@@ -241,6 +245,10 @@ export function describeTrustedPublisher(
 ): CheckOutcome {
   if (result.status === 'configured') {
     return { ok: true };
+  }
+
+  if (result.status === 'unanswerable') {
+    return { ok: false, detail: result.detail, fix: result.fix ?? NPM_SESSION_FIX };
   }
 
   const detail =

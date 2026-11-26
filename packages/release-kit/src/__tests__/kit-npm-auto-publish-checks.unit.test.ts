@@ -10,6 +10,7 @@ import {
   classifyTrustQuery,
   describeNpmPackageLookup,
   describeTrustedPublisher,
+  NPM_SESSION_FIX,
   type OwnerRepo,
   parseGitHubOwnerRepo,
 } from '../../.readyup/lib/npm-trust.ts';
@@ -439,6 +440,26 @@ describe(describeTrustedPublisher, () => {
 
     expect(outcome.detail).toBe('Expected github a/b (publish.yaml); found github c/d (publish.yaml)');
     expect(outcome.fix).toBe(`Run: npm trust github @scope/example --repo ${OWNER_REPO} --file publish.yaml`);
+  });
+
+  it('keeps the one-time-password fix of an unanswered query rather than naming the npm trust command', () => {
+    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
+
+    expect(describeTrustedPublisher(result, '@scope/example', RESOLVED_REPO)).toStrictEqual({
+      ok: false,
+      detail: expect.stringContaining('one-time password'),
+      fix: expect.stringContaining('npm_config_otp=<code>'),
+    });
+  });
+
+  it('advises restoring the session for an unanswered query that does not have a fix of its own', () => {
+    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_E401_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
+
+    expect(describeTrustedPublisher(result, '@scope/example', RESOLVED_REPO)).toStrictEqual({
+      ok: false,
+      detail: expect.stringContaining('E401'),
+      fix: NPM_SESSION_FIX,
+    });
   });
 
   it('names the unidentified repo and advises adding the remote that the command needs', () => {

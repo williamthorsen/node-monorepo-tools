@@ -109,6 +109,7 @@ function hasProvenance(workflowContent) {
 // .readyup/lib/npm-trust.ts
 var OTP_ERROR_CODE = "EOTP";
 var OTP_FIX = 'Rerun with a current one-time password from the authenticator app: npm_config_otp=<code> rdy run \u2026; an account without an authenticator app can check each package with "npm trust list <package>"';
+var NPM_SESSION_FIX = 'Restore a usable npm session: Log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly';
 var PUBLISH_WORKFLOW_FILE = "publish.yaml";
 var NO_GITHUB_REMOTE_FIX = "Add an origin remote that points to the GitHub repo, then run this check again";
 function classifyNpmAuth(result) {
@@ -235,6 +236,9 @@ function describeNpmPackageLookup(lookup) {
 function describeTrustedPublisher(result, packageName, ownerRepo) {
   if (result.status === "configured") {
     return { ok: true };
+  }
+  if (result.status === "unanswerable") {
+    return { ok: false, detail: result.detail, fix: result.fix ?? NPM_SESSION_FIX };
   }
   const detail = result.status === "not-configured" ? "The npm registry does not list any trusted publisher for this package" : result.detail;
   return ownerRepo.ok ? { ok: false, detail, fix: formatTrustCommand(packageName, ownerRepo.value) } : { ok: false, detail: `${detail}. ${ownerRepo.detail}`, fix: NO_GITHUB_REMOTE_FIX };
@@ -434,7 +438,7 @@ function buildSessionCheck() {
   return {
     name: "npm session can answer trust queries",
     check: () => getCachedTrustCapability(),
-    fix: 'Restore a usable npm session: Log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly'
+    fix: NPM_SESSION_FIX
   };
 }
 function checkProvenanceMatchesVisibility() {
