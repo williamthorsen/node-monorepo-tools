@@ -40,7 +40,7 @@
     "@williamthorsen/build-info": "workspace:^"
   },
   "devDependencies": {
-    "@types/react": "19.3.0",
+    "@types/react": "19.3.3",
     "@types/react-dom": "19.3.0",
     "@williamthorsen/nmr": "workspace:*",
     "react": "19.3.1",

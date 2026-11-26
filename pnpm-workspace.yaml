@@ -13,7 +13,7 @@ catalog:
   esbuild: 0.28.2
   prettier: 3.10.1
   readyup: 0.47.2
-  vitest: 5.1.1
+  vitest: 5.1.2
   yaml: 2.9.1
 
 allowBuilds:
