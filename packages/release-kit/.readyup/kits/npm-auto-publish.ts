@@ -267,17 +267,14 @@ function belongsInPackagesChecklist(workspace: Workspace): boolean {
 /**
  * Builds the gate reporting whether the npm session can answer the trusted-publisher queries.
  *
- * `npm whoami` alone is too weak a probe: npm's trust endpoints need a session elevated by two-factor
- * authentication, which `whoami` does not require, so an unelevated session passes it and fails every trust query.
+ * `npm whoami` alone is too weak a probe: npm's trust endpoints need a one-time password on every request, which
+ * `whoami` does not, so a logged-in session passes it and fails every trust query.
  */
 function buildSessionCheck(): RdyCheck {
   return {
     name: 'npm session can answer trust queries',
-    check: () => {
-      const capability = getCachedTrustCapability();
-      return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
-    },
-    fix: 'Restore a usable npm session: Log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly',
+    check: () => getCachedTrustCapability(),
+    fix: 'Restore a usable npm session: Log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly',
   };
 }
 

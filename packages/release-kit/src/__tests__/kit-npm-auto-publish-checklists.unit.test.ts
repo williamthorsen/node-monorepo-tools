@@ -159,8 +159,8 @@ describe('packages checklist', () => {
     expect(gate.checks).toBeUndefined();
   });
 
-  // Asserted against the property descriptor because the remediation is the same however the session fails, so
-  // nothing here should vary with what the check found.
+  // Asserted against the property descriptor because a fix that varies with what the check found comes from the
+  // check's outcome, which leaves the declared fix fixed.
   it('declares the npm session fix as a value, not an accessor', async () => {
     scaffoldRepo(PRIVATE_ROOT_MONOREPO_ENTRIES);
 

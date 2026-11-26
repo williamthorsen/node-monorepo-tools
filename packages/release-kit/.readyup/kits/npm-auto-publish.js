@@ -108,6 +108,7 @@ function hasProvenance(workflowContent) {
 
 // .readyup/lib/npm-trust.ts
 var OTP_ERROR_CODE = "EOTP";
+var OTP_FIX = 'Rerun with a current one-time password from the authenticator app: npm_config_otp=<code> rdy run \u2026; an account without an authenticator app can check each package with "npm trust list <package>"';
 var PUBLISH_WORKFLOW_FILE = "publish.yaml";
 var NO_GITHUB_REMOTE_FIX = "Add an origin remote that points to the GitHub repo, then run this check again";
 function classifyNpmAuth(result) {
@@ -165,7 +166,10 @@ function classifyTrustCapability(auth, probe) {
   if (auth.status !== "authenticated") {
     return { ok: false, detail: auth.detail };
   }
-  return probe?.status === "unanswerable" ? { ok: false, detail: probe.detail } : { ok: true };
+  if (probe?.status !== "unanswerable") {
+    return { ok: true };
+  }
+  return probe.fix === void 0 ? { ok: false, detail: probe.detail } : { ok: false, detail: probe.detail, fix: probe.fix };
 }
 function classifyTrustQuery(result, expectedRepo, expectedFile) {
   if (!result.exitOk) {
@@ -176,7 +180,14 @@ function classifyTrustQuery(result, expectedRepo, expectedFile) {
     if (error.code === "E404") {
       return { status: "not-configured" };
     }
-    if (AUTH_ERROR_CODES.has(error.code) || error.code === OTP_ERROR_CODE) {
+    if (error.code === OTP_ERROR_CODE) {
+      return {
+        status: "unanswerable",
+        detail: `npm's trust queries need a one-time password on every request, and this check cannot prompt for one (${error.code})`,
+        fix: OTP_FIX
+      };
+    }
+    if (AUTH_ERROR_CODES.has(error.code)) {
       return {
         status: "unanswerable",
         detail: `The npm session cannot answer trust queries (${error.code}): ${error.summary}`
@@ -422,11 +433,8 @@ function belongsInPackagesChecklist(workspace) {
 function buildSessionCheck() {
   return {
     name: "npm session can answer trust queries",
-    check: () => {
-      const capability = getCachedTrustCapability();
-      return capability.ok ? { ok: true } : { ok: false, detail: capability.detail };
-    },
-    fix: 'Restore a usable npm session: Log in with "npm login", supplying the one-time password when prompted, or restore access to the registry, which the trusted-publisher check queries directly'
+    check: () => getCachedTrustCapability(),
+    fix: 'Restore a usable npm session: Log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly'
   };
 }
 function checkProvenanceMatchesVisibility() {

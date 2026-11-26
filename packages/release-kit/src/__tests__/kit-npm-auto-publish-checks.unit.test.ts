@@ -226,12 +226,23 @@ describe(classifyTrustCapability, () => {
     });
   });
 
-  it('reports an unanswerable probe as incapable, including the probe detail', () => {
+  it('reports a probe that lacks a one-time password as incapable, with the probe detail and its fix', () => {
     const probeResult = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
 
     expect(classifyTrustCapability({ status: 'authenticated' }, probeResult)).toStrictEqual({
       ok: false,
       detail: expect.stringContaining('one-time password'),
+      fix: expect.stringContaining('npm_config_otp=<code>'),
+    });
+  });
+
+  // Without a fix of its own, the capability leaves the gate's declared login fix in force.
+  it('reports a probe rejected for its login as incapable, without a fix of its own', () => {
+    const probeResult = classifyTrustQuery({ exitOk: false, stdout: TRUST_E401_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
+
+    expect(classifyTrustCapability({ status: 'authenticated' }, probeResult)).toStrictEqual({
+      ok: false,
+      detail: expect.stringContaining('E401'),
     });
   });
 
@@ -338,13 +349,17 @@ describe(classifyTrustQuery, () => {
 
     expect(result.status).toBe('unanswerable');
     expect(result).toHaveProperty('detail', expect.stringContaining('E401'));
+    expect(result).not.toHaveProperty('fix');
   });
 
-  it('reports a missing one-time password as unanswerable', () => {
+  it('reports a missing one-time password as unanswerable, with the npm_config_otp rerun as its fix', () => {
     const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
 
-    expect(result.status).toBe('unanswerable');
-    expect(result).toHaveProperty('detail', expect.stringContaining('one-time password'));
+    expect(result).toStrictEqual({
+      status: 'unanswerable',
+      detail: expect.stringContaining('one-time password on every request'),
+      fix: expect.stringContaining('npm_config_otp=<code>'),
+    });
   });
 
   it('reports a missing login as unanswerable', () => {
