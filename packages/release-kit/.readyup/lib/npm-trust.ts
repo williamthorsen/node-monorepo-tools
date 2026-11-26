@@ -10,8 +10,15 @@ import {
 } from '../../src/clients/npm/npm-registry.ts';
 import { hasProvenance } from '../../src/init/hasProvenance.ts';
 
-// The npm error code that means the session is authenticated but lacks the elevation that a trust query needs.
+// The npm error code for a request that needs a one-time password. npm's trust endpoints need one on every request,
+// and npm prompts for it only when stdin and stdout are both terminals, which they are not for a piped child.
 const OTP_ERROR_CODE = 'EOTP';
+
+const OTP_FIX =
+  'Rerun with a current one-time password from the authenticator app: npm_config_otp=<code> rdy run …; an account without an authenticator app can check each package with "npm trust list <package>"';
+
+export const NPM_SESSION_FIX =
+  'Restore a usable npm session: Log in with "npm login", or restore access to the registry, which the trusted-publisher check queries directly';
 
 export const PUBLISH_WORKFLOW_FILE = 'publish.yaml';
 
@@ -103,7 +110,8 @@ export function classifyProvenanceSetting(
   return { ok: true };
 }
 
-export type TrustCapability = { ok: true } | { ok: false; detail: string };
+/** Whether trust queries can be answered; a failure's `fix`, when present, replaces the gate's declared fix. */
+export type TrustCapability = { ok: true } | { ok: false; detail: string; fix?: string };
 
 /**
  * Reports whether the npm session can answer trust queries, from the session status and one probe query.
@@ -116,7 +124,13 @@ export function classifyTrustCapability(auth: NpmAuthStatus, probe: TrustQueryRe
     return { ok: false, detail: auth.detail };
   }
 
-  return probe?.status === 'unanswerable' ? { ok: false, detail: probe.detail } : { ok: true };
+  if (probe?.status !== 'unanswerable') {
+    return { ok: true };
+  }
+
+  return probe.fix === undefined
+    ? { ok: false, detail: probe.detail }
+    : { ok: false, detail: probe.detail, fix: probe.fix };
 }
 
 export type TrustQueryResult =
@@ -124,7 +138,7 @@ export type TrustQueryResult =
   | { status: 'error'; detail: string }
   | { status: 'mismatched'; detail: string }
   | { status: 'not-configured' }
-  | { status: 'unanswerable'; detail: string };
+  | { status: 'unanswerable'; detail: string; fix?: string };
 
 /**
  * Classifies the outcome of `npm trust list <package> --json` against the expected publisher.
@@ -145,7 +159,14 @@ export function classifyTrustQuery(
     if (error.code === 'E404') {
       return { status: 'not-configured' };
     }
-    if (AUTH_ERROR_CODES.has(error.code) || error.code === OTP_ERROR_CODE) {
+    if (error.code === OTP_ERROR_CODE) {
+      return {
+        status: 'unanswerable',
+        detail: `npm's trust queries need a one-time password on every request, and this check cannot prompt for one (${error.code})`,
+        fix: OTP_FIX,
+      };
+    }
+    if (AUTH_ERROR_CODES.has(error.code)) {
       return {
         status: 'unanswerable',
         detail: `The npm session cannot answer trust queries (${error.code}): ${error.summary}`,
@@ -213,8 +234,9 @@ export function describeNpmPackageLookup(lookup: NpmPackageLookup): CheckOutcome
 /**
  * Converts a package's trust-query result into the outcome of the `trusted publisher configured` check.
  *
- * A failure names the `npm trust` command for this repo, or, when the repo is unidentified, appends that cause to the
- * detail and advises adding the remote that the command needs.
+ * A query that the session could not answer says nothing about the publisher, so it keeps its own fix or the session
+ * fix. Any other failure names the `npm trust` command for this repo, or, when the repo is unidentified, appends that
+ * cause to the detail and advises adding the remote that the command needs.
  */
 export function describeTrustedPublisher(
   result: TrustQueryResult,
@@ -223,6 +245,10 @@ export function describeTrustedPublisher(
 ): CheckOutcome {
   if (result.status === 'configured') {
     return { ok: true };
+  }
+
+  if (result.status === 'unanswerable') {
+    return { ok: false, detail: result.detail, fix: result.fix ?? NPM_SESSION_FIX };
   }
 
   const detail =

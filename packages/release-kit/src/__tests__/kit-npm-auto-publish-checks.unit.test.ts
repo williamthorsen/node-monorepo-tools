@@ -10,6 +10,7 @@ import {
   classifyTrustQuery,
   describeNpmPackageLookup,
   describeTrustedPublisher,
+  NPM_SESSION_FIX,
   type OwnerRepo,
   parseGitHubOwnerRepo,
 } from '../../.readyup/lib/npm-trust.ts';
@@ -226,12 +227,23 @@ describe(classifyTrustCapability, () => {
     });
   });
 
-  it('reports an unanswerable probe as incapable, including the probe detail', () => {
+  it('reports a probe that lacks a one-time password as incapable, with the probe detail and its fix', () => {
     const probeResult = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
 
     expect(classifyTrustCapability({ status: 'authenticated' }, probeResult)).toStrictEqual({
       ok: false,
       detail: expect.stringContaining('one-time password'),
+      fix: expect.stringContaining('npm_config_otp=<code>'),
+    });
+  });
+
+  // Without a fix of its own, the capability leaves the gate's declared login fix in force.
+  it('reports a probe rejected for its login as incapable, without a fix of its own', () => {
+    const probeResult = classifyTrustQuery({ exitOk: false, stdout: TRUST_E401_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
+
+    expect(classifyTrustCapability({ status: 'authenticated' }, probeResult)).toStrictEqual({
+      ok: false,
+      detail: expect.stringContaining('E401'),
     });
   });
 
@@ -338,13 +350,17 @@ describe(classifyTrustQuery, () => {
 
     expect(result.status).toBe('unanswerable');
     expect(result).toHaveProperty('detail', expect.stringContaining('E401'));
+    expect(result).not.toHaveProperty('fix');
   });
 
-  it('reports a missing one-time password as unanswerable', () => {
+  it('reports a missing one-time password as unanswerable, with the npm_config_otp rerun as its fix', () => {
     const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
 
-    expect(result.status).toBe('unanswerable');
-    expect(result).toHaveProperty('detail', expect.stringContaining('one-time password'));
+    expect(result).toStrictEqual({
+      status: 'unanswerable',
+      detail: expect.stringContaining('one-time password on every request'),
+      fix: expect.stringContaining('npm_config_otp=<code>'),
+    });
   });
 
   it('reports a missing login as unanswerable', () => {
@@ -424,6 +440,26 @@ describe(describeTrustedPublisher, () => {
 
     expect(outcome.detail).toBe('Expected github a/b (publish.yaml); found github c/d (publish.yaml)');
     expect(outcome.fix).toBe(`Run: npm trust github @scope/example --repo ${OWNER_REPO} --file publish.yaml`);
+  });
+
+  it('keeps the one-time-password fix of an unanswered query rather than naming the npm trust command', () => {
+    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_EOTP_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
+
+    expect(describeTrustedPublisher(result, '@scope/example', RESOLVED_REPO)).toStrictEqual({
+      ok: false,
+      detail: expect.stringContaining('one-time password'),
+      fix: expect.stringContaining('npm_config_otp=<code>'),
+    });
+  });
+
+  it('advises restoring the session for an unanswered query that does not have a fix of its own', () => {
+    const result = classifyTrustQuery({ exitOk: false, stdout: TRUST_E401_STDOUT }, RESOLVED_REPO, WORKFLOW_FILE);
+
+    expect(describeTrustedPublisher(result, '@scope/example', RESOLVED_REPO)).toStrictEqual({
+      ok: false,
+      detail: expect.stringContaining('E401'),
+      fix: NPM_SESSION_FIX,
+    });
   });
 
   it('names the unidentified repo and advises adding the remote that the command needs', () => {
