@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 18.7.1 — 2026-11-26
+
+### 🐛 Bug fixes
+
+- Fixes the issue that the `npm session can answer trust queries` gate of `npm-auto-publish` advised `npm login` for an `EOTP` failure, which a fresh login does not clear; the gate now reports that each trust query needs a one-time password and advises rerunning with `npm_config_otp=<code>`. (#1384)
+- Fixes the issue that a `trusted publisher configured` row whose trust query went unanswered advised `npm trust github`, which cannot help a session that could not query the registry; the row now gives the query's own fix, or the npm session fix when the query has none. (#1384)
+
+### 📚 Documentation
+
+- Corrects `docs/readiness-checks.md` to state that `npm-auto-publish` needs a one-time password for every trust query rather than an elevated npm session, and shows how to supply one through `npm_config_otp`. (#1384)
+
 ## 18.7.0 — 2026-11-21
 
 ### 🎉 Features
